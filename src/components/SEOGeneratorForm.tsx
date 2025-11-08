@@ -7,7 +7,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { X } from "lucide-react";
+import { X, Globe, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 export interface FormData {
   pageType: "category" | "product";
@@ -35,6 +37,8 @@ interface SEOGeneratorFormProps {
 }
 
 export const SEOGeneratorForm = ({ onGenerate, isLoading }: SEOGeneratorFormProps) => {
+  const { toast } = useToast();
+  const [isScraping, setIsScraping] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     pageType: "product",
     targetAudience: "endCustomers",
@@ -72,6 +76,48 @@ export const SEOGeneratorForm = ({ onGenerate, isLoading }: SEOGeneratorFormProp
       ...formData,
       secondaryKeywords: formData.secondaryKeywords.filter((k) => k !== keyword),
     });
+  };
+
+  const handleScrapeWebsite = async () => {
+    if (!formData.manufacturerWebsite.trim()) {
+      toast({
+        title: "Fehler",
+        description: "Bitte geben Sie zuerst eine Hersteller-Website ein",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsScraping(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("scrape-website", {
+        body: { url: formData.manufacturerWebsite },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      // Fill in the scraped data into the form
+      setFormData({
+        ...formData,
+        manufacturerInfo: `Titel: ${data.title || "N/A"}\n\nBeschreibung: ${data.description || "N/A"}\n\nInhalt:\n${data.content?.substring(0, 2000) || ""}`,
+      });
+
+      toast({
+        title: "Erfolgreich",
+        description: "Website-Daten wurden erfolgreich analysiert und eingefügt",
+      });
+    } catch (error) {
+      console.error("Error scraping website:", error);
+      toast({
+        title: "Fehler",
+        description: "Fehler beim Analysieren der Website",
+        variant: "destructive",
+      });
+    } finally {
+      setIsScraping(false);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -196,13 +242,29 @@ export const SEOGeneratorForm = ({ onGenerate, isLoading }: SEOGeneratorFormProp
 
         <div>
           <Label htmlFor="manufacturerWebsite">Hersteller-Website (optional)</Label>
-          <Input
-            id="manufacturerWebsite"
-            type="url"
-            value={formData.manufacturerWebsite}
-            onChange={(e) => setFormData({ ...formData, manufacturerWebsite: e.target.value })}
-            placeholder="https://example.com"
-          />
+          <div className="flex gap-2">
+            <Input
+              id="manufacturerWebsite"
+              type="url"
+              value={formData.manufacturerWebsite}
+              onChange={(e) => setFormData({ ...formData, manufacturerWebsite: e.target.value })}
+              placeholder="https://example.com"
+            />
+            <Button
+              type="button"
+              onClick={handleScrapeWebsite}
+              disabled={isScraping || !formData.manufacturerWebsite.trim()}
+              variant="secondary"
+              size="icon"
+              title="Website analysieren"
+            >
+              {isScraping ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Globe className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
         </div>
 
         <div>
