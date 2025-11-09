@@ -39,6 +39,7 @@ interface SEOGeneratorFormProps {
 export const SEOGeneratorForm = ({ onGenerate, isLoading }: SEOGeneratorFormProps) => {
   const { toast } = useToast();
   const [isScraping, setIsScraping] = useState(false);
+  const [scrapeMode, setScrapeMode] = useState<"single" | "multi">("single");
   const [formData, setFormData] = useState<FormData>({
     pageType: "product",
     targetAudience: "endCustomers",
@@ -90,23 +91,50 @@ export const SEOGeneratorForm = ({ onGenerate, isLoading }: SEOGeneratorFormProp
 
     setIsScraping(true);
     try {
+      const startTime = Date.now();
+      
+      if (scrapeMode === "multi") {
+        toast({
+          title: "Multi-Page Crawling gestartet",
+          description: "Dies kann 1-3 Minuten dauern. Bitte warten...",
+        });
+      }
+
       const { data, error } = await supabase.functions.invoke("scrape-website", {
-        body: { url: formData.manufacturerWebsite },
+        body: { 
+          url: formData.manufacturerWebsite,
+          mode: scrapeMode 
+        },
       });
 
       if (error) {
         throw error;
       }
 
+      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+
       // Fill in the scraped data into the form
+      let infoText = "";
+      
+      if (scrapeMode === "multi" && data.pageCount) {
+        infoText = `=== MULTI-PAGE CRAWL: ${data.pageCount} Seiten analysiert ===\n\n`;
+        infoText += `Gescrapte URLs:\n${data.crawledUrls?.slice(0, 10).join("\n") || "N/A"}\n${data.crawledUrls?.length > 10 ? `... und ${data.crawledUrls.length - 10} weitere` : ""}\n\n`;
+      } else {
+        infoText = `Titel: ${data.title || "N/A"}\n\nBeschreibung: ${data.description || "N/A"}\n\n`;
+      }
+      
+      infoText += `Inhalt:\n${data.content?.substring(0, 3000) || ""}`;
+      
       setFormData({
         ...formData,
-        manufacturerInfo: `Titel: ${data.title || "N/A"}\n\nBeschreibung: ${data.description || "N/A"}\n\nInhalt:\n${data.content?.substring(0, 2000) || ""}`,
+        manufacturerInfo: infoText,
       });
 
       toast({
         title: "Erfolgreich",
-        description: "Website-Daten wurden erfolgreich analysiert und eingefügt",
+        description: scrapeMode === "multi" 
+          ? `${data.pageCount} Seiten in ${duration}s analysiert` 
+          : `Website in ${duration}s analysiert`,
       });
     } catch (error) {
       console.error("Error scraping website:", error);
@@ -242,6 +270,36 @@ export const SEOGeneratorForm = ({ onGenerate, isLoading }: SEOGeneratorFormProp
 
         <div>
           <Label htmlFor="manufacturerWebsite">Hersteller-Website (optional)</Label>
+          
+          {/* Scrape Mode Selection */}
+          <div className="mb-2 p-3 bg-muted/50 rounded-md">
+            <Label className="text-sm font-medium mb-2 block">Scraping-Modus</Label>
+            <RadioGroup
+              value={scrapeMode}
+              onValueChange={(value: "single" | "multi") => setScrapeMode(value)}
+              className="flex gap-4"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="single" id="single" />
+                <Label htmlFor="single" className="cursor-pointer font-normal">
+                  Nur diese Seite (schnell)
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="multi" id="multi" />
+                <Label htmlFor="multi" className="cursor-pointer font-normal">
+                  Gesamte Website (bis zu 50 Seiten, 1-3 Min)
+                </Label>
+              </div>
+            </RadioGroup>
+            {scrapeMode === "multi" && (
+              <p className="text-xs text-muted-foreground mt-2">
+                ⚠️ Multi-Page Crawling analysiert alle Unterseiten und kann mehrere Minuten dauern. 
+                Impressum, Datenschutz und Checkout-Seiten werden automatisch ausgeschlossen.
+              </p>
+            )}
+          </div>
+
           <div className="flex gap-2">
             <Input
               id="manufacturerWebsite"
@@ -256,7 +314,7 @@ export const SEOGeneratorForm = ({ onGenerate, isLoading }: SEOGeneratorFormProp
               disabled={isScraping || !formData.manufacturerWebsite.trim()}
               variant="secondary"
               size="icon"
-              title="Website analysieren"
+              title={scrapeMode === "single" ? "Seite analysieren" : "Website crawlen"}
             >
               {isScraping ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
