@@ -28,6 +28,7 @@ export interface GeneratedContent {
       source: string;
     }>;
   };
+  productComparison?: string;
 }
 
 interface SEOOutputTabsProps {
@@ -68,12 +69,15 @@ export const SEOOutputTabs = ({ content }: SEOOutputTabsProps) => {
 
   return (
     <Tabs defaultValue="text" className="h-full flex flex-col">
-      <TabsList className="grid w-full grid-cols-5">
+      <TabsList className={`grid w-full ${content?.productComparison ? 'grid-cols-6' : 'grid-cols-5'}`}>
         <TabsTrigger value="text">SEO-Text</TabsTrigger>
         <TabsTrigger value="faq">FAQ</TabsTrigger>
         <TabsTrigger value="meta">Title & Meta</TabsTrigger>
         <TabsTrigger value="links">Links</TabsTrigger>
         <TabsTrigger value="quality">Qualität</TabsTrigger>
+        {content?.productComparison && (
+          <TabsTrigger value="products">Produkte</TabsTrigger>
+        )}
       </TabsList>
 
       <div className="flex-1 overflow-y-auto p-6">
@@ -210,6 +214,18 @@ export const SEOOutputTabs = ({ content }: SEOOutputTabsProps) => {
             )}
           </div>
         </TabsContent>
+
+        {content?.productComparison && (
+          <TabsContent value="products" className="mt-0">
+            <Card className="p-6">
+              <h3 className="font-semibold text-lg mb-4">Produktvergleich & Kaufberatung</h3>
+              <div 
+                className="prose prose-sm max-w-none dark:prose-invert"
+                dangerouslySetInnerHTML={{ __html: content.productComparison }}
+              />
+            </Card>
+          </TabsContent>
+        )}
       </div>
     </Tabs>
   );

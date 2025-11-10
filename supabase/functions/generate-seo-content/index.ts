@@ -290,6 +290,53 @@ ZIELGRUPPE: PHYSIOTHERAPEUTEN - EXPERTISE-LEVEL
 ✅ Stark: "Die transkutane elektrische Nervenstimulation (TENS) zeigt in systematischen Reviews moderate Evidenz (Level II) für die kurzfristige Schmerzreduktion bei chronischen lumbalen Rückenschmerzen (VAS-Reduktion 1,5-2,0 Punkte, NNT=4). Besonders effektiv bei neuropathischen Schmerzkomponenten gemäß der IASP-Klassifikation. Kontraindiziert bei Herzschrittmachern und in der Frühschwangerschaft (absolut)."
 `}
 
+${formData.productComparisonEnabled && formData.productList ? `
+# PRODUKTVERGLEICH & KAUFBERATUNG
+
+Du sollst zusätzlich zum Haupttext einen **Produktvergleich und eine Kaufberatung** erstellen.
+
+**VERFÜGBARE PRODUKTE:**
+${formData.productList}
+
+**ZIEL:** Der Kunde soll am Ende genau wissen, welches Produkt für seine Bedürfnisse das richtige ist.
+
+**STRUKTUR DES PRODUKTVERGLEICHS:**
+
+1. **Übersichtstabelle** (HTML-Tabelle mit klarem Styling):
+   - Produktname
+   - Hauptmerkmale (3-4 Stichpunkte)
+   - Zielgruppe
+   - Preis
+   - Empfehlung (★★★★★)
+
+2. **Detaillierte Produktbeschreibungen:**
+   Für jedes Produkt:
+   - Kurze Einleitung (2-3 Sätze)
+   - **Für wen geeignet:** Klare Zielgruppenbeschreibung
+   - **Vorteile:** 4-5 konkrete Vorteile
+   - **Nachteile/Einschränkungen:** 2-3 ehrliche Punkte
+   - **Besonderheiten:** Alleinstellungsmerkmale
+
+3. **Entscheidungshilfe:**
+   - "Wählen Sie [Produkt A], wenn..." (3-4 konkrete Szenarien)
+   - "Wählen Sie [Produkt B], wenn..." (3-4 konkrete Szenarien)
+   - "Wählen Sie [Produkt C], wenn..." (3-4 konkrete Szenarien)
+
+4. **FAQ zum Produktvergleich:**
+   - "Was ist der Hauptunterschied zwischen [A] und [B]?"
+   - "Welches Produkt bietet das beste Preis-Leistungs-Verhältnis?"
+   - "Gibt es Upgrade-Möglichkeiten?"
+
+**TONALITÄT:**
+- Objektiv und ehrlich
+- Keine aggressiven Verkaufsformulierungen
+- Fokus auf Kundennutzen und Bedürfnisse
+- Transparente Vor- und Nachteile
+
+**FORMAT:**
+Der Produktvergleich wird als separates HTML-formatiertes Feld "productComparison" ausgegeben.
+` : ''}
+
 # TEXTLÄNGE
 
 Orientiere dich an der Konkurrenz:
@@ -318,12 +365,13 @@ Antworte IMMER im JSON-Format mit dieser Struktur:
   "title": "Title Tag max 60 Zeichen mit Fokus-Keyword",
   "metaDescription": "Meta Description max 155 Zeichen mit Fokus-Keyword natürlich integriert",
   "internalLinks": [{"url": "...", "anchorText": "sprechender, kontextbezogener Ankertext"}],
-  "technicalHints": "Schema.org Empfehlungen",
+  "technicalHints": "Schema.org Empfehlungen"${formData.complianceCheck ? `,
   "qualityReport": {
     "status": "green|yellow|red",
     "flags": [{"type": "mdr|hwg|study", "severity": "high|medium|low", "issue": "...", "rewrite": "..."}],
     "evidenceTable": [{"study": "...", "type": "...", "population": "...", "outcome": "...", "effect": "...", "limitations": "...", "source": "..."}]
-  }
+  }` : ''}${formData.productComparisonEnabled ? `,
+  "productComparison": "HTML-formatierter Produktvergleich mit Tabellen, Listen, etc."` : ''}
 }`;
 }
 
@@ -402,6 +450,9 @@ function parseGeneratedContent(text: string, formData: any): any {
       status: 'green',
       flags: [],
       evidenceTable: []
-    } : undefined
+    } : undefined,
+    productComparison: formData.productComparisonEnabled 
+      ? '<h2>Produktvergleich</h2><p>Produktvergleich konnte nicht vollständig generiert werden.</p>' 
+      : undefined
   };
 }

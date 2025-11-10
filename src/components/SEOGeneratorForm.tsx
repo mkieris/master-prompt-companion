@@ -30,6 +30,8 @@ export interface FormData {
   checkMDR: boolean;
   checkHWG: boolean;
   checkStudies: boolean;
+  productComparisonEnabled: boolean;
+  productList: string;
 }
 
 interface SEOGeneratorFormProps {
@@ -60,6 +62,8 @@ export const SEOGeneratorForm = ({ onGenerate, isLoading }: SEOGeneratorFormProp
     checkMDR: false,
     checkHWG: false,
     checkStudies: false,
+    productComparisonEnabled: false,
+    productList: "",
   });
 
   const [keywordInput, setKeywordInput] = useState("");
@@ -500,6 +504,40 @@ export const SEOGeneratorForm = ({ onGenerate, isLoading }: SEOGeneratorFormProp
               </div>
               <p className="text-xs text-muted-foreground mt-2">
                 Kein Rechtsrat. Ergebnisse sind Hinweise – finale Prüfung durch Rechtsabteilung/Compliance.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="border border-border rounded-lg p-4 space-y-3">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="productComparison"
+              checked={formData.productComparisonEnabled}
+              onCheckedChange={(checked) =>
+                setFormData({ ...formData, productComparisonEnabled: checked as boolean })
+              }
+            />
+            <Label htmlFor="productComparison" className="cursor-pointer font-semibold">
+              Produktvergleich & Kaufberatung erstellen
+            </Label>
+          </div>
+          
+          {formData.productComparisonEnabled && (
+            <div className="ml-6 space-y-2">
+              <Label htmlFor="productList" className="text-sm">
+                Verfügbare Produkte (ein Produkt pro Zeile)
+              </Label>
+              <Textarea
+                id="productList"
+                value={formData.productList}
+                onChange={(e) => setFormData({ ...formData, productList: e.target.value })}
+                placeholder="z.B.:&#10;Bluetens Classic - TENS für Einsteiger, 4 Programme, €89&#10;Bluetens Pro - Premium TENS, 20 Programme + App, €149&#10;Bluetens Sport - Für Sportler, 12 Programme, €119"
+                rows={5}
+                className="font-mono text-sm"
+              />
+              <p className="text-xs text-muted-foreground">
+                Geben Sie die verfügbaren Produkte mit kurzen Beschreibungen an. Der Kunde erhält eine detaillierte Kaufberatung.
               </p>
             </div>
           )}
