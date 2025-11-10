@@ -87,13 +87,21 @@ serve(async (req) => {
 });
 
 function buildSystemPrompt(formData: any): string {
+  const addressMap: Record<string, string> = {
+    du: "Verwende durchgehend die Du-Form (du, dich, dein). Sprich den Leser direkt und persönlich an.",
+    sie: "Verwende durchgehend die Sie-Form (Sie, Ihnen, Ihr). Bleibe höflich und förmlich.",
+    neutral: "Vermeide direkte Anrede. Schreibe neutral und sachlich ohne 'du' oder 'Sie'."
+  };
+  const addressStyle = addressMap[formData.formOfAddress || 'du'] || addressMap.du;
+  
   return `Du bist ein erfahrener SEO-Texter für medizinische und therapeutische Produkte. Du verfasst hilfreiche, präzise, gut strukturierte SEO-Texte für ${formData.pageType === 'category' ? 'Kategorieseiten' : 'Produktseiten'}.
 
 **WICHTIG: LEBENDIGE, AKTIVIERENDE SPRACHE**
+- ${addressStyle}
 - Vermeide langweilige Fachsprache
 - Nutze aktive Verben statt Passivkonstruktionen
 - Schaffe emotionale Verbindungen durch konkrete Nutzenbeispiele
-- Verwende Storytelling-Elemente (z.B. "Stellen Sie sich vor...", "Erleben Sie...")
+- Verwende Storytelling-Elemente
 - Stelle Fragen, die den Leser direkt ansprechen
 - Nutze sensorische Sprache (fühlen, spüren, erleben)
 - Vermeide Floskeln wie "hochwertig", "qualitativ", "modern" ohne konkrete Belege
@@ -186,10 +194,9 @@ HAUPTTEXT:
 - Ein Absatz = ein Gedanke (max. 3-4 Sätze pro Absatz)
 - Max. 200-300 Wörter pro Abschnitt unter einer Zwischenüberschrift
 - Wichtige Inhalte zuerst (Nutzer lesen Textende weniger gründlich)
-- **AKTIVSÄTZE ONLY**: "Sie profitieren von..." statt "Es wird profitiert von..."
+- **AKTIVSÄTZE ONLY**: Aktive Verben statt Passivkonstruktionen
 - **KONKRETE BEISPIELE**: "Reduziert Schmerzen um bis zu 70%" statt "wirksam gegen Schmerzen"
-- **VISUELLE SPRACHE**: "Spüren Sie die wohltuende Wärme" statt "hat eine Wärmefunktion"
-- Direkte Anrede des Lesers (Sie/Du je nach Zielgruppe)
+- **VISUELLE SPRACHE**: Beschreibe sensorische Erfahrungen statt reine Funktionen
 - Fach- und Fremdwörter nur wenn nötig, sonst erklären oder in Klammern erläutern
 
 ZUSAMMENFASSUNG & CTA:
@@ -291,9 +298,16 @@ function buildUserPrompt(formData: any): string {
     sales: 'Verkaufsorientiert'
   };
 
+  const addressMap = {
+    du: 'Du-Form (persönlich)',
+    sie: 'Sie-Form (förmlich)',
+    neutral: 'Neutral (keine direkte Anrede)'
+  };
+
   return `
 Seitentyp: ${formData.pageType === 'category' ? 'Kategorie' : 'Produkt'}
 Zielgruppe: ${formData.targetAudience === 'endCustomers' ? 'Endkundenorientiert' : 'Physiotherapeuten-orientiert'}
+Anrede: ${addressMap[formData.formOfAddress as keyof typeof addressMap] || addressMap.du}
 Fokus-Keyword: ${formData.focusKeyword}
 ${formData.secondaryKeywords.length > 0 ? `Sekundär-Keywords: ${formData.secondaryKeywords.join(', ')}` : ''}
 ${formData.manufacturerName ? `Herstellername: ${formData.manufacturerName}` : ''}

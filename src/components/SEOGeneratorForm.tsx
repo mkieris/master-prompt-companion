@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 export interface FormData {
   pageType: "category" | "product";
   targetAudience: "endCustomers" | "physiotherapists";
+  formOfAddress: "du" | "sie" | "neutral";
   focusKeyword: string;
   secondaryKeywords: string[];
   manufacturerName: string;
@@ -43,6 +44,7 @@ export const SEOGeneratorForm = ({ onGenerate, isLoading }: SEOGeneratorFormProp
   const [formData, setFormData] = useState<FormData>({
     pageType: "product",
     targetAudience: "endCustomers",
+    formOfAddress: "du",
     focusKeyword: "",
     secondaryKeywords: [],
     manufacturerName: "",
@@ -207,6 +209,35 @@ export const SEOGeneratorForm = ({ onGenerate, isLoading }: SEOGeneratorFormProp
               <RadioGroupItem value="physiotherapists" id="physiotherapists" />
               <Label htmlFor="physiotherapists" className="cursor-pointer">
                 Physiotherapeuten-orientiert
+              </Label>
+            </div>
+          </RadioGroup>
+        </div>
+
+        <div>
+          <Label className="mb-2 block">Anrede</Label>
+          <RadioGroup
+            value={formData.formOfAddress}
+            onValueChange={(value: "du" | "sie" | "neutral") =>
+              setFormData({ ...formData, formOfAddress: value })
+            }
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="du" id="du" />
+              <Label htmlFor="du" className="cursor-pointer">
+                Du (persönlich)
+              </Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="sie" id="sie" />
+              <Label htmlFor="sie" className="cursor-pointer">
+                Sie (förmlich)
+              </Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="neutral" id="neutral" />
+              <Label htmlFor="neutral" className="cursor-pointer">
+                Neutral (keine direkte Anrede)
               </Label>
             </div>
           </RadioGroup>
