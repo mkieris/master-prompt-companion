@@ -38,13 +38,15 @@ export interface FormData {
 interface SEOGeneratorFormProps {
   onGenerate: (data: FormData) => void;
   isLoading: boolean;
+  initialData?: FormData | null;
+  projectId?: string | null;
 }
 
-export const SEOGeneratorForm = ({ onGenerate, isLoading }: SEOGeneratorFormProps) => {
+export const SEOGeneratorForm = ({ onGenerate, isLoading, initialData, projectId }: SEOGeneratorFormProps) => {
   const { toast } = useToast();
   const [isScraping, setIsScraping] = useState(false);
   const [scrapeMode, setScrapeMode] = useState<"single" | "multi">("single");
-  const [formData, setFormData] = useState<FormData>({
+  const [formData, setFormData] = useState<FormData>(initialData || {
     pageType: "product",
     targetAudience: "endCustomers",
     formOfAddress: "du",

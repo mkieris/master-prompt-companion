@@ -14,7 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      seo_projects: {
+        Row: {
+          created_at: string
+          focus_keyword: string
+          form_data: Json
+          generated_content: Json | null
+          id: string
+          page_type: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          focus_keyword: string
+          form_data?: Json
+          generated_content?: Json | null
+          id?: string
+          page_type: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          focus_keyword?: string
+          form_data?: Json
+          generated_content?: Json | null
+          id?: string
+          page_type?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

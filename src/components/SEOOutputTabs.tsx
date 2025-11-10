@@ -1,7 +1,11 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, CheckCircle, AlertTriangle } from "lucide-react";
+import { AlertCircle, CheckCircle, AlertTriangle, Edit2 } from "lucide-react";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { ContentEditor } from "@/components/ContentEditor";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface GeneratedContent {
   seoText: string;
@@ -33,9 +37,70 @@ export interface GeneratedContent {
 
 interface SEOOutputTabsProps {
   content: GeneratedContent | null;
+  projectId?: string | null;
+  formData?: any;
 }
 
-export const SEOOutputTabs = ({ content }: SEOOutputTabsProps) => {
+export const SEOOutputTabs = ({ content, projectId, formData }: SEOOutputTabsProps) => {
+  const [editingSection, setEditingSection] = useState<{ title: string; content: string } | null>(null);
+  const [localContent, setLocalContent] = useState(content);
+
+  // Update local content when content prop changes
+  if (content && content !== localContent) {
+    setLocalContent(content);
+  }
+
+  const handleEditSection = (title: string, content: string) => {
+    setEditingSection({ title, content });
+  };
+
+  const handleUpdateSection = async (sectionTitle: string, newContent: string) => {
+    if (!projectId || !localContent) {
+      return;
+    }
+
+    // Update local state
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(localContent.seoText, 'text/html');
+    const headings = doc.querySelectorAll('h1, h2, h3, h4, h5');
+    
+    let updatedHTML = localContent.seoText;
+    headings.forEach((heading) => {
+      if (heading.textContent?.includes(sectionTitle)) {
+        let currentElement = heading.nextElementSibling;
+        let contentToReplace = '';
+        
+        while (currentElement && !currentElement.matches('h1, h2, h3, h4, h5')) {
+          contentToReplace += currentElement.outerHTML;
+          currentElement = currentElement.nextElementSibling;
+        }
+        
+        if (contentToReplace) {
+          updatedHTML = updatedHTML.replace(contentToReplace, `<p>${newContent}</p>`);
+        }
+      }
+    });
+
+    const newLocalContent = { ...localContent, seoText: updatedHTML };
+    setLocalContent(newLocalContent);
+
+    // Save to database
+    try {
+      const { error } = await supabase
+        .from('seo_projects')
+        .update({ 
+          generated_content: newLocalContent,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', projectId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error updating project:', error);
+    }
+
+    setEditingSection(null);
+  };
   if (!content) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -82,8 +147,61 @@ export const SEOOutputTabs = ({ content }: SEOOutputTabsProps) => {
 
       <div className="flex-1 overflow-y-auto p-6">
         <TabsContent value="text" className="mt-0">
+          {editingSection && projectId && localContent && (
+            <div className="mb-4">
+              <ContentEditor
+                projectId={projectId}
+                sectionTitle={editingSection.title}
+                sectionContent={editingSection.content}
+                formData={formData}
+                onUpdate={(newContent) => handleUpdateSection(editingSection.title, newContent)}
+                onClose={() => setEditingSection(null)}
+              />
+            </div>
+          )}
+          
           <Card className="p-6">
-            <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: content.seoText }} />
+            <div className="prose prose-sm max-w-none">
+              {(() => {
+                if (!localContent) return null;
+                
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(localContent.seoText, 'text/html');
+                const elements = Array.from(doc.body.children);
+                
+                return elements.map((element, index) => {
+                  const isHeading = element.matches('h1, h2, h3, h4, h5');
+                  
+                  if (isHeading && projectId) {
+                    const headingText = element.textContent || '';
+                    let sectionContent = '';
+                    let nextElement = element.nextElementSibling;
+                    
+                    while (nextElement && !nextElement.matches('h1, h2, h3, h4, h5')) {
+                      sectionContent += nextElement.textContent + '\n';
+                      nextElement = nextElement.nextElementSibling;
+                    }
+                    
+                    return (
+                      <div key={index} className="relative group">
+                        <div dangerouslySetInnerHTML={{ __html: element.outerHTML }} />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => handleEditSection(headingText, sectionContent)}
+                        >
+                          <Edit2 className="h-3 w-3 mr-1" />
+                          Bearbeiten
+                        </Button>
+                      </div>
+                    );
+                  }
+                  
+                  return <div key={index} dangerouslySetInnerHTML={{ __html: element.outerHTML }} />;
+                });
+              })()}
+            </div>
           </Card>
         </TabsContent>
 
