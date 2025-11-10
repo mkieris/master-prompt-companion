@@ -1,6 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { AlertCircle, CheckCircle, AlertTriangle, Edit2, RefreshCw } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,14 @@ export interface GeneratedContent {
   metaDescription: string;
   internalLinks: Array<{ url: string; anchorText: string }>;
   technicalHints: string;
+  eeatScore?: {
+    experience: number;
+    expertise: number;
+    authoritativeness: number;
+    trustworthiness: number;
+    overall: number;
+    improvements: string[];
+  };
   qualityReport?: {
     status: "green" | "yellow" | "red";
     flags: Array<{
@@ -307,6 +316,65 @@ export const SEOOutputTabs = ({ content, projectId, formData }: SEOOutputTabsPro
 
         <TabsContent value="quality" className="mt-0">
           <div className="space-y-4">
+            {content.eeatScore && (
+              <Card className="p-6">
+                <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-success" />
+                  E-E-A-T Score (Google Quality Framework)
+                </h3>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Experience (Erfahrung)</p>
+                    <div className="flex items-center gap-2">
+                      <Progress value={content.eeatScore.experience * 10} className="h-2" />
+                      <span className="text-sm font-medium">{content.eeatScore.experience}/10</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Expertise (Fachwissen)</p>
+                    <div className="flex items-center gap-2">
+                      <Progress value={content.eeatScore.expertise * 10} className="h-2" />
+                      <span className="text-sm font-medium">{content.eeatScore.expertise}/10</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Authoritativeness (Autorität)</p>
+                    <div className="flex items-center gap-2">
+                      <Progress value={content.eeatScore.authoritativeness * 10} className="h-2" />
+                      <span className="text-sm font-medium">{content.eeatScore.authoritativeness}/10</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Trustworthiness (Vertrauen)</p>
+                    <div className="flex items-center gap-2">
+                      <Progress value={content.eeatScore.trustworthiness * 10} className="h-2" />
+                      <span className="text-sm font-medium">{content.eeatScore.trustworthiness}/10</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="border-t pt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-semibold">Gesamt-Score</p>
+                    <span className="text-2xl font-bold">{content.eeatScore.overall}/10</span>
+                  </div>
+                  <Progress value={content.eeatScore.overall * 10} className="h-3" />
+                </div>
+                {content.eeatScore.improvements.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    <h4 className="text-sm font-semibold">Verbesserungsvorschläge:</h4>
+                    <ul className="space-y-1">
+                      {content.eeatScore.improvements.map((improvement, index) => (
+                        <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
+                          <span className="text-primary mt-1">→</span>
+                          {improvement}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </Card>
+            )}
+
             {content.qualityReport && (
               <>
                 <Card className="p-6">
@@ -385,6 +453,14 @@ export const SEOOutputTabs = ({ content, projectId, formData }: SEOOutputTabsPro
                   </p>
                 </Card>
               </>
+            )}
+
+            {!content.qualityReport && !content.eeatScore && (
+              <Card className="p-6">
+                <p className="text-muted-foreground">
+                  Qualitäts-Checks sind deaktiviert. Aktivieren Sie den Compliance-Check im Formular für detaillierte Analysen.
+                </p>
+              </Card>
             )}
           </div>
         </TabsContent>

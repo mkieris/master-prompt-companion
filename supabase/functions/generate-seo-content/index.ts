@@ -142,7 +142,14 @@ FOKUS-KEYWORD:
 - Fokus-Keyword MUSS in H1 (möglichst am Anfang) erscheinen
 - Fokus-Keyword MUSS in den ersten 100 Wörtern vorkommen
 - Fokus-Keyword 1-2x in Zwischenüberschriften (H2/H3) natürlich einbinden
-- Verwende Synonyme und variierende Keywords für natürliche Integration
+- **BLOOFUSION-ANSATZ**: Themenoptimierung > Keyword-Optimierung
+  - Decke das Thema ganzheitlich ab (Topic Cluster)
+  - Beantworte ALLE relevanten Nutzerfragen zum Thema
+  - Verwende semantisch verwandte Begriffe (LSI-Keywords)
+- **EVERGREEN MEDIA**: Nutzersignale = Qualitätssignale
+  - Schreibe so, dass User BLEIBEN (hohe Verweildauer)
+  - Vermeide "Pogo Sticking" (Nutzer kehrt sofort zu Google zurück)
+  - Biete sofort Mehrwert in den ersten 3 Sätzen
 - KEIN Keyword-Stuffing!
 
 SUCHINTENTION VERSTEHEN:
@@ -153,6 +160,11 @@ Die Suchintention kann mehrere Kategorien umfassen:
 - **Go**: Navigation zu bestimmter Seite/Marke
 - **Buy**: Kaufabsicht, Modelle vergleichen
 - **Visit-in-person**: Standortbezogene Suche
+
+**BLOOFUSION**: Analysiere die Top-10 bei Google für dein Keyword:
+- Welche Fragen beantworten sie?
+- Welche Themenaspekte fehlen?
+- Wo kannst du BESSER und UMFASSENDER sein?
 
 Richte den Text an der erkannten Suchintention aus!
 
@@ -238,6 +250,13 @@ ZUSAMMENFASSUNG & CTA:
 
 # LESERFREUNDLICHE GESTALTUNG
 
+**EVERGREEN MEDIA - NUTZERSIGNALE OPTIMIEREN:**
+- Strukturiere so, dass User sofort finden was sie suchen
+- Nutze visuelle Anker (Listen, Tabellen, Hervorhebungen)
+- Beantworte die wichtigste Frage SOFORT am Anfang
+- Verwende kurze Absätze (max. 3-4 Sätze)
+- Ein Gedanke = ein Absatz
+
 MULTIMEDIALE ELEMENTE (reichlich verwenden!):
 - **Bullet Points**: Mindestens 2-3 Listen pro Text für Vorteile, Features, Anwendungen
 - **Tabellen**: Für Vergleiche, technische Daten, "Auf einen Blick"-Zusammenfassungen
@@ -247,12 +266,49 @@ MULTIMEDIALE ELEMENTE (reichlich verwenden!):
 - **Zwischenrufe**: Nutze kurze, prägnante Sätze als Absatz-Highlights
   Beispiel: "**Das Ergebnis? Spürbare Linderung bereits nach der ersten Anwendung.**"
 
+**BLOOFUSION - KEINE TRICKS, NACHHALTIG OPTIMIEREN:**
+- Schreibe für Menschen, nicht für Suchmaschinen
+- Halte dich an Google-Richtlinien (kein Cloaking, kein Keyword-Stuffing)
+- Fokus auf langfristigen Erfolg, nicht auf Quick Wins
+
 INTERNE VERLINKUNGEN:
 - Sprechende, kontextbezogene Ankertexte (KEIN "hier klicken" oder "mehr Infos")
 - Verweis auf thematisch relevante Seiten
 - Beispiel: "Entdecken Sie unsere [Kategorie] mit verschiedenen Modellen"
 
-# FAQ-SEKTION (3-6 Fragen)
+# E-E-A-T FRAMEWORK (GOOGLE QUALITY GUIDELINES)
+
+**EXPERIENCE (Erfahrung) - FIRSTHAND KNOWLEDGE:**
+- Zeige, dass du/der Hersteller ECHTE Erfahrung mit dem Produkt hat
+- Nutze konkrete Anwendungsbeispiele aus der Praxis
+- Erwähne spezifische Use Cases und Erfolgsgeschichten
+- ❌ NICHT: "Das Produkt ist gut für Schmerzlinderung"
+- ✅ BESSER: "In einer 6-monatigen Praxisstudie mit 120 Patienten zeigte sich..."
+
+**EXPERTISE (Fachwissen):**
+- Demonstriere tiefes Fachwissen zum Thema
+- Verwende korrekte Fachterminologie (aber erkläre sie)
+- Beziehe dich auf wissenschaftliche Studien, Normen, Zertifizierungen
+- Bei Physiotherapeuten-Texten: ICD-10, ICF-Klassifikation, Behandlungsprotokolle
+- Nenne konkrete Autoren, Studien, Quellen (mit Jahr)
+
+**AUTHORITATIVENESS (Autorität):**
+- Zeige, warum der Hersteller/die Marke eine Autorität im Bereich ist
+- Erwähne: Jahre Erfahrung, Patente, Zertifizierungen, Auszeichnungen
+- Nutze Daten aus manufacturerInfo für konkrete Belege
+- Verweis auf Partnerschaften mit renommierten Institutionen
+
+**TRUSTWORTHINESS (Vertrauenswürdigkeit):**
+- Sei transparent über Produkteigenschaften (auch Einschränkungen!)
+- Nenne Zulassungen, Zertifizierungen (CE, FDA, MDR)
+- Verweise auf Garantien, Rückgaberechte
+- **KRITISCH**: Bei medizinischen Produkten KEINE Heilversprechen!
+- Transparenz über Datenschutz und Sicherheit
+
+**EVERGREEN MEDIA - CONTENT ALS INVESTITION:**
+- Schreibe so, dass der Content auch in 6-12 Monaten relevant ist
+- Aktualisiere mit aktuellen Daten, aber Struktur bleibt zeitlos
+- Fokus auf fundamentales Wissen, nicht auf Trends
 
 Erstelle relevante FAQs basierend auf:
 - W-Fragen (Was, Wie, Warum, Wann, Wo, Wer)
@@ -450,7 +506,15 @@ Antworte IMMER im JSON-Format mit dieser Struktur:
   "title": "Title Tag max 60 Zeichen mit Fokus-Keyword",
   "metaDescription": "Meta Description max 155 Zeichen mit Fokus-Keyword natürlich integriert",
   "internalLinks": [{"url": "...", "anchorText": "sprechender, kontextbezogener Ankertext"}],
-  "technicalHints": "Schema.org Empfehlungen"${formData.complianceCheck ? `,
+  "technicalHints": "Schema.org Empfehlungen",
+  "eeatScore": {
+    "experience": 0-10,
+    "expertise": 0-10,
+    "authoritativeness": 0-10,
+    "trustworthiness": 0-10,
+    "overall": 0-10,
+    "improvements": ["Konkrete Verbesserungsvorschläge für jeden E-E-A-T Aspekt"]
+  }${formData.complianceCheck ? `,
   "qualityReport": {
     "status": "green|yellow|red",
     "flags": [{"type": "mdr|hwg|study", "severity": "high|medium|low", "issue": "...", "rewrite": "..."}],
