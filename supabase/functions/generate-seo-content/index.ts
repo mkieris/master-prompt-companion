@@ -290,7 +290,60 @@ ZIELGRUPPE: PHYSIOTHERAPEUTEN - EXPERTISE-LEVEL
 ✅ Stark: "Die transkutane elektrische Nervenstimulation (TENS) zeigt in systematischen Reviews moderate Evidenz (Level II) für die kurzfristige Schmerzreduktion bei chronischen lumbalen Rückenschmerzen (VAS-Reduktion 1,5-2,0 Punkte, NNT=4). Besonders effektiv bei neuropathischen Schmerzkomponenten gemäß der IASP-Klassifikation. Kontraindiziert bei Herzschrittmachern und in der Frühschwangerschaft (absolut)."
 `}
 
-${formData.productComparisonEnabled && formData.productList ? `
+${formData.productComparisonEnabled && formData.autoDetectProducts ? `
+# PRODUKTVERGLEICH & KAUFBERATUNG (AUTOMATISCHE ERKENNUNG)
+
+Du sollst zusätzlich zum Haupttext einen **Produktvergleich und eine Kaufberatung** erstellen.
+
+**AUFGABE:** Identifiziere automatisch relevante Produkte basierend auf:
+- Fokus-Keyword: ${formData.focusKeyword}
+- Herstellername: ${formData.manufacturerName || 'nicht angegeben'}
+- Herstellerinfos: ${formData.manufacturerInfo || 'nicht angegeben'}
+- Zusatzinfos: ${formData.additionalInfo || 'nicht angegeben'}
+
+**PRODUKT-IDENTIFIKATION:**
+- Erkenne 2-5 relevante Produkte aus den verfügbaren Informationen
+- Falls keine konkreten Produktnamen vorhanden sind, identifiziere typische Produktkategorien/Varianten
+- Nutze logische Produktunterscheidungen (z.B. Einsteiger/Profi, Basis/Premium, verschiedene Modelle)
+
+**ZIEL:** Der Kunde soll am Ende genau wissen, welches Produkt für seine Bedürfnisse das richtige ist.
+
+**STRUKTUR DES PRODUKTVERGLEICHS:**
+
+1. **Übersichtstabelle** (HTML-Tabelle mit klarem Styling):
+   - Produktname
+   - Hauptmerkmale (3-4 Stichpunkte)
+   - Zielgruppe
+   - Preisklasse (falls verfügbar)
+   - Empfehlung (★★★★★)
+
+2. **Detaillierte Produktbeschreibungen:**
+   Für jedes Produkt:
+   - Kurze Einleitung (2-3 Sätze)
+   - **Für wen geeignet:** Klare Zielgruppenbeschreibung
+   - **Vorteile:** 4-5 konkrete Vorteile
+   - **Nachteile/Einschränkungen:** 2-3 ehrliche Punkte
+   - **Besonderheiten:** Alleinstellungsmerkmale
+
+3. **Entscheidungshilfe:**
+   - "Wählen Sie [Produkt A], wenn..." (3-4 konkrete Szenarien)
+   - "Wählen Sie [Produkt B], wenn..." (3-4 konkrete Szenarien)
+   - "Wählen Sie [Produkt C], wenn..." (3-4 konkrete Szenarien)
+
+4. **FAQ zum Produktvergleich:**
+   - "Was ist der Hauptunterschied zwischen [A] und [B]?"
+   - "Welches Produkt bietet das beste Preis-Leistungs-Verhältnis?"
+   - "Gibt es Upgrade-Möglichkeiten?"
+
+**TONALITÄT:**
+- Objektiv und ehrlich
+- Keine aggressiven Verkaufsformulierungen
+- Fokus auf Kundennutzen und Bedürfnisse
+- Transparente Vor- und Nachteile
+
+**FORMAT:**
+Der Produktvergleich wird als separates HTML-formatiertes Feld "productComparison" ausgegeben.
+` : formData.productComparisonEnabled && formData.productList ? `
 # PRODUKTVERGLEICH & KAUFBERATUNG
 
 Du sollst zusätzlich zum Haupttext einen **Produktvergleich und eine Kaufberatung** erstellen.

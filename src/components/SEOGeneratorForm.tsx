@@ -31,6 +31,7 @@ export interface FormData {
   checkHWG: boolean;
   checkStudies: boolean;
   productComparisonEnabled: boolean;
+  autoDetectProducts: boolean;
   productList: string;
 }
 
@@ -63,6 +64,7 @@ export const SEOGeneratorForm = ({ onGenerate, isLoading }: SEOGeneratorFormProp
     checkHWG: false,
     checkStudies: false,
     productComparisonEnabled: false,
+    autoDetectProducts: false,
     productList: "",
   });
 
@@ -524,21 +526,40 @@ export const SEOGeneratorForm = ({ onGenerate, isLoading }: SEOGeneratorFormProp
           </div>
           
           {formData.productComparisonEnabled && (
-            <div className="ml-6 space-y-2">
-              <Label htmlFor="productList" className="text-sm">
-                Verfügbare Produkte (ein Produkt pro Zeile)
-              </Label>
-              <Textarea
-                id="productList"
-                value={formData.productList}
-                onChange={(e) => setFormData({ ...formData, productList: e.target.value })}
-                placeholder="z.B.:&#10;Bluetens Classic - TENS für Einsteiger, 4 Programme, €89&#10;Bluetens Pro - Premium TENS, 20 Programme + App, €149&#10;Bluetens Sport - Für Sportler, 12 Programme, €119"
-                rows={5}
-                className="font-mono text-sm"
-              />
+            <div className="ml-6 space-y-3">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="autoDetectProducts"
+                  checked={formData.autoDetectProducts}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, autoDetectProducts: checked as boolean })
+                  }
+                />
+                <Label htmlFor="autoDetectProducts" className="cursor-pointer">
+                  Produkte automatisch erkennen
+                </Label>
+              </div>
               <p className="text-xs text-muted-foreground">
-                Geben Sie die verfügbaren Produkte mit kurzen Beschreibungen an. Der Kunde erhält eine detaillierte Kaufberatung.
+                {formData.autoDetectProducts 
+                  ? "Das System findet automatisch relevante Produkte basierend auf dem Fokus-Keyword und erstellt eine Kaufberatung."
+                  : "Geben Sie die verfügbaren Produkte manuell ein, um eine detaillierte Kaufberatung zu erhalten."}
               </p>
+              
+              {!formData.autoDetectProducts && (
+                <>
+                  <Label htmlFor="productList" className="text-sm">
+                    Verfügbare Produkte (ein Produkt pro Zeile)
+                  </Label>
+                  <Textarea
+                    id="productList"
+                    value={formData.productList}
+                    onChange={(e) => setFormData({ ...formData, productList: e.target.value })}
+                    placeholder="z.B.:&#10;Bluetens Classic - TENS für Einsteiger, 4 Programme, €89&#10;Bluetens Pro - Premium TENS, 20 Programme + App, €149&#10;Bluetens Sport - Für Sportler, 12 Programme, €119"
+                    rows={5}
+                    className="font-mono text-sm"
+                  />
+                </>
+              )}
             </div>
           )}
         </div>
