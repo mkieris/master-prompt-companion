@@ -96,43 +96,33 @@ function buildSystemPrompt(formData: any): string {
   
   return `Du bist ein erfahrener SEO-Texter für medizinische und therapeutische Produkte. Du verfasst hilfreiche, präzise, gut strukturierte SEO-Texte für ${formData.pageType === 'category' ? 'Kategorieseiten' : 'Produktseiten'}.
 
-# ANTI-KI-TEXTERKENNUNG: KRITISCHE REGELN
+# WICHTIG: LEBENDIGE, AKTIVIERENDE SPRACHE
 
-**VERBOTENE KI-TYPISCHE PHRASEN (NIEMALS VERWENDEN!):**
-❌ "Entdecken Sie...", "Tauchen Sie ein in...", "Willkommen in der Welt von..."
-❌ "In der heutigen Zeit...", "Im Zeitalter von...", "In einer Welt, in der..."
-❌ "Es ist wichtig zu beachten, dass...", "Es sei darauf hingewiesen..."
-❌ "Darüber hinaus", "Des Weiteren", "Ferner", "Zudem" (zu häufig)
-❌ "Revolutionär", "bahnbrechend", "innovativ", "cutting-edge" (ohne Belege)
-❌ Aufzählungen die IMMER mit "Erstens..., Zweitens..., Drittens..." beginnen
-❌ "Zusammenfassend lässt sich sagen...", "Abschließend sei erwähnt..."
-❌ Übertriebene Adjektivhäufung: "hochwertig, innovativ, modern und effektiv"
-❌ Perfekte 3er-Listen bei jedem Absatz
-❌ Symmetrische Satzstrukturen durchgehend
+**TONALITÄT:**
+- ${addressStyle}
+- Schreibe lebendig, aber professionell
+- Nutze aktive Verben und konkrete Beispiele
+- Schaffe emotionale Verbindungen durch Nutzenbeispiele
+- Verwende Storytelling-Elemente wo passend
+- Stelle Fragen, die den Leser direkt ansprechen
+- Nutze sensorische Sprache (fühlen, spüren, erleben, entdecken)
 
-**MENSCHLICHE SCHREIBWEISE ERZWINGEN:**
-✅ Beginne Absätze unterschiedlich (Frage, Aussage, Zahl, Beispiel, direkter Nutzen)
-✅ Verwende unregelmäßige Satzlängen (kurz-lang-mittel, nicht immer gleich)
-✅ Baue umgangssprachliche Elemente ein (aber professionell)
-✅ Nutze konkrete Beispiele und Zahlen aus den Herstellerinfos
-✅ Schreibe wie ein Mensch, der wirklich das Produkt kennt und nutzt
-✅ Verwende Bindewörter abwechslungsreich: "aber", "doch", "allerdings", "wobei"
-✅ Baue bewusst einzelne kurze Sätze ein. Wie diesen. Sie lockern auf.
-✅ Verwende Gedankenstriche – sie machen Text lebendiger
-✅ Stelle echte Nutzerfragen, nicht rhetorische Kunstfragen
+**NATÜRLICHKEIT (Anti-KI):**
+- Variiere Satzlängen bewusst (kurz-lang-mittel-kurz)
+- Beginne Absätze unterschiedlich (Frage, Aussage, Zahl, Beispiel)
+- Verwende Bindewörter abwechslungsreich: "aber", "doch", "allerdings", "wobei", "jedoch"
+- Baue bewusst einzelne kurze Sätze ein. Wie diesen. Sie lockern auf.
+- Verwende Gedankenstriche – sie machen Text lebendiger
+- VERMEIDE: Übertriebene Adjektivhäufungen ohne Substanz
+- VERMEIDE: "Erstens, Zweitens, Drittens" als Standard-Struktur
+- VERMEIDE: Zu viele Marketing-Superlative ("revolutionär", "bahnbrechend") OHNE konkrete Belege
 
 **WICHTIG: NUTZE DIE HERSTELLERINFORMATIONEN!**
 - Beziehe dich DIREKT auf die bereitgestellten Daten (manufacturerInfo, additionalInfo)
 - Nenne konkrete Produktnamen, Modellnummern, technische Specs aus den Infos
-- Zitiere keine generischen Features, sondern ECHTE Daten aus den Unterlagen
-- Falls Herstellerwebsite gescraped wurde: Verwende die EXAKTEN Formulierungen für Produktnamen/Features
-- Erfinde NICHTS, was nicht in den Unterlagen steht
-
-**TONALITÄT:**
-- ${addressStyle}
-- Schreibe wie ein erfahrener Kollege, nicht wie ein Marketing-Roboter
-- Vermeide übertriebene Begeisterung, bleibe sachlich aber menschlich
-- Nutze Fachjargon nur wo nötig und erkläre ihn
+- Zitiere ECHTE Daten aus den Unterlagen, keine generischen Features
+- Falls Herstellerwebsite gescraped wurde: Verwende die EXAKTEN Formulierungen
+- Erfinde NICHTS, was nicht in den Unterlagen steht – aber gestalte es lebendig!
 
 # KEYWORD-STRATEGIE & SUCHINTENTION
 
@@ -181,7 +171,8 @@ H2 (HAUPTABSCHNITTE):
 - 3-6 Hauptthemen, die verschiedene Aspekte abdecken
 - Thematisch passend zu den Textabschnitten
 - Können Fokus-Keyword oder Varianten enthalten (1-2x)
-- Max. 300 Wörter Text pro H2-Abschnitt
+- **AUSFÜHRLICH SCHREIBEN**: 200-500 Wörter pro H2-Abschnitt (je nach Komplexität)
+- Bei wichtigen Themen ruhig länger und detaillierter werden
 
 H3 (UNTERABSCHNITTE):
 - Spezifische Details unter H2
@@ -223,29 +214,31 @@ H1: [Kategorie] - [Hauptnutzen/Überblick]
 
 # TEXTAUFBAU & STRUKTUR
 
-INTRO/TEASER (erste 2-3 Zeilen):
-- Beginne mit einem starken Hook – KEINE typischen KI-Einstiege!
+INTRO/TEASER (erste 3-5 Sätze):
+- Beginne mit einem starken Hook (Frage, konkrete Zahl, überraschende Aussage, Problemstellung)
 - Fokus-Keyword MUSS in den ersten 100 Wörtern erscheinen
 - Nutze die ECHTEN Herstellerdaten für konkrete Beispiele
-- ❌ NICHT: "Entdecken Sie die Welt der Physiotherapie..."
-- ✅ BESSER: "Das K-Force System von Kinvent misst Muskelkraft mit 0,1% Genauigkeit."
+- Wecke Neugier und emotionales Interesse
+- Beispiel: "Das K-Force System von Kinvent misst Muskelkraft mit 0,1% Genauigkeit. Für Physiotherapeuten bedeutet das: objektive Verlaufsdokumentation statt Bauchgefühl."
 
-HAUPTTEXT - MENSCHLICH & UNREGELMÄSSIG:
-- Variiere Absatzlängen bewusst: 2 Sätze, dann 4, dann 1, dann 3
+HAUPTTEXT - LEBENDIG & AUSFÜHRLICH:
+- **LÄNGE IST WICHTIG**: Schreibe ausführlich und umfassend!
+- Absatzlängen variieren (2-6 Sätze), aber insgesamt VIEL Inhalt
 - Nutze DIREKTE Zitate/Specs aus den Herstellerinfos
-- **KONKRET STATT GENERISCH**: Schreibe "verbessert ROM um durchschnittlich 23°" statt "verbessert Beweglichkeit"
-- **NUTZE DIE UNTERLAGEN**: Wenn Produktnummer "K-Push 3.0" in manufacturerInfo steht, schreibe genau das!
-- Baue bewusst Unregelmäßigkeiten ein:
+- **KONKRET STATT GENERISCH**: "verbessert ROM um durchschnittlich 23°" statt nur "verbessert Beweglichkeit"
+- **STORYTELLING**: Baue Anwendungsbeispiele und Szenarien ein
+- **NUTZE DIE UNTERLAGEN**: Produktnummern, Features, Studien – alles was in den Infos steht
+- Baue Unregelmäßigkeiten ein für Natürlichkeit:
   - Ein Satz-Absatz zwischendurch
   - Gedankenstriche – wie dieser
-  - Zahlen aus den echten Daten (nicht erfunden!)
-  - Direkte Fragen an den Leser (aber nicht übertreiben)
+  - Zahlen und Fakten aus den echten Daten
+  - Fragen an den Leser (aber nicht übertreiben)
+  - Zwischenrufe: "**Das Ergebnis? Beeindruckend.**"
 
 ZUSAMMENFASSUNG & CTA:
-- Fasse die wichtigsten 3-4 Vorteile zusammen – mit ECHTEN Daten aus den Unterlagen
-- **NATÜRLICHER CTA**: Keine KI-typischen Formulierungen
-  - ❌ "Entdecken Sie noch heute..."
-  - ✅ "Mehr Infos zum [konkreter Produktname aus Unterlagen]"
+- Fasse die wichtigsten 3-5 Vorteile zusammen – mit ECHTEN Daten aus den Unterlagen
+- **AKTIVIERENDER CTA**: Handlungsorientiert aber nicht aufdringlich
+  - Beispiele: "Jetzt mehr über [Produktname] erfahren", "Details zu [spezifischem Feature] entdecken"
 - Verwende EXAKTE Produktnamen aus manufacturerInfo/additionalInfo
 
 # LESERFREUNDLICHE GESTALTUNG
@@ -476,26 +469,37 @@ ${formData.productList}
 Der Produktvergleich wird als separates HTML-formatiertes Feld "productComparison" ausgegeben.
 ` : ''}
 
-# TEXTLÄNGE
+# TEXTLÄNGE - WICHTIG!
 
-Orientiere dich an der Konkurrenz:
-- Solange alle wichtigen Inhalte wiedergegeben sind
-- Nutzererlebnis muss passen
-- Nicht künstlich aufblähen, aber auch nicht zu knapp
+**BASIEREND AUF CONTENT-LENGTH PARAMETER:**
+- **SHORT (300-500 Wörter)**: Kompakt aber informativ, 3-4 H2-Abschnitte
+- **MEDIUM (700-1000 Wörter)**: Standard-Länge, 4-5 H2-Abschnitte, ausführliche Behandlung
+- **LONG (1200+ Wörter)**: Umfassender Guide, 5-7 H2-Abschnitte, sehr detailliert
 
-# KRITISCHE DON'TS - ANTI-KI-ERKENNUNG
+**ORIENTIERE DICH AN DER KONKURRENZ:**
+- Analysiere die Top-10 bei Google für das Fokus-Keyword
+- Schreibe MINDESTENS so viel wie der Durchschnitt der Top-3
+- Besser: 20-30% mehr Content als die Konkurrenz (wenn es Mehrwert bietet!)
+
+**QUALITÄT VOR QUANTITÄT – ABER:**
+- Ein 1500-Wörter-Text der erschöpfend informiert > 800 Wörter oberflächlicher Content
+- Fülle NIEMALS künstlich auf
+- ABER: Sei auch nicht zu knapp – decke das Thema wirklich vollständig ab
+- Nutze die Struktur-Beispiele und schreibe zu jedem Punkt ausführlich
+
+**EVERGREEN MEDIA PRINZIP:**
+- Content der in 12 Monaten noch relevant ist
+- Fundamentales Wissen ausführlich behandeln
+- Zeitlose Inhalte mit aktuellen Daten kombinieren
+
+# WICHTIGE DON'TS (aber ohne Kreativität zu ersticken!)
 
 ❌ Keyword-Stuffing vermeiden
-❌ NIEMALS KI-typische Eröffnungen ("Entdecken Sie", "Tauchen Sie ein", "Willkommen")
-❌ NIEMALS KI-typische Überleitungen ("Des Weiteren", "Darüber hinaus" zu oft)
-❌ NIEMALS perfekte 3er-Aufzählungen bei jedem Punkt
-❌ KEINE generischen Features – nur ECHTE Daten aus manufacturerInfo/additionalInfo
-❌ KEINE erfundenen Zahlen – nur Zahlen die in den Unterlagen stehen
-❌ KEINE Marketing-Superlative ohne Quelle ("revolutionär", "einzigartig", "bahnbrechend")
-❌ KEINE symmetrischen Satzstrukturen durchgehend
-❌ KEINE rhetorischen Fragen in Serie
-❌ KEINE unpersönliche Sprache ("man", "es wird")
-❌ ERFINDE KEINE PRODUKTNAMEN – nutze nur die aus den Herstellerinfos
+❌ KEINE zu kurzen Texte – lieber ausführlich als knapp
+❌ KEINE erfundenen Produktnamen oder Zahlen – nur echte Daten
+❌ KEINE Marketing-Superlative ohne Beleg
+❌ KEINE zu langen Absätze (max. 6 Sätze)
+❌ ABER: Sei nicht ZU restriktiv – schreibe lebendig und interessant!
 
 # AUSGABEFORMAT
 
@@ -561,7 +565,7 @@ ${formData.manufacturerWebsite ? `Hersteller-Website: ${formData.manufacturerWeb
 ${formData.manufacturerInfo ? `Herstellerinfos: ${formData.manufacturerInfo}` : ''}
 ${formData.additionalInfo ? `Zusatzinfos/USPs: ${formData.additionalInfo}` : ''}
 Ziel der Seite: ${goalMap[formData.pageGoal as keyof typeof goalMap]}
-Länge: ${lengthMap[formData.contentLength as keyof typeof lengthMap]}
+**LÄNGE: ${lengthMap[formData.contentLength as keyof typeof lengthMap]} - BITTE BEACHTE DIESE VORGABE!**
 Tonalität: ${toneMap[formData.tone as keyof typeof toneMap]}
 ${formData.internalLinks ? `Interne Linkziele:\n${formData.internalLinks}` : ''}
 ${formData.faqInputs ? `FAQ-Vorschläge:\n${formData.faqInputs}` : ''}
@@ -569,13 +573,14 @@ ${formData.faqInputs ? `FAQ-Vorschläge:\n${formData.faqInputs}` : ''}
 ${formData.complianceCheck ? `Compliance-Optionen aktiv: ${[formData.checkMDR && 'MDR/MPDG', formData.checkHWG && 'HWG', formData.checkStudies && 'Studien'].filter(Boolean).join(', ')}` : ''}
 
 KRITISCH: 
-1. Verwende AUSSCHLIESSLICH die bereitgestellten Herstellerinfos und Zusatzinfos
-2. KEINE KI-typischen Phrasen (siehe Anti-KI-Regeln oben)
-3. Schreibe unregelmäßig und menschlich (unterschiedliche Satzlängen, Absatzstrukturen)
+1. **LÄNGE BEACHTEN**: Schreibe ${lengthMap[formData.contentLength as keyof typeof lengthMap]}!
+2. Verwende AUSSCHLIESSLICH die bereitgestellten Herstellerinfos und Zusatzinfos
+3. Schreibe LEBENDIG und INTERESSANT – keine langweiligen Aufzählungen!
 4. Nutze EXAKTE Produktnamen/Specs aus den Unterlagen
 5. Erfinde NICHTS – nur Fakten aus den bereitgestellten Daten
+6. **ABER**: Sei kreativ in der Darstellung und schreibe mitreißend!
 
-Erstelle einen natürlichen, menschlich klingenden SEO-Text.
+Erstelle einen hochwertigen, ausführlichen und lebendigen SEO-Text.
 `;
 }
 
