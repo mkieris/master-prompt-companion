@@ -239,7 +239,56 @@ ${formData.checkStudies ? '- Studienprüfung: Prüfe Evidenz, Zitierweise, Extra
 
 # ZIELGRUPPE & TONALITÄT
 
-ZIELGRUPPE: ${formData.targetAudience === 'endCustomers' ? 'Endkunden - leichte Sprache, direkte Ansprache, praktischer Nutzen im Vordergrund' : 'Physiotherapeuten - fachlich präzise, Evidenz-basiert, Indikationen/Kontraindikationen beachten'}
+${formData.targetAudience === 'endCustomers' ? `
+ZIELGRUPPE: ENDKUNDEN
+- Leichte, verständliche Sprache ohne komplexe Fachtermini
+- Direkte Ansprache und emotionale Verbindung
+- Praktischer Nutzen und Alltagsrelevanz im Vordergrund
+- Konkrete Anwendungsbeispiele aus dem täglichen Leben
+- Motivierende, ermutigende Tonalität
+` : `
+ZIELGRUPPE: PHYSIOTHERAPEUTEN - EXPERTISE-LEVEL
+
+**FACHLICHE TIEFE & PRÄZISION:**
+- Verwende korrekte anatomische und biomechanische Fachterminologie
+- Beziehe dich auf aktuelle Studienlage und Evidenzlevel (Level I-V)
+- Nenne konkrete Indikationen nach ICD-10 und ICF-Klassifikation wo relevant
+- Berücksichtige Kontraindikationen und Warnhinweise (absolut/relativ)
+- Integriere pathophysiologische Wirkmechanismen
+- Referenziere aktuelle Leitlinien (z.B. AWMF, DEGAM, DGOOC)
+
+**KLINISCHE RELEVANZ:**
+- Beschreibe therapeutischen Nutzen mit messbaren Outcomes (VAS, ROM, Kraft, Funktion)
+- Nenne typische Behandlungsprotokolle (Frequenz, Dauer, Intensität)
+- Erkläre Integration in multimodale Therapiekonzepte
+- Berücksichtige verschiedene Behandlungsphasen (akut, subakut, chronisch)
+- Stelle Bezug zu evidenzbasierten Therapiekonzepten her (z.B. PNF, McKenzie, Manuelle Therapie)
+
+**WISSENSCHAFTLICHE FUNDIERUNG:**
+- Zitiere relevante Studien mit Autor, Jahr und wenn möglich DOI/PubMed-ID
+- Unterscheide zwischen RCTs, systematischen Reviews, Meta-Analysen und Fallstudien
+- Benenne Studienpopulationen, Interventionen und primäre Endpunkte
+- Bewerte Evidenzqualität kritisch (Bias-Risiko, Studienlimitationen)
+- Nutze etablierte Messinstrumente und Scores (z.B. Oswestry, DASH, SF-36)
+
+**PROFESSIONELLE ANSPRACHE:**
+- Respektiere die therapeutische Expertise und klinische Erfahrung
+- Biete praxisrelevante Entscheidungshilfen für die Therapieplanung
+- Zeige differenzialtherapeutische Überlegungen auf
+- Adressiere ökonomische Aspekte (Zeiteffizienz, Kosteneffektivität)
+- Berücksichtige interprofessionelle Zusammenarbeit (Ärzte, Ergotherapeuten)
+
+**KONKRETE QUALITÄTSKRITERIEN:**
+- Mindestens 2-3 wissenschaftliche Referenzen pro Hauptaussage
+- Verwendung von Fachzeitschriften-Niveau (z.B. vergleichbar mit pt_Zeitschrift, manuelletherapie)
+- Klare Trennung zwischen gesicherten Fakten und Expertenmeinungen
+- Kritische Bewertung von Herstellerangaben
+- Transparenz bei fehlender oder schwacher Evidenz
+
+**BEISPIEL FÜR HOCHWERTIGE FORMULIERUNG:**
+❌ Schwach: "Das Gerät hilft bei Rückenschmerzen."
+✅ Stark: "Die transkutane elektrische Nervenstimulation (TENS) zeigt in systematischen Reviews moderate Evidenz (Level II) für die kurzfristige Schmerzreduktion bei chronischen lumbalen Rückenschmerzen (VAS-Reduktion 1,5-2,0 Punkte, NNT=4). Besonders effektiv bei neuropathischen Schmerzkomponenten gemäß der IASP-Klassifikation. Kontraindiziert bei Herzschrittmachern und in der Frühschwangerschaft (absolut)."
+`}
 
 # TEXTLÄNGE
 
