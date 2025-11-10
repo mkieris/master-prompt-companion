@@ -1,11 +1,13 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, CheckCircle, AlertTriangle, Edit2 } from "lucide-react";
-import { useState } from "react";
+import { AlertCircle, CheckCircle, AlertTriangle, Edit2, RefreshCw } from "lucide-react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ContentEditor } from "@/components/ContentEditor";
+import { AIDetectionScore } from "@/components/AIDetectionScore";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export interface GeneratedContent {
   seoText: string;
@@ -44,11 +46,42 @@ interface SEOOutputTabsProps {
 export const SEOOutputTabs = ({ content, projectId, formData }: SEOOutputTabsProps) => {
   const [editingSection, setEditingSection] = useState<{ title: string; content: string } | null>(null);
   const [localContent, setLocalContent] = useState(content);
+  const [aiDetectionResult, setAiDetectionResult] = useState<any>(null);
+  const [isCheckingAI, setIsCheckingAI] = useState(false);
 
   // Update local content when content prop changes
   if (content && content !== localContent) {
     setLocalContent(content);
   }
+
+  // Run AI detection check when content is available
+  useEffect(() => {
+    if (localContent?.seoText && !aiDetectionResult) {
+      checkAIDetection(localContent.seoText);
+    }
+  }, [localContent?.seoText]);
+
+  const checkAIDetection = async (text: string) => {
+    setIsCheckingAI(true);
+    try {
+      // Extract text without HTML tags
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(text, 'text/html');
+      const plainText = doc.body.textContent || '';
+
+      const { data, error } = await supabase.functions.invoke('ai-detection-check', {
+        body: { text: plainText }
+      });
+
+      if (error) throw error;
+      setAiDetectionResult(data);
+    } catch (error) {
+      console.error('Error checking AI detection:', error);
+      toast.error('Fehler beim KI-Check');
+    } finally {
+      setIsCheckingAI(false);
+    }
+  };
 
   const handleEditSection = (title: string, content: string) => {
     setEditingSection({ title, content });
@@ -134,8 +167,9 @@ export const SEOOutputTabs = ({ content, projectId, formData }: SEOOutputTabsPro
 
   return (
     <Tabs defaultValue="text" className="h-full flex flex-col">
-      <TabsList className={`grid w-full ${content?.productComparison ? 'grid-cols-6' : 'grid-cols-5'}`}>
+      <TabsList className={`grid w-full ${content?.productComparison ? 'grid-cols-7' : 'grid-cols-6'}`}>
         <TabsTrigger value="text">SEO-Text</TabsTrigger>
+        <TabsTrigger value="ai-check">KI-Check</TabsTrigger>
         <TabsTrigger value="faq">FAQ</TabsTrigger>
         <TabsTrigger value="meta">Title & Meta</TabsTrigger>
         <TabsTrigger value="links">Links</TabsTrigger>
@@ -203,6 +237,28 @@ export const SEOOutputTabs = ({ content, projectId, formData }: SEOOutputTabsPro
               })()}
             </div>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="ai-check" className="mt-0">
+          {isCheckingAI ? (
+            <Card className="p-6">
+              <div className="flex items-center justify-center py-8">
+                <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+                <p className="ml-3 text-muted-foreground">Analysiere Text auf KI-Muster...</p>
+              </div>
+            </Card>
+          ) : aiDetectionResult ? (
+            <AIDetectionScore 
+              score={aiDetectionResult.score}
+              status={aiDetectionResult.status}
+              findings={aiDetectionResult.findings}
+              stats={aiDetectionResult.stats}
+            />
+          ) : (
+            <Card className="p-6">
+              <p className="text-muted-foreground">KI-Check wird geladen...</p>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="faq" className="mt-0">
