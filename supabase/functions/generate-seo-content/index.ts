@@ -94,15 +94,10 @@ function buildSystemPrompt(formData: any): string {
   };
   const addressStyle = addressMap[formData.formOfAddress || 'du'] || addressMap.du;
   
-  // Choose prompt based on content strategy
-  if (formData.contentStrategy === 'creative') {
-    return buildCreativePrompt(formData, addressStyle);
-  } else {
-    return buildHybridPrompt(formData, addressStyle);
-  }
+  return buildPrompt(formData, addressStyle);
 }
 
-function buildCreativePrompt(formData: any, addressStyle: string): string {
+function buildPrompt(formData: any, addressStyle: string): string {
   const wordTarget = formData.contentLength === 'short' ? '800-1200' : formData.contentLength === 'medium' ? '1500-2000' : '2500-3500';
   
   const blockFormatAddition = formData.productPageBlocks ? `
@@ -210,132 +205,6 @@ Antworte als JSON. Escape alle Sonderzeichen korrekt (Zeilenumbrüche als \\n, A
 }
 
 Schreibe jetzt den vollständigen Text: WARUM → WIE → WAS.`;
-}
-function buildHybridPrompt(formData: any, addressStyle: string): string {
-  const wordTarget = formData.contentLength === 'short' ? '1000-1500' : formData.contentLength === 'medium' ? '1800-2500' : '3000-4000';
-  
-  const blockFormatAddition = formData.productPageBlocks ? `
-
-# PRODUKTSEITEN-BLOCK-FORMAT
-
-Du erstellst Content für ein spezifisches Produktseiten-Layout mit folgenden Elementen:
-
-1. **Einführungstext** (100-150 Wörter): Kurzer, prägnanter Text der das Produkt vorstellt
-2. **Tags** (5-8 Stück): Kurze Eigenschaften/Merkmale als Keywords
-3. **Content-Blöcke** (4-6 Blöcke): Jeder Block hat:
-   - Überschrift (H2)
-   - Bildposition (alternierend links/rechts)
-   - Bildbeschreibung für Alt-Text
-   - Text (200-300 Wörter)
-4. **Gegenüberstellungs-Blöcke** (2 Blöcke): Zwei Blöcke nebeneinander mit Titel und Text (150-200 Wörter)
-
-Die Blöcke sollten visuell und inhaltlich ausgewogen sein.` : '';
-  
-  return `Du bist Experte für medizinische SEO-Texte. Schreibe strukturiert und wissenschaftlich fundiert.
-
-Erstelle einen vollständigen SEO-Text mit ${wordTarget} Wörtern Fließtext.${blockFormatAddition}
-
-# PRIORITÄTEN
-
-1. Vollständige Absätze schreiben (keine Headlines ohne Text)
-2. SEO-Struktur einhalten
-3. ${formData.targetAudience === 'physiotherapists' ? 'Mindestens 4-6 Studien zitieren' : 'Studien erwähnen'}
-4. Konkrete Kaufberatung
-
-# SEO-ANFORDERUNGEN
-
-Fokus-Keyword "${formData.focusKeyword}":
-- H1: Keyword am Anfang
-- Erster Absatz: Keyword in ersten 100 Wörtern
-- 2-3 H2-Überschriften mit Keyword
-- Meta-Title und Description mit Keyword
-
-Struktur:
-- H1 (60-70 Zeichen)
-- 5-7 H2-Abschnitte, jeder mit 300-700 Wörtern Fließtext
-- 3-4 Listen
-- 1-2 Tabellen
-- FAQ (5-7 Fragen)
-
-# WISSENSCHAFT
-
-${formData.targetAudience === 'endCustomers' ? 
-`Für Endkunden: Studien verständlich erwähnen, keine Fachbegriffe` : 
-`Für Physiotherapeuten: Min. 4-6 Studien korrekt zitieren ("Autor et al. Jahr, RCT, n=Anzahl"), Evidenz-Level nennen, konkrete Outcomes ("VAS 6,8±1,2→2,4±0,9, p<0,001"), Fachterminologie nutzen (ICD-10, ICF, Scores)`}
-
-# STRUKTUR
-
-Produktseiten:
-1. Was ist [Produkt]? (400-600 Wörter)
-2. Wissenschaftliche Evidenz (500-800 Wörter)
-3. Praxisanwendung (450-650 Wörter)
-4. Varianten-Vergleich (350-500 Wörter)
-5. Für wen geeignet? (300-450 Wörter)
-6. FAQ
-
-Kategorieseiten:
-1. Definition (300-450 Wörter)
-2. Technologie (500-700 Wörter)
-3. Wissenschaftliche Evidenz (600-900 Wörter)
-4. Auswahlkriterien (450-600 Wörter)
-5. Hersteller-Überblick (400-550 Wörter)
-6. Praxisintegration (350-500 Wörter)
-7. FAQ
-
-# STIL
-
-- Satzlänge variieren
-- Gedankenstriche nutzen
-- Keine "Erstens, Zweitens"
-- Kompakte Praxisbeispiele
-
-# NUR ECHTE DATEN
-
-Keine erfundenen Studien, Autoren, Produktnamen. Bei fehlenden Daten allgemein schreiben.
-
-# TONALITÄT
-
-${addressStyle}
-Professionell, faktenbasiert, ehrlich.
-
-# AUSGABE
-
-JSON mit korrekt escapeten Sonderzeichen (\\n für Zeilenumbrüche, \\" für Anführungszeichen):
-
-{
-  "seoText": "HTML-Text mit h1, h2, h3, p, ul, ol, table",
-  "faq": [{"question": "...", "answer": "..."}],
-  "title": "Max 60 Zeichen",
-  "metaDescription": "Max 155 Zeichen",
-  "internalLinks": [{"url": "...", "anchorText": "..."}],
-  "technicalHints": "Schema.org Empfehlungen",
-  "eeatScore": {
-    "experience": 8,
-    "expertise": 9,
-    "authoritativeness": 7,
-    "trustworthiness": 9,
-    "overall": 8,
-    "improvements": ["..."]
-  }${formData.productPageBlocks ? `,
-  "productPageBlocks": {
-    "introText": "Einführungstext 100-150 Wörter",
-    "tags": ["Tag1", "Tag2", "Tag3", "Tag4", "Tag5"],
-    "contentBlocks": [
-      {
-        "heading": "Überschrift des Blocks",
-        "imagePosition": "left",
-        "imageAlt": "Beschreibung für Bildalternativtext",
-        "content": "Text 200-300 Wörter"
-      }
-    ],
-    "comparisonBlocks": [
-      {"title": "Thema A", "content": "Text 150-200 Wörter"},
-      {"title": "Thema B", "content": "Text 150-200 Wörter"}
-    ]
-  }` : ''}${formData.complianceCheck ? ',\n  "qualityReport": {"status": "green", "flags": [], "evidenceTable": []}' : ''}${formData.productComparisonEnabled ? ',\n  "productComparison": "<table>...</table>"' : ''}
-}
-
-Schreibe jetzt den vollständigen SEO-Text mit allen Abschnitten.`;
 }
 
 function buildUserPrompt(formData: any): string {

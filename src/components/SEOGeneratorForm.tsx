@@ -15,7 +15,6 @@ export interface FormData {
   pageType: "category" | "product";
   targetAudience: "endCustomers" | "physiotherapists";
   formOfAddress: "du" | "sie" | "neutral";
-  contentStrategy: "creative" | "hybrid";
   focusKeyword: string;
   secondaryKeywords: string[];
   manufacturerName: string;
@@ -52,7 +51,6 @@ export const SEOGeneratorForm = ({ onGenerate, isLoading, initialData, projectId
     pageType: "product",
     targetAudience: "endCustomers",
     formOfAddress: "du",
-    contentStrategy: "hybrid",
     focusKeyword: "",
     secondaryKeywords: [],
     manufacturerName: "",
@@ -253,46 +251,6 @@ export const SEOGeneratorForm = ({ onGenerate, isLoading, initialData, projectId
               </Label>
             </div>
           </RadioGroup>
-        </div>
-
-        <div className="border-2 border-primary/20 rounded-lg p-4 bg-primary/5">
-          <Label htmlFor="contentStrategy" className="text-base font-semibold mb-3 block">
-            🎯 Content-Strategie
-          </Label>
-          <Select 
-            value={formData.contentStrategy} 
-            onValueChange={(value: "creative" | "hybrid") => 
-              setFormData({ ...formData, contentStrategy: value })
-            }
-          >
-            <SelectTrigger id="contentStrategy" className="bg-background">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="creative">
-                <div className="py-1">
-                  <div className="font-semibold">🎨 Kreativ-Philosophisch</div>
-                  <div className="text-xs text-muted-foreground">
-                    Vom Großen zum Kleinen: Marken-DNA, Philosophie, dann Produkte
-                  </div>
-                </div>
-              </SelectItem>
-              <SelectItem value="hybrid">
-                <div className="py-1">
-                  <div className="font-semibold">⚖️ Hybrid (SEO + Philosophie)</div>
-                  <div className="text-xs text-muted-foreground">
-                    Philosophischer Einstieg, dann SEO-strukturierter Hauptteil
-                  </div>
-                </div>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground mt-2">
-            {formData.contentStrategy === "creative" 
-              ? "Fokus auf Begeisterung, Markenphilosophie und Storytelling. SEO als sekundär."
-              : "Balance zwischen Philosophie-Intro und strukturierter SEO-Optimierung."
-            }
-          </p>
         </div>
 
         <div>
