@@ -17,6 +17,20 @@ export interface GeneratedContent {
   metaDescription: string;
   internalLinks: Array<{ url: string; anchorText: string }>;
   technicalHints: string;
+  productPageBlocks?: {
+    introText: string;
+    tags: string[];
+    contentBlocks: Array<{
+      heading: string;
+      imagePosition: "left" | "right";
+      imageAlt: string;
+      content: string;
+    }>;
+    comparisonBlocks: Array<{
+      title: string;
+      content: string;
+    }>;
+  };
   eeatScore?: {
     experience: number;
     expertise: number;
@@ -176,13 +190,16 @@ export const SEOOutputTabs = ({ content, projectId, formData }: SEOOutputTabsPro
 
   return (
     <Tabs defaultValue="text" className="h-full flex flex-col">
-      <TabsList className={`grid w-full ${content?.productComparison ? 'grid-cols-7' : 'grid-cols-6'}`}>
+      <TabsList className={`grid w-full ${content?.productPageBlocks ? 'grid-cols-8' : content?.productComparison ? 'grid-cols-7' : 'grid-cols-6'}`}>
         <TabsTrigger value="text">SEO-Text</TabsTrigger>
         <TabsTrigger value="ai-check">KI-Check</TabsTrigger>
         <TabsTrigger value="faq">FAQ</TabsTrigger>
         <TabsTrigger value="meta">Title & Meta</TabsTrigger>
         <TabsTrigger value="links">Links</TabsTrigger>
         <TabsTrigger value="quality">Qualität</TabsTrigger>
+        {content?.productPageBlocks && (
+          <TabsTrigger value="blocks">Blöcke</TabsTrigger>
+        )}
         {content?.productComparison && (
           <TabsTrigger value="products">Produkte</TabsTrigger>
         )}
@@ -463,6 +480,64 @@ export const SEOOutputTabs = ({ content, projectId, formData }: SEOOutputTabsPro
               </Card>
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="blocks" className="mt-0">
+          {content?.productPageBlocks && (
+            <div className="space-y-6">
+              {/* Einführungstext */}
+              <Card className="p-6">
+                <h3 className="font-semibold text-lg mb-3">Einführungstext</h3>
+                <p className="text-sm text-foreground mb-4">{content.productPageBlocks.introText}</p>
+                
+                {content.productPageBlocks.tags.length > 0 && (
+                  <>
+                    <h4 className="font-semibold text-sm mb-2">Tags</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {content.productPageBlocks.tags.map((tag, index) => (
+                        <Badge key={index} variant="secondary">{tag}</Badge>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </Card>
+
+              {/* Content-Blöcke */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg">Content-Blöcke</h3>
+                {content.productPageBlocks.contentBlocks.map((block, index) => (
+                  <Card key={index} className="p-6">
+                    <div className={`grid md:grid-cols-2 gap-6 ${block.imagePosition === 'right' ? 'md:grid-flow-dense' : ''}`}>
+                      <div className={block.imagePosition === 'right' ? 'md:col-start-2' : ''}>
+                        <div className="bg-muted rounded-lg aspect-video flex items-center justify-center">
+                          <span className="text-sm text-muted-foreground">[Bild: {block.imageAlt}]</span>
+                        </div>
+                      </div>
+                      <div className={block.imagePosition === 'right' ? 'md:col-start-1 md:row-start-1' : ''}>
+                        <h4 className="font-semibold text-base mb-3">{block.heading}</h4>
+                        <div className="text-sm text-muted-foreground whitespace-pre-line">{block.content}</div>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Gegenüberstellungs-Blöcke */}
+              {content.productPageBlocks.comparisonBlocks.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-lg">Gegenüberstellung</h3>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {content.productPageBlocks.comparisonBlocks.map((block, index) => (
+                      <Card key={index} className="p-6">
+                        <h4 className="font-semibold text-base mb-3">{block.title}</h4>
+                        <div className="text-sm text-muted-foreground whitespace-pre-line">{block.content}</div>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </TabsContent>
 
         {content?.productComparison && (

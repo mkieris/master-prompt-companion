@@ -34,6 +34,7 @@ export interface FormData {
   productComparisonEnabled: boolean;
   autoDetectProducts: boolean;
   productList: string;
+  productPageBlocks: boolean;
 }
 
 interface SEOGeneratorFormProps {
@@ -70,6 +71,7 @@ export const SEOGeneratorForm = ({ onGenerate, isLoading, initialData, projectId
     productComparisonEnabled: false,
     autoDetectProducts: false,
     productList: "",
+    productPageBlocks: false,
   });
 
   const [keywordInput, setKeywordInput] = useState("");
@@ -606,6 +608,27 @@ export const SEOGeneratorForm = ({ onGenerate, isLoading, initialData, projectId
               )}
             </div>
           )}
+        </div>
+
+        <div className="border border-primary/30 rounded-lg p-4 space-y-3 bg-primary/5">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="productPageBlocks"
+              checked={formData.productPageBlocks}
+              onCheckedChange={(checked) =>
+                setFormData({ ...formData, productPageBlocks: checked as boolean })
+              }
+            />
+            <Label htmlFor="productPageBlocks" className="cursor-pointer font-semibold">
+              📦 Produktseiten-Block-Format
+            </Label>
+          </div>
+          <p className="text-xs text-muted-foreground ml-6">
+            Erstellt den Content in strukturierten Blöcken passend für Ihr Produktseiten-Layout:
+            <br />• Einführungstext mit Tags
+            <br />• Mehrere Content-Blöcke mit Bild (links/rechts alternierend) + Text
+            <br />• Gegenüberstellungs-Blöcke am Ende
+          </p>
         </div>
       </div>
 

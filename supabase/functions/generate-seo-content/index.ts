@@ -105,9 +105,28 @@ function buildSystemPrompt(formData: any): string {
 function buildCreativePrompt(formData: any, addressStyle: string): string {
   const wordTarget = formData.contentLength === 'short' ? '800-1200' : formData.contentLength === 'medium' ? '1500-2000' : '2500-3500';
   
+  const blockFormatAddition = formData.productPageBlocks ? `
+
+# PRODUKTSEITEN-BLOCK-FORMAT
+
+Du erstellst Content für ein spezifisches Produktseiten-Layout mit folgenden Elementen:
+
+1. **Einführungstext** (100-150 Wörter): Kurzer, prägnanter Text der das Produkt vorstellt
+2. **Tags** (5-8 Stück): Kurze Eigenschaften/Merkmale als Keywords (z.B. "sonnengereift", "Fair Trade", "bio", etc.)
+3. **Content-Blöcke** (4-6 Blöcke): Jeder Block hat:
+   - Überschrift (H2)
+   - Bildposition (alternierend links/rechts)
+   - Bildbeschreibung für Alt-Text
+   - Text (200-300 Wörter)
+4. **Gegenüberstellungs-Blöcke** (2 Blöcke): Zwei gleichwertige Blöcke nebeneinander mit:
+   - Titel
+   - Text (150-200 Wörter)
+
+Die Blöcke sollten visuell und inhaltlich ausgewogen sein.` : '';
+  
   return `Du bist ein medizinischer Content-Experte. Schreibe begeisternde, wissenschaftlich fundierte Texte.
 
-Erstelle einen vollständigen SEO-Text mit ${wordTarget} Wörtern.
+Erstelle einen vollständigen SEO-Text mit ${wordTarget} Wörtern.${blockFormatAddition}
 
 # SCHREIBPHILOSOPHIE
 
@@ -171,7 +190,23 @@ Antworte als JSON. Escape alle Sonderzeichen korrekt (Zeilenumbrüche als \\n, A
     "trustworthiness": 9,
     "overall": 8,
     "improvements": ["..."]
-  }${formData.complianceCheck ? ',\n  "qualityReport": {"status": "green", "flags": [], "evidenceTable": []}' : ''}${formData.productComparisonEnabled ? ',\n  "productComparison": "<table>...</table>"' : ''}
+  }${formData.productPageBlocks ? `,
+  "productPageBlocks": {
+    "introText": "Einführungstext 100-150 Wörter",
+    "tags": ["Tag1", "Tag2", "Tag3", "Tag4", "Tag5"],
+    "contentBlocks": [
+      {
+        "heading": "Überschrift des Blocks",
+        "imagePosition": "left",
+        "imageAlt": "Beschreibung für Bildalternativtext",
+        "content": "Text 200-300 Wörter"
+      }
+    ],
+    "comparisonBlocks": [
+      {"title": "Thema A", "content": "Text 150-200 Wörter"},
+      {"title": "Thema B", "content": "Text 150-200 Wörter"}
+    ]
+  }` : ''}${formData.complianceCheck ? ',\n  "qualityReport": {"status": "green", "flags": [], "evidenceTable": []}' : ''}${formData.productComparisonEnabled ? ',\n  "productComparison": "<table>...</table>"' : ''}
 }
 
 Schreibe jetzt den vollständigen Text: WARUM → WIE → WAS.`;
@@ -179,9 +214,26 @@ Schreibe jetzt den vollständigen Text: WARUM → WIE → WAS.`;
 function buildHybridPrompt(formData: any, addressStyle: string): string {
   const wordTarget = formData.contentLength === 'short' ? '1000-1500' : formData.contentLength === 'medium' ? '1800-2500' : '3000-4000';
   
+  const blockFormatAddition = formData.productPageBlocks ? `
+
+# PRODUKTSEITEN-BLOCK-FORMAT
+
+Du erstellst Content für ein spezifisches Produktseiten-Layout mit folgenden Elementen:
+
+1. **Einführungstext** (100-150 Wörter): Kurzer, prägnanter Text der das Produkt vorstellt
+2. **Tags** (5-8 Stück): Kurze Eigenschaften/Merkmale als Keywords
+3. **Content-Blöcke** (4-6 Blöcke): Jeder Block hat:
+   - Überschrift (H2)
+   - Bildposition (alternierend links/rechts)
+   - Bildbeschreibung für Alt-Text
+   - Text (200-300 Wörter)
+4. **Gegenüberstellungs-Blöcke** (2 Blöcke): Zwei Blöcke nebeneinander mit Titel und Text (150-200 Wörter)
+
+Die Blöcke sollten visuell und inhaltlich ausgewogen sein.` : '';
+  
   return `Du bist Experte für medizinische SEO-Texte. Schreibe strukturiert und wissenschaftlich fundiert.
 
-Erstelle einen vollständigen SEO-Text mit ${wordTarget} Wörtern Fließtext.
+Erstelle einen vollständigen SEO-Text mit ${wordTarget} Wörtern Fließtext.${blockFormatAddition}
 
 # PRIORITÄTEN
 
@@ -264,7 +316,23 @@ JSON mit korrekt escapeten Sonderzeichen (\\n für Zeilenumbrüche, \\" für Anf
     "trustworthiness": 9,
     "overall": 8,
     "improvements": ["..."]
-  }${formData.complianceCheck ? ',\n  "qualityReport": {"status": "green", "flags": [], "evidenceTable": []}' : ''}${formData.productComparisonEnabled ? ',\n  "productComparison": "<table>...</table>"' : ''}
+  }${formData.productPageBlocks ? `,
+  "productPageBlocks": {
+    "introText": "Einführungstext 100-150 Wörter",
+    "tags": ["Tag1", "Tag2", "Tag3", "Tag4", "Tag5"],
+    "contentBlocks": [
+      {
+        "heading": "Überschrift des Blocks",
+        "imagePosition": "left",
+        "imageAlt": "Beschreibung für Bildalternativtext",
+        "content": "Text 200-300 Wörter"
+      }
+    ],
+    "comparisonBlocks": [
+      {"title": "Thema A", "content": "Text 150-200 Wörter"},
+      {"title": "Thema B", "content": "Text 150-200 Wörter"}
+    ]
+  }` : ''}${formData.complianceCheck ? ',\n  "qualityReport": {"status": "green", "flags": [], "evidenceTable": []}' : ''}${formData.productComparisonEnabled ? ',\n  "productComparison": "<table>...</table>"' : ''}
 }
 
 Schreibe jetzt den vollständigen SEO-Text mit allen Abschnitten.`;
