@@ -11,9 +11,3 @@ verify_jwt = false
 
 [functions.competitor-analysis]
 verify_jwt = false
-
-[functions.regenerate-section]
-verify_jwt = false
-
-[functions.ai-detection-check]
-verify_jwt = false

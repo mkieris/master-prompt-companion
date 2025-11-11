@@ -30,24 +30,18 @@ export interface FormData {
   checkMDR: boolean;
   checkHWG: boolean;
   checkStudies: boolean;
-  productComparisonEnabled: boolean;
-  autoDetectProducts: boolean;
-  productList: string;
-  productPageBlocks: boolean;
 }
 
 interface SEOGeneratorFormProps {
   onGenerate: (data: FormData) => void;
   isLoading: boolean;
-  initialData?: FormData | null;
-  projectId?: string | null;
 }
 
-export const SEOGeneratorForm = ({ onGenerate, isLoading, initialData, projectId }: SEOGeneratorFormProps) => {
+export const SEOGeneratorForm = ({ onGenerate, isLoading }: SEOGeneratorFormProps) => {
   const { toast } = useToast();
   const [isScraping, setIsScraping] = useState(false);
   const [scrapeMode, setScrapeMode] = useState<"single" | "multi">("single");
-  const [formData, setFormData] = useState<FormData>(initialData || {
+  const [formData, setFormData] = useState<FormData>({
     pageType: "product",
     targetAudience: "endCustomers",
     formOfAddress: "du",
@@ -66,10 +60,6 @@ export const SEOGeneratorForm = ({ onGenerate, isLoading, initialData, projectId
     checkMDR: false,
     checkHWG: false,
     checkStudies: false,
-    productComparisonEnabled: false,
-    autoDetectProducts: false,
-    productList: "",
-    productPageBlocks: false,
   });
 
   const [keywordInput, setKeywordInput] = useState("");
@@ -513,80 +503,6 @@ export const SEOGeneratorForm = ({ onGenerate, isLoading, initialData, projectId
               </p>
             </div>
           )}
-        </div>
-
-        <div className="border border-border rounded-lg p-4 space-y-3">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="productComparison"
-              checked={formData.productComparisonEnabled}
-              onCheckedChange={(checked) =>
-                setFormData({ ...formData, productComparisonEnabled: checked as boolean })
-              }
-            />
-            <Label htmlFor="productComparison" className="cursor-pointer font-semibold">
-              Produktvergleich & Kaufberatung erstellen
-            </Label>
-          </div>
-          
-          {formData.productComparisonEnabled && (
-            <div className="ml-6 space-y-3">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="autoDetectProducts"
-                  checked={formData.autoDetectProducts}
-                  onCheckedChange={(checked) =>
-                    setFormData({ ...formData, autoDetectProducts: checked as boolean })
-                  }
-                />
-                <Label htmlFor="autoDetectProducts" className="cursor-pointer">
-                  Produkte automatisch erkennen
-                </Label>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {formData.autoDetectProducts 
-                  ? "Das System findet automatisch relevante Produkte basierend auf dem Fokus-Keyword und erstellt eine Kaufberatung."
-                  : "Geben Sie die verfügbaren Produkte manuell ein, um eine detaillierte Kaufberatung zu erhalten."}
-              </p>
-              
-              {!formData.autoDetectProducts && (
-                <>
-                  <Label htmlFor="productList" className="text-sm">
-                    Verfügbare Produkte (ein Produkt pro Zeile)
-                  </Label>
-                  <Textarea
-                    id="productList"
-                    value={formData.productList}
-                    onChange={(e) => setFormData({ ...formData, productList: e.target.value })}
-                    placeholder="z.B.:&#10;Bluetens Classic - TENS für Einsteiger, 4 Programme, €89&#10;Bluetens Pro - Premium TENS, 20 Programme + App, €149&#10;Bluetens Sport - Für Sportler, 12 Programme, €119"
-                    rows={5}
-                    className="font-mono text-sm"
-                  />
-                </>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="border border-primary/30 rounded-lg p-4 space-y-3 bg-primary/5">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="productPageBlocks"
-              checked={formData.productPageBlocks}
-              onCheckedChange={(checked) =>
-                setFormData({ ...formData, productPageBlocks: checked as boolean })
-              }
-            />
-            <Label htmlFor="productPageBlocks" className="cursor-pointer font-semibold">
-              📦 Produktseiten-Block-Format
-            </Label>
-          </div>
-          <p className="text-xs text-muted-foreground ml-6">
-            Erstellt den Content in strukturierten Blöcken passend für Ihr Produktseiten-Layout:
-            <br />• Einführungstext mit Tags
-            <br />• Mehrere Content-Blöcke mit Bild (links/rechts alternierend) + Text
-            <br />• Gegenüberstellungs-Blöcke am Ende
-          </p>
         </div>
       </div>
 
