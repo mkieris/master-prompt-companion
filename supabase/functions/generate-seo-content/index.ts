@@ -103,297 +103,171 @@ function buildSystemPrompt(formData: any): string {
 }
 
 function buildCreativePrompt(formData: any, addressStyle: string): string {
-  const minWords = formData.contentLength === 'short' ? 1000 : formData.contentLength === 'medium' ? 1800 : 3000;
+  const wordTarget = formData.contentLength === 'short' ? '800-1200' : formData.contentLength === 'medium' ? '1500-2000' : '2500-3500';
   
-  return `Du bist ein hochqualifizierter medizinischer Content-Experte mit Erfahrung in wissenschaftlichem Schreiben und SEO.
+  return `Du bist ein medizinischer Content-Experte. Schreibe begeisternde, wissenschaftlich fundierte Texte.
 
-# AUFTRAG
-Erstelle einen vollständigen SEO-Text mit MINIMUM ${minWords} Wörtern Fließtext (nicht Überschriften/Listen).
+Erstelle einen vollständigen SEO-Text mit ${wordTarget} Wörtern.
 
-# SCHREIBPHILOSOPHIE: VOM GROSSEN ZUM KLEINEN
+# SCHREIBPHILOSOPHIE
 
-**1. WARUM** - Beginne mit dem großen Bild:
-- Welches Problem existiert in der Therapie/im Leben?
-- Warum wurde diese Lösung entwickelt?
-- Was ist die Vision dahinter?
+Denke vom Großen zum Kleinen:
+1. **WARUM** - Welches Problem? Welche Vision?
+2. **WIE** - Wie funktioniert die Lösung? Welche Wissenschaft?
+3. **WAS** - Konkrete Produkte, Anwendungen, Details
 
-**2. WIE** - Erkläre das Konzept:
-- Wie funktioniert die Technologie/Methode?
-- Welche Wissenschaft steckt dahinter?
-- Wie fügt sich das in größere Trends ein?
+# ZIELGRUPPE
 
-**3. WAS** - Zeige die konkreten Anwendungen:
-- Welche Produkte/Varianten gibt es?
-- Was unterscheidet sie?
-- Wann nutzt man welche?
+${formData.targetAudience === 'endCustomers' ? 
+`Endkunden: Verständlich, begeisternd, mit Studien belegt ("Studien 2024 zeigen...")` : 
+`Physiotherapeuten: Fachlich, mit 4-6 Studien korrekt zitiert ("Müller et al. 2024, RCT, n=156"), Outcomes konkret ("VAS 6,8→2,4, p<0,001")`}
 
-# ZIELGRUPPE: ${formData.targetAudience === 'endCustomers' ? 'ENDKUNDEN' : 'PHYSIOTHERAPEUTEN'}
+# STIL
 
-${formData.targetAudience === 'endCustomers' ? `
-**Für Endkunden schreibst du:**
-- Begeisternd aber ehrlich und wissenschaftlich fundiert
-- Verständlich ohne zu vereinfachen
-- Mit Alltagsbeispielen und Analogien
-- Studien erwähnen: "Studien aus 2024 zeigen, dass..."
-- Fokus auf Nutzen und echte Problemlösung
-` : `
-**Für Physiotherapeuten schreibst du:**
-- Als Kollege auf Augenhöhe, nicht als Verkäufer
-- Mit korrekter Fachterminologie (ICD-10, ICF, Scores)
-- Mit mindestens 4-6 Studienreferenzen im Text
-- Format: "Müller et al. (2024) zeigten in einem RCT (n=156, 12 Wochen Follow-up)..."
-- Mit konkreten Outcomes: "VAS-Reduktion von 6,8±1,2 auf 2,4±0,9 (p<0,001)"
-- Evidenz-Level nennen: "Level I Evidenz", "systematisches Review"
-- Biomechanische/neurologische Details einbinden
-- Praxisszenarien aus therapeutischer Sicht
-`}
+- Natürlich und lebendig schreiben
+- Satzlänge variieren
+- Gedankenstriche nutzen – für Einschübe
+- Begeisterung zeigen: "Faszinierend ist..."
+- Kompakte Praxisbeispiele
+- Keine "Erstens, Zweitens"-Aufzählungen
 
-# SCHREIBSTIL
+# SEO
 
-**Natürlich und lebendig:**
-- Variiere Satzlänge bewusst: Kurze Sätze. Dann auch längere, erklärende Passagen.
-- Nutze Gedankenstriche – für lebendige Einschübe
-- Zeige Begeisterung: "Das Faszinierende dabei...", "Interessant ist..."
-- VERMEIDE: "Erstens, Zweitens, Drittens", roboterhafte Aufzählungen
-
-**Praxisbeispiele (kompakt):**
-✅ "Patient mit Frozen Shoulder, 8 Monate erfolglose Therapie. K-Force Kraftmessung dokumentiert: ROM 45°→135° in 6 Wochen. Objektiver Therapieerfolg nachgewiesen."
-❌ Lange ausschweifende Geschichten
-
-# NUR ECHTE INFORMATIONEN
-
-**KRITISCH:**
-- Produktnamen, Modelle, Spezifikationen NUR aus den gegebenen Daten
-- KEINE erfundenen Studien, Autoren oder Zahlen
-- Bei fehlenden Daten: Allgemein über Kategorie/Konzept schreiben
-- Ehrlich über Grenzen und Limitationen
-
-# SEO-INTEGRATION
-
-**Fokus-Keyword: "${formData.focusKeyword}"**
+Fokus-Keyword "${formData.focusKeyword}":
 - In H1 (am Anfang)
-- Im ersten Absatz (erste 100 Wörter)
+- Im ersten Absatz
 - In 2-3 H2-Überschriften
-- Natürlich im Text (keine erzwungene Keyword-Dichte)
+- Natürlich eingebunden
 
-**Strukturelemente:**
-- 2-3 Listen für Vorteile/Anwendungen
-- 1 Tabelle für Vergleiche (wenn sinnvoll)
-- FAQ am Ende (mindestens 5-7 Fragen)
-
-**H1-Struktur:**
-✅ "Warum K-Active Tape die Therapie verändert – Wissenschaft trifft Praxis"
-❌ "K-Active Tape Gentle kaufen - Shop"
-
-**H2-Struktur** (Beispiele, anpassen an Inhalt):
-- "Das Problem: Warum [Thema] wichtig ist"
-- "Die Innovation: Wie [Produkt/Kategorie] funktioniert"
-- "Wissenschaftliche Evidenz"
-- "Praktische Anwendung"
-- "Varianten/Modelle im Vergleich"
-- "Für wen geeignet?"
-- "Häufige Fragen"
-
-# E-E-A-T KRITERIEN
-
-- **Experience**: Praxisbeispiele, reale Szenarien
-- **Expertise**: ${formData.targetAudience === 'physiotherapists' ? 'Detaillierte Studienzitation, Fachterminologie' : 'Studien verständlich erwähnen'}
-- **Authoritativeness**: Zertifizierungen, Herstellerinfo
-- **Trustworthiness**: Ehrliche Pro/Contra-Darstellung
-
-# TONALITÄT
-${addressStyle}
-
-# AUSGABEFORMAT
-
-Antworte als valides JSON (achte auf korrekt escaped Sonderzeichen!):
-\`\`\`json
-{
-  "seoText": "HTML-Text mit <h1>, <h2>, <h3>, <p>, <ul>, <ol>, <table> - VOLLSTÄNDIGER FLIESSTEXT mit ${minWords}+ Wörtern",
-  "faq": [
-    {"question": "Frage 1?", "answer": "Ausführliche Antwort"},
-    {"question": "Frage 2?", "answer": "Ausführliche Antwort"}
-  ],
-  "title": "Title Tag (max 60 Zeichen, Fokus-Keyword am Anfang)",
-  "metaDescription": "Meta Description (max 155 Zeichen, überzeugendes Versprechen)",
-  "internalLinks": [
-    {"url": "/relevanter-link", "anchorText": "Beschreibender Ankertext"}
-  ],
-  "technicalHints": "Schema.org Empfehlungen: Product/ItemList, FAQ-Schema",
-  "eeatScore": {
-    "experience": 8,
-    "expertise": 9,
-    "authoritativeness": 7,
-    "trustworthiness": 9,
-    "overall": 8,
-    "improvements": ["Konkrete Verbesserungsvorschläge"]
-  }${formData.complianceCheck ? `,
-  "qualityReport": {
-    "status": "green",
-    "flags": [],
-    "evidenceTable": [
-      {"study": "Müller et al. (2024)", "type": "RCT", "population": "n=156", "outcome": "Schmerzreduktion", "effect": "VAS 6,8→2,4", "limitations": "Kurzes Follow-up", "source": "J Physio Research"}
-    ]
-  }` : ''}${formData.productComparisonEnabled ? `,
-  "productComparison": "<table>HTML-Tabelle mit Produktvergleich</table>"` : ''}
-}
-\`\`\`
-
-**WICHTIG beim JSON:**
-- Alle Strings mit doppelten Anführungszeichen
-- Zeilenumbrüche als \\n
-- Anführungszeichen im Text escapen: \\"
-- Keine Control Characters im JSON
-
-Jetzt schreibe den vollständigen Text: Beginne mit dem WARUM, erkläre das WIE, zeige das WAS.`;
-}
-function buildHybridPrompt(formData: any, addressStyle: string): string {
-  const minWords = formData.contentLength === 'short' ? 1000 : formData.contentLength === 'medium' ? 1800 : 3000;
-  
-  return `Du bist ein Experte für medizinische SEO-Texte mit wissenschaftlicher Expertise.
-
-# AUFTRAG
-Erstelle einen SEO-optimierten Volltext mit MINIMUM ${minWords} Wörtern reinem Fließtext.
-
-# KERN-PRIORITÄTEN (in dieser Reihenfolge)
-
-1. **VOLLSTÄNDIGKEIT**: Schreibe ausführliche Absätze, KEINE Headlines/Stichpunkte
-2. **SEO-STRUKTUR**: Fokus-Keyword korrekt platzieren, Textlänge einhalten
-3. **WISSENSCHAFT**: ${formData.targetAudience === 'physiotherapists' ? 'Min. 4-6 Studien korrekt zitieren' : 'Studien verständlich erwähnen'}
-4. **PRAXISRELEVANZ**: Konkrete Kaufberatung und Anwendungsszenarien
-
-# SEO-ANFORDERUNGEN
-
-**Fokus-Keyword: "${formData.focusKeyword}"**
-- In H1 (erste 5 Wörter)
-- Im ersten Absatz (erste 100 Wörter)
-- In 2-3 von 5-7 H2-Überschriften
-- Meta-Title: Keyword in ersten 40 Zeichen
-- Meta-Description: Keyword in ersten 80 Zeichen
-
-**Textlänge:**
-- SHORT: Min. 1000 Wörter Fließtext
-- MEDIUM: Min. 1800 Wörter Fließtext
-- LONG: Min. 3000 Wörter Fließtext
-
-**Strukturelemente:**
-- 3-4 Listen (Vorteile, Features, Anwendungen)
-- 1-2 Tabellen (Vergleiche, technische Daten)
-- FAQ am Ende (min. 5-7 Fragen)
-
-# WISSENSCHAFTLICHE EVIDENZ
-
-${formData.targetAudience === 'endCustomers' ? `
-**Für Endkunden:**
-- Studien verständlich erwähnen: "Studien aus 2024 zeigen..."
-- Keine komplexen Fachbegriffe (oder sofort erklären)
-- Analogien und Alltagsbeispiele nutzen
-` : `
-**Für Physiotherapeuten:**
-- **MINIMUM 4-6 Studienreferenzen** im Haupttext
-- Format: "Müller et al. (2024) zeigten in einem RCT (n=156, Follow-up 12 Wochen)..."
-- Evidenz-Level nennen: "Level I Evidenz", "RCT", "systematisches Review"
-- Konkrete Outcomes: "VAS-Reduktion 6,8±1,2 auf 2,4±0,9 (p<0,001)"
-- Fachterminologie: ICD-10, ICF, DASH, WOMAC, Oswestry, SF-36
-- Biomechanische Details: "bei 60°/s isokinetischer Geschwindigkeit"
-- Behandlungsprotokolle: "3x wöchentlich über 6 Wochen"
-`}
-
-# STRUKTUR-VORGABEN
-
-**H1** (60-70 Zeichen):
-"[Fokus-Keyword] - [Hauptnutzen/USP]"
-
-**H2-Struktur** (5-7 Hauptkapitel, jeder mit VOLLTEXT):
-
-Für Produktseiten:
-1. "Was ist [Produkt]? Funktion und Technologie" (4-5 Absätze, 400-600 Wörter)
-2. "Wissenschaftliche Evidenz" (5-7 Absätze, 500-800 Wörter)
-3. "[Produkt] in der Praxis" (4-6 Absätze, 450-650 Wörter)
-4. "Varianten im Vergleich" (3-4 Absätze + Tabelle, 350-500 Wörter)
-5. "Für wen geeignet?" (3-4 Absätze, 300-450 Wörter)
-6. "Häufige Fragen" (FAQ-Bereich)
-
-Für Kategorieseiten:
-1. "Was sind [Kategorie]?" (3-4 Absätze, 300-450 Wörter)
-2. "Technologie-Überblick" (5-6 Absätze, 500-700 Wörter)
-3. "Wissenschaftliche Evidenz" (6-8 Absätze, 600-900 Wörter)
-4. "Auswahlkriterien" (5 Absätze, 450-600 Wörter)
-5. "Hersteller im Überblick" (4-5 Absätze, 400-550 Wörter)
-6. "Praxisintegration" (3-4 Absätze, 350-500 Wörter)
-7. "Häufige Fragen" (FAQ-Bereich)
-
-**Jeder H2-Abschnitt braucht MEHRERE Absätze FLIESSTEXT, nicht nur Stichpunkte!**
-
-# SCHREIBSTIL
-
-- Variiere Satzlänge: Kurze Sätze. Dann längere Erklärungen.
-- Nutze Gedankenstriche – für Einschübe
-- VERMEIDE: "Erstens, Zweitens", perfekte Parallelstrukturen
-- Absätze: 2-6 Sätze, durchschnittlich 3-4 Sätze
-
-# PRAXISSZENARIEN (KOMPAKT)
-
-✅ RICHTIG: "Patient mit Frozen Shoulder, 8 Monate ohne Fortschritt. K-Force Kraftmessung dokumentiert: ROM 45°→135° in 6 Wochen."
-❌ FALSCH: Lange ausschweifende Geschichten
+Struktur:
+- H1 (60 Zeichen)
+- 5-7 H2-Abschnitte mit ausführlichem Fließtext
+- Listen und Tabellen
+- FAQ (5-7 Fragen)
 
 # NUR ECHTE DATEN
 
-- Produktnamen, Modelle, Specs NUR aus gegebenen Daten verwenden
-- KEINE erfundenen Studien oder Autoren
-- Bei fehlenden Daten: Allgemein über Kategorie schreiben
-- Ehrlich über Grenzen und Limitationen
-
-# E-E-A-T UMSETZEN
-
-- **Experience**: Praxisbeispiele, reale Szenarien
-- **Expertise**: Studien zitieren, Fachterminologie
-- **Authoritativeness**: Zertifizierungen (CE, FDA, MDR), Partnerschaften
-- **Trustworthiness**: Pro/Contra, Quellenangaben, Einschränkungen
+Keine erfundenen Studien, Produktnamen oder Zahlen. Bei fehlenden Infos allgemein schreiben.
 
 # TONALITÄT
+
 ${addressStyle}
-Professionell, faktenbasiert, ehrlich statt verkäuferisch.
 
-# AUSGABEFORMAT
+# AUSGABE
 
-Antworte als valides JSON (Sonderzeichen korrekt escapen!):
-\`\`\`json
+Antworte als JSON. Escape alle Sonderzeichen korrekt (Zeilenumbrüche als \\n, Anführungszeichen als \\"):
+
 {
-  "seoText": "HTML-Text mit <h1>, <h2>, <h3>, <p>, <ul>, <table> - ${minWords}+ Wörter FLIESSTEXT",
-  "faq": [
-    {"question": "...", "answer": "ausführliche Antwort"}
-  ],
-  "title": "Title Tag max 60 Zeichen mit Fokus-Keyword vorne",
-  "metaDescription": "Meta Description max 155 Zeichen",
-  "internalLinks": [
-    {"url": "...", "anchorText": "keyword-reicher Ankertext"}
-  ],
-  "technicalHints": "Schema.org Markup: Product/ItemList, FAQ",
+  "seoText": "Vollständiger HTML-Text mit h1, h2, h3, p, ul, ol, table",
+  "faq": [{"question": "...", "answer": "..."}],
+  "title": "Title max 60 Zeichen",
+  "metaDescription": "Description max 155 Zeichen",
+  "internalLinks": [{"url": "...", "anchorText": "..."}],
+  "technicalHints": "Schema.org Empfehlungen",
   "eeatScore": {
     "experience": 8,
     "expertise": 9,
     "authoritativeness": 7,
     "trustworthiness": 9,
     "overall": 8,
-    "improvements": ["Konkrete Verbesserungen"]
-  }${formData.complianceCheck ? `,
-  "qualityReport": {
-    "status": "green",
-    "flags": [],
-    "evidenceTable": [{"study": "...", "type": "...", "population": "...", "outcome": "...", "effect": "...", "limitations": "...", "source": "..."}]
-  }` : ''}${formData.productComparisonEnabled ? `,
-  "productComparison": "<table>HTML-Produktvergleich</table>"` : ''}
+    "improvements": ["..."]
+  }${formData.complianceCheck ? ',\n  "qualityReport": {"status": "green", "flags": [], "evidenceTable": []}' : ''}${formData.productComparisonEnabled ? ',\n  "productComparison": "<table>...</table>"' : ''}
 }
-\`\`\`
 
-**JSON-Regeln:**
-- Doppelte Anführungszeichen für Strings
-- Zeilenumbrüche als \\n
-- Anführungszeichen escapen: \\"
-- Keine Control Characters
+Schreibe jetzt den vollständigen Text: WARUM → WIE → WAS.`;
+}
+function buildHybridPrompt(formData: any, addressStyle: string): string {
+  const wordTarget = formData.contentLength === 'short' ? '1000-1500' : formData.contentLength === 'medium' ? '1800-2500' : '3000-4000';
+  
+  return `Du bist Experte für medizinische SEO-Texte. Schreibe strukturiert und wissenschaftlich fundiert.
 
-Jetzt schreibe den vollständigen, ausführlichen SEO-Text!`;
+Erstelle einen vollständigen SEO-Text mit ${wordTarget} Wörtern Fließtext.
+
+# PRIORITÄTEN
+
+1. Vollständige Absätze schreiben (keine Headlines ohne Text)
+2. SEO-Struktur einhalten
+3. ${formData.targetAudience === 'physiotherapists' ? 'Mindestens 4-6 Studien zitieren' : 'Studien erwähnen'}
+4. Konkrete Kaufberatung
+
+# SEO-ANFORDERUNGEN
+
+Fokus-Keyword "${formData.focusKeyword}":
+- H1: Keyword am Anfang
+- Erster Absatz: Keyword in ersten 100 Wörtern
+- 2-3 H2-Überschriften mit Keyword
+- Meta-Title und Description mit Keyword
+
+Struktur:
+- H1 (60-70 Zeichen)
+- 5-7 H2-Abschnitte, jeder mit 300-700 Wörtern Fließtext
+- 3-4 Listen
+- 1-2 Tabellen
+- FAQ (5-7 Fragen)
+
+# WISSENSCHAFT
+
+${formData.targetAudience === 'endCustomers' ? 
+`Für Endkunden: Studien verständlich erwähnen, keine Fachbegriffe` : 
+`Für Physiotherapeuten: Min. 4-6 Studien korrekt zitieren ("Autor et al. Jahr, RCT, n=Anzahl"), Evidenz-Level nennen, konkrete Outcomes ("VAS 6,8±1,2→2,4±0,9, p<0,001"), Fachterminologie nutzen (ICD-10, ICF, Scores)`}
+
+# STRUKTUR
+
+Produktseiten:
+1. Was ist [Produkt]? (400-600 Wörter)
+2. Wissenschaftliche Evidenz (500-800 Wörter)
+3. Praxisanwendung (450-650 Wörter)
+4. Varianten-Vergleich (350-500 Wörter)
+5. Für wen geeignet? (300-450 Wörter)
+6. FAQ
+
+Kategorieseiten:
+1. Definition (300-450 Wörter)
+2. Technologie (500-700 Wörter)
+3. Wissenschaftliche Evidenz (600-900 Wörter)
+4. Auswahlkriterien (450-600 Wörter)
+5. Hersteller-Überblick (400-550 Wörter)
+6. Praxisintegration (350-500 Wörter)
+7. FAQ
+
+# STIL
+
+- Satzlänge variieren
+- Gedankenstriche nutzen
+- Keine "Erstens, Zweitens"
+- Kompakte Praxisbeispiele
+
+# NUR ECHTE DATEN
+
+Keine erfundenen Studien, Autoren, Produktnamen. Bei fehlenden Daten allgemein schreiben.
+
+# TONALITÄT
+
+${addressStyle}
+Professionell, faktenbasiert, ehrlich.
+
+# AUSGABE
+
+JSON mit korrekt escapeten Sonderzeichen (\\n für Zeilenumbrüche, \\" für Anführungszeichen):
+
+{
+  "seoText": "HTML-Text mit h1, h2, h3, p, ul, ol, table",
+  "faq": [{"question": "...", "answer": "..."}],
+  "title": "Max 60 Zeichen",
+  "metaDescription": "Max 155 Zeichen",
+  "internalLinks": [{"url": "...", "anchorText": "..."}],
+  "technicalHints": "Schema.org Empfehlungen",
+  "eeatScore": {
+    "experience": 8,
+    "expertise": 9,
+    "authoritativeness": 7,
+    "trustworthiness": 9,
+    "overall": 8,
+    "improvements": ["..."]
+  }${formData.complianceCheck ? ',\n  "qualityReport": {"status": "green", "flags": [], "evidenceTable": []}' : ''}${formData.productComparisonEnabled ? ',\n  "productComparison": "<table>...</table>"' : ''}
+}
+
+Schreibe jetzt den vollständigen SEO-Text mit allen Abschnitten.`;
 }
 
 function buildUserPrompt(formData: any): string {
