@@ -1,9 +1,6 @@
 import { useState } from "react";
 import { SEOGeneratorForm, FormData } from "@/components/SEOGeneratorForm";
 import { SEOOutputTabs, GeneratedContent } from "@/components/SEOOutputTabs";
-import { KeywordResearch } from "@/components/KeywordResearch";
-import { CompetitorAnalysis } from "@/components/CompetitorAnalysis";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
@@ -61,25 +58,7 @@ const Index = () => {
       <div className="container mx-auto p-4">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-[calc(100vh-140px)]">
           <div className="bg-card rounded-lg border border-border overflow-hidden flex flex-col">
-            <Tabs defaultValue="generator" className="h-full flex flex-col">
-              <TabsList className="grid w-full grid-cols-3 mx-6 mt-4">
-                <TabsTrigger value="research">Keyword Research</TabsTrigger>
-                <TabsTrigger value="competitors">Wettbewerb</TabsTrigger>
-                <TabsTrigger value="generator">SEO Generator</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="research" className="flex-1 overflow-hidden mt-0">
-                <KeywordResearch />
-              </TabsContent>
-              
-              <TabsContent value="competitors" className="flex-1 overflow-hidden mt-0">
-                <CompetitorAnalysis />
-              </TabsContent>
-              
-              <TabsContent value="generator" className="flex-1 overflow-hidden mt-0">
-                <SEOGeneratorForm onGenerate={handleGenerate} isLoading={isLoading} />
-              </TabsContent>
-            </Tabs>
+            <SEOGeneratorForm onGenerate={handleGenerate} isLoading={isLoading} />
           </div>
 
           <div className="bg-card rounded-lg border border-border overflow-hidden flex flex-col">
