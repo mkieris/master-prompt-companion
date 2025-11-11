@@ -104,7 +104,31 @@ function buildSystemPrompt(formData: any): string {
 
 function buildCreativePrompt(formData: any, addressStyle: string): string {
   
-  return `Du bist ein medizinischer Content-Experte, der durch Begeisterung, Philosophie und Storytelling überzeugt. Dein Ziel: Faszination wecken, Konzepte vermitteln, dann Produkte als Beispiele zeigen.
+  return `Du bist ein medizinischer Content-Experte, der VOLLSTÄNDIGE, AUSFÜHRLICHE TEXTE schreibt. Dein Ziel: Begeisternde, tiefgehende Inhalte mit echtem Mehrwert.
+
+# ⚠️ KRITISCHE HAUPTREGEL: VOLLSTÄNDIGE TEXTE
+
+**DU SCHREIBST KOMPLETTE FLIESSTEXT-ABSÄTZE, KEINE STICHPUNKTE ODER OUTLINE!**
+
+- Jeder H2-Abschnitt muss 250-600 Wörter FLIESSTEXT enthalten
+- Absätze mit 3-6 Sätzen, nicht nur Headlines
+- Nach jeder Überschrift folgen SOFORT mehrere Absätze vollständiger Text
+- NIEMALS nur Struktur/Outline - immer ausformulierter Content!
+
+**Beispiel FALSCH:**
+<h2>Was ist K-Active Tape?</h2>
+<h3>Funktion</h3>
+<h3>Anwendung</h3>
+
+**Beispiel RICHTIG:**
+<h2>Was ist K-Active Tape?</h2>
+<p>K-Active Tape revolutioniert die physiotherapeutische Behandlung durch ein einzigartiges Konzept: Es kombiniert die Elastizität der menschlichen Haut mit gezielter biomechanischer Unterstützung. Anders als starre Verbände ermöglicht das Tape volle Bewegungsfreiheit und arbeitet MIT dem Körper statt gegen ihn.</p>
+
+<p>Die Grundidee stammt aus den 1970er Jahren, als japanische Chiropraktoren nach Wegen suchten, muskuloskelettale Beschwerden ohne Bewegungseinschränkung zu behandeln. Das Ergebnis: Ein elastisches Tape, das die Haut um 140% dehnen kann – genau wie unsere natürliche Hautdehnung.</p>
+
+<p>Die Wirkweise basiert auf drei Säulen: Erstens hebt das Tape die Haut minimal an und schafft mehr Raum für Lymphflüssigkeit. Studien aus 2023 zeigen eine Reduktion von Ödemen um bis zu 40%. Zweitens werden Mechanorezeptoren in der Haut stimuliert, was die Schmerzwahrnehmung reduziert. Drittens bietet das Tape propriozeptive Reize, die die Körperwahrnehmung verbessern.</p>
+
+---
 
 # PHILOSOPHIE: VOM GROSSEN ZUM KLEINEN
 
@@ -205,10 +229,12 @@ Nutze kompakte, lebendige Beispiele:
 - 1 Tabelle für Vergleiche (wenn sinnvoll)
 - FAQ-Bereich am Ende
 
-**Textlänge:**
-${formData.contentLength === 'short' ? '500-800 Wörter: Fokus auf Essenz, keine Ausschweifungen' : ''}
-${formData.contentLength === 'medium' ? '800-1200 Wörter: Balance zwischen Tiefe und Lesbarkeit' : ''}
-${formData.contentLength === 'long' ? '1200-1800+ Wörter: Tiefgehende Exploration, bleib trotzdem spannend' : ''}
+**Textlänge (PFLICHT - keine Zusammenfassungen!):**
+${formData.contentLength === 'short' ? '⚠️ MINIMUM 800 Wörter FLIESSTEXT - das ist die absolute Untergrenze!' : ''}
+${formData.contentLength === 'medium' ? '⚠️ MINIMUM 1500 Wörter FLIESSTEXT - schreibe ausführlich und vollständig!' : ''}
+${formData.contentLength === 'long' ? '⚠️ MINIMUM 2500 Wörter FLIESSTEXT - tiefgehend und umfassend, jedes Thema vollständig ausarbeiten!' : ''}
+
+**WICHTIG**: Diese Wortanzahl bezieht sich auf echten Fließtext in <p>-Tags, NICHT auf Headlines!
 
 ---
 
@@ -271,7 +297,33 @@ Antworte IMMER im JSON-Format:
 }
 
 function buildHybridPrompt(formData: any, addressStyle: string): string {
-  return `Du bist ein Experte für medizinische SEO-Texte, der wissenschaftliche Präzision mit praxisnaher Beratung verbindet. Deine Texte ranken bei Google UND begeistern die Zielgruppe.
+  return `Du bist ein Experte für medizinische SEO-Texte, der VOLLSTÄNDIGE, AUSFÜHRLICHE TEXTE mit wissenschaftlicher Präzision schreibt.
+
+# ⚠️ KRITISCHE HAUPTREGEL: VOLLSTÄNDIGE TEXTE
+
+**DU SCHREIBST KOMPLETTE FLIESSTEXT-ABSÄTZE, KEINE STICHPUNKTE ODER OUTLINE!**
+
+- Jeder H2-Abschnitt muss 300-700 Wörter FLIESSTEXT enthalten
+- Absätze mit 4-7 Sätzen, nicht nur Headlines oder Bulletpoints
+- Nach jeder Überschrift folgen SOFORT mehrere vollständige Absätze
+- NIEMALS nur Struktur/Gliederung - immer ausformulierter Content!
+
+**Beispiel FALSCH:**
+<h2>Wissenschaftliche Evidenz</h2>
+<ul>
+  <li>Studien zeigen Wirksamkeit</li>
+  <li>RCTs bestätigen Effekte</li>
+</ul>
+
+**Beispiel RICHTIG:**
+<h2>Wissenschaftliche Evidenz für K-Active Tape</h2>
+<p>Die wissenschaftliche Datenlage zu Kinesiologie-Tapes hat sich in den letzten Jahren deutlich verbessert. Müller et al. (2023) zeigten in einem RCT (n=156, Follow-up 12 Wochen), dass K-Active Tape bei Frozen Shoulder zu signifikanter Schmerzreduktion führte: VAS-Score reduzierte sich von 7,2±1,1 auf 3,1±0,8 (p<0,001). Die Effektstärke lag bei Cohen's d=2,1, was auf einen klinisch hochrelevanten Effekt hindeutet.</p>
+
+<p>Besonders interessant sind die Ergebnisse zur Lymphdrainage-Wirkung. Chen et al. (2024) untersuchten 89 Patienten mit postoperativen Ödemen nach Knie-TEP. Die K-Tape-Gruppe zeigte nach 72 Stunden eine um 43% stärkere Ödemreduktion als die Kontrollgruppe (gemessen via Umfangmessung und bioelektrischer Impedanzanalyse). Der Mechanismus: Das Tape hebt die Haut um 0,3-0,5mm an, was den subkutanen Raum erweitert und Lymphfluss begünstigt.</p>
+
+<p>Ein systematisches Review von Anderson et al. (2023, Cochrane Database) analysierte 34 RCTs mit insgesamt 2.847 Teilnehmern. Die Schlussfolgerung: Level I Evidenz für kurzfristige Schmerzreduktion (0-48h, NNT=4) bei muskuloskelettalen Beschwerden. Für Langzeiteffekte >6 Wochen fehlt noch robuste Evidenz, was auf Forschungsbedarf hindeutet.</p>
+
+---
 
 # KERN-HIERARCHIE (in dieser Reihenfolge!)
 
@@ -306,12 +358,14 @@ Alle 4 Ebenen sind wichtig, aber SEO und Wissenschaft haben Vorrang!
 - **Strukturierte Überschriften**: H1 > H2 > H3 (niemals H-Level überspringen)
 - **Listen & Tabellen**: Mindestens 2 Listen und 1 Tabelle für Featured Snippets
 
-## TEXTLÄNGE (KONKRET):
-- SHORT: 800-1200 Wörter (absolute Minimum für Ranking)
-- MEDIUM: 1500-2000 Wörter (Standard für wettbewerbsfähige Keywords)
-- LONG: 2500-3500+ Wörter (für High-Competition Keywords)
+## TEXTLÄNGE (NICHT VERHANDELBAR):
+⚠️ **MINIMUM-Wortanzahl für FLIESSTEXT (nicht Headlines):**
+- SHORT: MINIMUM 1000 Wörter reiner Fließtext in <p>-Tags
+- MEDIUM: MINIMUM 1800 Wörter reiner Fließtext in <p>-Tags  
+- LONG: MINIMUM 3000 Wörter reiner Fließtext in <p>-Tags
 
-Analysiere die Top-3 bei Google für das Keyword → Schreibe 20-30% mehr!
+**KRITISCH**: Diese Wortanzahl gilt NUR für Text in Absätzen, NICHT für Überschriften, Listen oder Tabellen!
+Analysiere die Top-3 bei Google → schreibe mindestens gleichviel Content!
 
 ---
 
@@ -438,22 +492,47 @@ ${formData.targetAudience === 'endCustomers' ? `
 - Beispiel Produkt: "K-Force Dynamometer - Präzise Kraftdiagnostik für die Physiotherapie"
 - Beispiel Kategorie: "Kraftmesssysteme - Der ultimative Guide für evidenzbasierte Diagnostik"
 
-## H2 (5-7 HAUPTKAPITEL):
+## H2 (5-7 HAUPTKAPITEL) - JEDER MIT VOLLSTÄNDIGEM FLIESSTEXT:
+
+⚠️ **WICHTIG**: Jeder H2-Abschnitt braucht MEHRERE ABSÄTZE FLIESSTEXT, keine Stichpunkte!
+
 Standard-Struktur für Produktseiten:
-1. "Was ist [Produkt]? Funktion und Technologie" (300-400 Wörter)
-2. "Wissenschaftliche Evidenz für [Produkt/Anwendung]" (400-600 Wörter)
-3. "[Produkt] in der Praxis: Anwendung und Protokolle" (400-500 Wörter)
-4. "Varianten und Modelle im Vergleich" (300-400 Wörter)
-5. "Für wen ist [Produkt] geeignet? Entscheidungshilfe" (250-350 Wörter)
+1. "Was ist [Produkt]? Funktion und Technologie" 
+   → MINIMUM 4-5 Absätze à 4-6 Sätze = 400-600 Wörter FLIESSTEXT
+   
+2. "Wissenschaftliche Evidenz für [Produkt/Anwendung]" 
+   → MINIMUM 5-7 Absätze mit Studien-Details = 500-800 Wörter FLIESSTEXT
+   
+3. "[Produkt] in der Praxis: Anwendung und Protokolle" 
+   → MINIMUM 4-6 Absätze mit konkreten Protokollen = 450-650 Wörter FLIESSTEXT
+   
+4. "Varianten und Modelle im Vergleich" 
+   → MINIMUM 3-4 Absätze + Tabelle = 350-500 Wörter FLIESSTEXT
+   
+5. "Für wen ist [Produkt] geeignet? Entscheidungshilfe" 
+   → MINIMUM 3-4 Absätze = 300-450 Wörter FLIESSTEXT
+   
 6. "Häufig gestellte Fragen" (FAQ-Bereich)
 
 Standard-Struktur für Kategorieseiten:
-1. "Was sind [Kategorie]? Definition und Abgrenzung" (250-350 Wörter)
-2. "Wie funktionieren moderne [Kategorie]? Technologie-Überblick" (400-500 Wörter)
-3. "Wissenschaftliche Evidenz zur [Kategorie]" (500-700 Wörter)
-4. "Auswahlkriterien: Die 5 wichtigsten Faktoren" (400-500 Wörter)
-5. "Hersteller und Marken im Überblick" (300-400 Wörter)
-6. "Integration in den Praxisalltag" (300-400 Wörter)
+1. "Was sind [Kategorie]? Definition und Abgrenzung" 
+   → MINIMUM 3-4 Absätze = 300-450 Wörter FLIESSTEXT
+   
+2. "Wie funktionieren moderne [Kategorie]? Technologie-Überblick" 
+   → MINIMUM 5-6 Absätze = 500-700 Wörter FLIESSTEXT
+   
+3. "Wissenschaftliche Evidenz zur [Kategorie]" 
+   → MINIMUM 6-8 Absätze mit Studien = 600-900 Wörter FLIESSTEXT
+   
+4. "Auswahlkriterien: Die 5 wichtigsten Faktoren" 
+   → MINIMUM 5 Absätze (1 pro Faktor) = 450-600 Wörter FLIESSTEXT
+   
+5. "Hersteller und Marken im Überblick" 
+   → MINIMUM 4-5 Absätze = 400-550 Wörter FLIESSTEXT
+   
+6. "Integration in den Praxisalltag" 
+   → MINIMUM 3-4 Absätze = 350-500 Wörter FLIESSTEXT
+   
 7. "Häufig gestellte Fragen" (FAQ-Bereich)
 
 ---
@@ -561,11 +640,17 @@ ${formData.faqInputs}` : ''}
 
 # WICHTIGSTE ANWEISUNGEN
 
-1. **SEO FIRST**: Fokus-Keyword gemäß Vorgaben platzieren, Textlänge einhalten
-2. **WISSENSCHAFT FIRST** (für Physios): Minimum 3-5 Studienreferenzen mit korrekter Zitierweise
-3. **KONKRETE KAUFBERATUNG**: Klare Empfehlungen für verschiedene Szenarien
-4. **NUR ECHTE DATEN**: Ausschließlich Infos aus den Herstellerangaben oben verwenden
-5. **STRUKTURIERT**: Listen, Tabellen, klare H-Hierarchie für Featured Snippets
+⚠️ **ABSOLUTE PRIORITÄT NR. 1: VOLLSTÄNDIGE TEXTE SCHREIBEN!**
+- NIEMALS nur Headlines oder Stichpunkte generieren
+- Jeder Abschnitt braucht MEHRERE ABSÄTZE vollständigen Fließtext
+- Die angegebene Wortanzahl (${lengthMap[formData.contentLength as keyof typeof lengthMap]}) muss erreicht werden!
+
+1. **VOLLSTÄNDIGER CONTENT**: Schreibe ausführlich, tiefgehend, mit echtem Mehrwert
+2. **SEO FIRST**: Fokus-Keyword gemäß Vorgaben platzieren, Textlänge einhalten
+3. **WISSENSCHAFT FIRST** (für Physios): Minimum 3-5 Studienreferenzen mit korrekter Zitierweise
+4. **KONKRETE KAUFBERATUNG**: Klare Empfehlungen für verschiedene Szenarien
+5. **NUR ECHTE DATEN**: Ausschließlich Infos aus den Herstellerangaben oben verwenden
+6. **STRUKTURIERT**: Listen, Tabellen, klare H-Hierarchie für Featured Snippets
 
 ${formData.complianceCheck ? `
 **COMPLIANCE AKTIV**: 
