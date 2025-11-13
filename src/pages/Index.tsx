@@ -1,14 +1,37 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { SEOGeneratorForm, FormData } from "@/components/SEOGeneratorForm";
 import { SEOOutputTabs, GeneratedContent } from "@/components/SEOOutputTabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, LogOut } from "lucide-react";
+import type { Session } from "@supabase/supabase-js";
 
-const Index = () => {
+interface IndexProps {
+  session: Session | null;
+}
+
+const Index = ({ session }: IndexProps) => {
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (!session) {
+      navigate("/auth");
+    }
+  }, [session, navigate]);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    navigate("/auth");
+  };
+
+  if (!session) {
+    return null;
+  }
 
   const handleGenerate = async (formData: FormData) => {
     setIsLoading(true);
@@ -48,10 +71,18 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-4 py-4">
-          <h1 className="text-2xl font-bold text-primary">SEO Content Generator</h1>
-          <p className="text-sm text-muted-foreground">
-            Professionelle SEO-Texte mit Compliance-Check für medizinische Produkte
-          </p>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold text-primary">SEO Content Generator</h1>
+              <p className="text-sm text-muted-foreground">
+                Professionelle SEO-Texte mit Compliance-Check für medizinische Produkte
+              </p>
+            </div>
+            <Button variant="outline" onClick={handleSignOut}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Abmelden
+            </Button>
+          </div>
         </div>
       </header>
 
