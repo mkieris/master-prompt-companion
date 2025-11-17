@@ -24,6 +24,9 @@ export interface FormData {
   focusKeyword: string;
   secondaryKeywords: string[];
   contentStructure: string;
+  contentLayout: string;
+  imageTextBlocks: number;
+  includeTabs: boolean;
   wordCount: string;
   headingStructure: string;
   includeIntro: boolean;
@@ -57,6 +60,9 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
     focusKeyword: "",
     secondaryKeywords: [],
     contentStructure: "",
+    contentLayout: "",
+    imageTextBlocks: 0,
+    includeTabs: false,
     wordCount: "",
     headingStructure: "",
     includeIntro: true,
@@ -203,6 +209,9 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
               focusKeyword: formData.focusKeyword,
               secondaryKeywords: formData.secondaryKeywords,
               contentStructure: formData.contentStructure,
+              contentLayout: formData.contentLayout,
+              imageTextBlocks: formData.imageTextBlocks,
+              includeTabs: formData.includeTabs,
               wordCount: formData.wordCount,
               headingStructure: formData.headingStructure,
               includeIntro: formData.includeIntro,

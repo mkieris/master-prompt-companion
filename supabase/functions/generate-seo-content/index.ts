@@ -383,6 +383,26 @@ function buildUserPrompt(formData: any, briefingContent: string = ''): string {
     complianceInfo = `\n\nCOMPLIANCE-PRÜFUNGEN AKTIV:\n${activeChecks.join('\n')}\nBitte beachte diese Anforderungen bei der Texterstellung und erstelle am Ende einen Compliance-Bericht.`;
   }
 
+  // Build layout structure description
+  let layoutStructure = '\n\n=== SEITENLAYOUT-STRUKTUR ===\n';
+  if (formData.includeIntro) {
+    layoutStructure += '✓ EINLEITUNG: Kurze, fesselnde Einleitung am Anfang (ca. 100-150 Wörter) mit Fokus-Keyword\n';
+  }
+  if (formData.imageTextBlocks && formData.imageTextBlocks > 0) {
+    layoutStructure += `✓ BILD-TEXT-BLÖCKE: ${formData.imageTextBlocks} abwechselnde Text-Bild-Abschnitte\n`;
+    layoutStructure += '  - Jeder Block behandelt einen spezifischen Aspekt/Vorteil\n';
+    layoutStructure += '  - Blöcke alternieren: Text links/Bild rechts, dann Text rechts/Bild links\n';
+    layoutStructure += '  - Nutze starke, überzeugende Zwischenüberschriften für jeden Block\n';
+  }
+  if (formData.includeTabs) {
+    layoutStructure += '✓ TAB-STRUKTUR: Organisiere zusätzliche Informationen in Tabs\n';
+    layoutStructure += '  Empfohlene Tabs: Technische Daten | Anwendungsbereiche | Zubehör & Erweiterungen | Downloads\n';
+    layoutStructure += '  - Jeder Tab enthält strukturierte, leicht erfassbare Informationen\n';
+  }
+  if (formData.includeFAQ) {
+    layoutStructure += '✓ FAQ-BEREICH: Umfangreicher FAQ-Block am Ende mit 5-8 relevanten Fragen\n';
+  }
+
   return `
 === SCHRITT 1: PRODUKTINFORMATIONEN ===
 ${formData.manufacturerName ? `Herstellername: ${formData.manufacturerName}` : ''}
@@ -399,23 +419,20 @@ Tonalität: ${formData.tonality || 'Beratend und vertrauensvoll'}
 
 === SCHRITT 3: TEXTSTRUKTUR & SEO ===
 Fokus-Keyword: ${formData.focusKeyword}
-${formData.secondaryKeywords && formData.secondaryKeywords.length > 0 ? `Sekundär-Keywords: ${formData.secondaryKeywords.join(', ')}` : ''}
-Gewünschte Textstruktur: ${formData.contentStructure || 'Standard-SEO-Struktur'}
+${formData.secondaryKeywords && formData.secondaryKeywords.length > 0 ? `Sekundär-Keywords: ${formData.secondaryKeywords.join(', ')}` : ''}${layoutStructure}
 Wortanzahl: ${formData.wordCount || '800-1200'} Wörter
 Überschriftenstruktur: ${formData.headingStructure || 'H1 > H2 > H3'}
-${formData.includeIntro ? '✓ Mit Einleitung/Intro-Text' : '✗ Ohne separate Einleitung'}
-${formData.includeFAQ ? '✓ Mit FAQ-Bereich am Ende' : '✗ Ohne FAQ-Bereich'}
 Ziel der Seite: ${goalMap[formData.pageGoal as keyof typeof goalMap] || 'Informieren'}
+${formData.contentStructure ? `\nZusätzliche Struktur-Anforderungen:\n${formData.contentStructure}` : ''}
 ${briefingContent ? `\n\n=== HOCHGELADENE BRIEFING-DOKUMENTE ===\nBerücksichtige folgende Informationen aus den hochgeladenen Dokumenten:${briefingContent}` : ''}${complianceInfo}
 
 === AUFGABE ===
 Erstelle einen hochwertigen, SEO-optimierten Text, der:
 - Alle Keyword-Vorgaben natürlich integriert
-- Die gewünschte Struktur und Ansprache umsetzt
+- Die definierte Seitenlayout-Struktur exakt umsetzt
 - Auf die Zielgruppe zugeschnitten ist
 - Das definierte Ziel der Seite erreicht
-${formData.includeFAQ ? '- Einen umfassenden FAQ-Bereich enthält' : ''}
-${formData.includeIntro ? '- Mit einem fesselnden Intro beginnt' : ''}
+- Überschriften und Text perfekt aufeinander abstimmt
 `;
 }
 
