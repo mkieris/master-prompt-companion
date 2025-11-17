@@ -46,7 +46,7 @@ serve(async (req) => {
           }
 
           const text = await data.text();
-          return `\n\n=== Dokument: ${filePath.split('/').pop()} ===\n${text.substring(0, 5000)}`;
+          return `\n\n=== Dokument: ${filePath.split('/').pop()} ===\n${text.substring(0, 10000)}`;
         } catch (err) {
           console.error(`Error processing file ${filePath}:`, err);
           return null;
