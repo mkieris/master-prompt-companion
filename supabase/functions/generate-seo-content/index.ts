@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,12 +23,47 @@ serve(async (req) => {
       pageType: formData.pageType,
       targetAudience: formData.targetAudience,
       focusKeyword: formData.focusKeyword,
-      complianceCheck: formData.complianceCheck
+      complianceCheck: formData.complianceCheck,
+      briefingFiles: formData.briefingFiles?.length || 0
     });
+
+    // Process uploaded briefing files if any
+    let briefingContent = '';
+    if (formData.briefingFiles && formData.briefingFiles.length > 0) {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      const briefingPromises = formData.briefingFiles.map(async (filePath: string) => {
+        try {
+          const { data, error } = await supabase.storage
+            .from('briefings')
+            .download(filePath);
+
+          if (error) {
+            console.error(`Error downloading file ${filePath}:`, error);
+            return null;
+          }
+
+          const text = await data.text();
+          return `\n\n=== Dokument: ${filePath.split('/').pop()} ===\n${text.substring(0, 5000)}`;
+        } catch (err) {
+          console.error(`Error processing file ${filePath}:`, err);
+          return null;
+        }
+      });
+
+      const briefings = await Promise.all(briefingPromises);
+      briefingContent = briefings.filter(Boolean).join('\n');
+      
+      if (briefingContent) {
+        console.log('Processed briefing files:', formData.briefingFiles.length);
+      }
+    }
 
     // Build the system prompt based on the requirements
     const systemPrompt = buildSystemPrompt(formData);
-    const userPrompt = buildUserPrompt(formData);
+    const userPrompt = buildUserPrompt(formData, briefingContent);
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -278,7 +314,7 @@ Antworte IMMER im JSON-Format mit dieser Struktur:
 }`;
 }
 
-function buildUserPrompt(formData: any): string {
+function buildUserPrompt(formData: any, briefingContent: string = ''): string {
   const lengthMap = {
     short: '300-500 Wörter',
     medium: '700-1000 Wörter',
@@ -319,6 +355,7 @@ Länge: ${lengthMap[formData.contentLength as keyof typeof lengthMap]}
 Tonalität: ${toneMap[formData.tone as keyof typeof toneMap]}
 ${formData.internalLinks ? `Interne Linkziele:\n${formData.internalLinks}` : ''}
 ${formData.faqInputs ? `FAQ-Vorschläge:\n${formData.faqInputs}` : ''}
+${briefingContent ? `\n\n=== HOCHGELADENE BRIEFINGS & UNTERLAGEN ===\nBerücksichtige die folgenden Informationen aus den hochgeladenen Dokumenten bei der Content-Erstellung:${briefingContent}` : ''}
 
 ${formData.complianceCheck ? `Compliance-Optionen aktiv: ${[formData.checkMDR && 'MDR/MPDG', formData.checkHWG && 'HWG', formData.checkStudies && 'Studien'].filter(Boolean).join(', ')}` : ''}
 

@@ -7,7 +7,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { X, Globe, Loader2 } from "lucide-react";
+import { X, Globe, Loader2, Upload, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -30,6 +30,7 @@ export interface FormData {
   checkMDR: boolean;
   checkHWG: boolean;
   checkStudies: boolean;
+  briefingFiles?: string[];
 }
 
 interface SEOGeneratorFormProps {
@@ -41,6 +42,8 @@ export const SEOGeneratorForm = ({ onGenerate, isLoading }: SEOGeneratorFormProp
   const { toast } = useToast();
   const [isScraping, setIsScraping] = useState(false);
   const [scrapeMode, setScrapeMode] = useState<"single" | "multi">("single");
+  const [uploadedFiles, setUploadedFiles] = useState<Array<{ name: string; path: string }>>([]);
+  const [isUploading, setIsUploading] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     pageType: "product",
     targetAudience: "endCustomers",
@@ -60,6 +63,7 @@ export const SEOGeneratorForm = ({ onGenerate, isLoading }: SEOGeneratorFormProp
     checkMDR: false,
     checkHWG: false,
     checkStudies: false,
+    briefingFiles: [],
   });
 
   const [keywordInput, setKeywordInput] = useState("");
@@ -147,6 +151,79 @@ export const SEOGeneratorForm = ({ onGenerate, isLoading }: SEOGeneratorFormProp
       });
     } finally {
       setIsScraping(false);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploading(true);
+    try {
+      const uploadPromises = Array.from(files).map(async (file) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("User not authenticated");
+
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${user.id}/${Date.now()}-${file.name}`;
+        
+        const { error: uploadError, data } = await supabase.storage
+          .from('briefings')
+          .upload(fileName, file);
+
+        if (uploadError) throw uploadError;
+
+        return { name: file.name, path: fileName };
+      });
+
+      const uploaded = await Promise.all(uploadPromises);
+      const newFiles = [...uploadedFiles, ...uploaded];
+      setUploadedFiles(newFiles);
+      
+      setFormData({
+        ...formData,
+        briefingFiles: newFiles.map(f => f.path),
+      });
+
+      toast({
+        title: "Erfolgreich",
+        description: `${uploaded.length} Datei(en) hochgeladen`,
+      });
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast({
+        title: "Fehler",
+        description: "Fehler beim Hochladen der Dateien",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleRemoveFile = async (filePath: string) => {
+    try {
+      await supabase.storage.from('briefings').remove([filePath]);
+      
+      const newFiles = uploadedFiles.filter(f => f.path !== filePath);
+      setUploadedFiles(newFiles);
+      
+      setFormData({
+        ...formData,
+        briefingFiles: newFiles.map(f => f.path),
+      });
+
+      toast({
+        title: "Erfolgreich",
+        description: "Datei entfernt",
+      });
+    } catch (error) {
+      console.error("Remove error:", error);
+      toast({
+        title: "Fehler",
+        description: "Fehler beim Entfernen der Datei",
+        variant: "destructive",
+      });
     }
   };
 
@@ -444,6 +521,54 @@ export const SEOGeneratorForm = ({ onGenerate, isLoading }: SEOGeneratorFormProp
             placeholder="Eine Frage pro Zeile"
             rows={3}
           />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="briefingFiles">Briefings & Unterlagen hochladen (Optional)</Label>
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Input
+                id="briefingFiles"
+                type="file"
+                multiple
+                accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx"
+                onChange={handleFileUpload}
+                disabled={isUploading}
+                className="flex-1"
+              />
+              {isUploading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+            </div>
+            
+            {uploadedFiles.length > 0 && (
+              <div className="space-y-2">
+                {uploadedFiles.map((file) => (
+                  <div
+                    key={file.path}
+                    className="flex items-center justify-between p-2 bg-muted rounded-md"
+                  >
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">{file.name}</span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveFile(file.path)}
+                      disabled={isUploading}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            <p className="text-xs text-muted-foreground">
+              Laden Sie Briefings, Produktinformationen oder andere relevante Dokumente hoch. 
+              Diese werden bei der Content-Generierung berücksichtigt. (Max. 10MB pro Datei)
+            </p>
+          </div>
         </div>
 
         <div className="border border-border rounded-lg p-4 space-y-3">
