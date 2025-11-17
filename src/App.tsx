@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
 import Index from "./pages/Index";
+import ProVersion from "./pages/ProVersion";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -39,6 +40,7 @@ const App = () => {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index session={session} />} />
+            <Route path="/pro" element={<ProVersion session={session} />} />
             <Route path="/auth" element={<Auth />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
