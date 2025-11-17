@@ -98,6 +98,21 @@ serve(async (req) => {
     const systemPrompt = buildSystemPrompt(formData);
     const userPrompt = buildUserPrompt(formData, briefingContent);
 
+    // Check if this is a refinement request
+    let messages;
+    if (formData.refinementPrompt && formData.existingContent) {
+      console.log('Processing refinement request');
+      messages = [
+        { role: 'system', content: 'Du bist ein erfahrener SEO-Texter. Überarbeite den vorhandenen Text gemäß den Anweisungen des Nutzers. Behalte die JSON-Struktur bei und passe nur die relevanten Teile an.' },
+        { role: 'user', content: `Hier ist der aktuelle Text:\n\n${JSON.stringify(formData.existingContent, null, 2)}\n\nBitte überarbeite den Text wie folgt:\n${formData.refinementPrompt}\n\nGib den kompletten überarbeiteten Text im gleichen JSON-Format zurück.` }
+      ];
+    } else {
+      messages = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ];
+    }
+
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -106,10 +121,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
+        messages: messages,
         temperature: 0.7,
       }),
     });
@@ -348,51 +360,62 @@ Antworte IMMER im JSON-Format mit dieser Struktur:
 }
 
 function buildUserPrompt(formData: any, briefingContent: string = ''): string {
-  const lengthMap = {
-    short: '300-500 Wörter',
-    medium: '700-1000 Wörter',
-    long: '1200+ Wörter'
-  };
-
   const goalMap = {
-    inform: 'Informieren',
-    advise: 'Beraten',
-    preparePurchase: 'Kaufen vorbereiten',
-    triggerPurchase: 'Kauf auslösen'
-  };
-
-  const toneMap = {
-    factual: 'Sachlich',
-    advisory: 'Beratend',
-    sales: 'Verkaufsorientiert'
+    inform: 'Informieren und aufklären',
+    advise: 'Beraten und Empfehlungen geben',
+    preparePurchase: 'Kaufentscheidung vorbereiten',
+    triggerPurchase: 'Direkten Kaufimpuls setzen'
   };
 
   const addressMap = {
-    du: 'Du-Form (persönlich)',
-    sie: 'Sie-Form (förmlich)',
-    neutral: 'Neutral (keine direkte Anrede)'
+    du: 'Du-Form (persönlich und direkt)',
+    sie: 'Sie-Form (höflich und förmlich)',
+    neutral: 'Neutral (keine direkte Anrede, sachlich)'
   };
 
+  // Build compliance info
+  let complianceInfo = '';
+  if (formData.complianceChecks && (formData.complianceChecks.mdr || formData.complianceChecks.hwg || formData.complianceChecks.studies)) {
+    const activeChecks = [];
+    if (formData.complianceChecks.mdr) activeChecks.push('MDR/MPDG-Konformität');
+    if (formData.complianceChecks.hwg) activeChecks.push('HWG-Konformität');
+    if (formData.complianceChecks.studies) activeChecks.push('Studienbasierte Aussagen');
+    complianceInfo = `\n\nCOMPLIANCE-PRÜFUNGEN AKTIV:\n${activeChecks.join('\n')}\nBitte beachte diese Anforderungen bei der Texterstellung und erstelle am Ende einen Compliance-Bericht.`;
+  }
+
   return `
-Seitentyp: ${formData.pageType === 'category' ? 'Kategorie' : 'Produkt'}
-Zielgruppe: ${formData.targetAudience === 'endCustomers' ? 'Endkundenorientiert' : 'Physiotherapeuten-orientiert'}
-Anrede: ${addressMap[formData.formOfAddress as keyof typeof addressMap] || addressMap.du}
-Fokus-Keyword: ${formData.focusKeyword}
-${formData.secondaryKeywords.length > 0 ? `Sekundär-Keywords: ${formData.secondaryKeywords.join(', ')}` : ''}
+=== SCHRITT 1: PRODUKTINFORMATIONEN ===
 ${formData.manufacturerName ? `Herstellername: ${formData.manufacturerName}` : ''}
 ${formData.manufacturerWebsite ? `Hersteller-Website: ${formData.manufacturerWebsite}` : ''}
-${formData.manufacturerInfo ? `Herstellerinfos: ${formData.manufacturerInfo}` : ''}
-${formData.additionalInfo ? `Zusatzinfos/USPs: ${formData.additionalInfo}` : ''}
-Ziel der Seite: ${goalMap[formData.pageGoal as keyof typeof goalMap]}
-Länge: ${lengthMap[formData.contentLength as keyof typeof lengthMap]}
-Tonalität: ${toneMap[formData.tone as keyof typeof toneMap]}
-${formData.internalLinks ? `Interne Linkziele:\n${formData.internalLinks}` : ''}
-${formData.faqInputs ? `FAQ-Vorschläge:\n${formData.faqInputs}` : ''}
-${briefingContent ? `\n\n=== HOCHGELADENE BRIEFINGS & UNTERLAGEN ===\nBerücksichtige die folgenden Informationen aus den hochgeladenen Dokumenten bei der Content-Erstellung:${briefingContent}` : ''}
+${formData.productName ? `Produktname: ${formData.productName}` : ''}
+${formData.productUrls && formData.productUrls.length > 0 ? `Produkt-URLs:\n${formData.productUrls.map((url: string) => `- ${url}`).join('\n')}` : ''}
+${formData.additionalInfo ? `Zusätzliche Informationen/USPs:\n${formData.additionalInfo}` : ''}
 
-${formData.complianceCheck ? `Compliance-Optionen aktiv: ${[formData.checkMDR && 'MDR/MPDG', formData.checkHWG && 'HWG', formData.checkStudies && 'Studien'].filter(Boolean).join(', ')}` : ''}
+=== SCHRITT 2: ZIELGRUPPE & ANSPRACHE ===
+Zielgruppe: ${formData.targetAudience || 'Nicht angegeben'}
+Anrede: ${addressMap[formData.formOfAddress as keyof typeof addressMap] || 'Du-Form'}
+Sprache: ${formData.language || 'Deutsch'}
+Tonalität: ${formData.tonality || 'Beratend und vertrauensvoll'}
 
-Erstelle einen hochwertigen SEO-Text gemäß den Vorgaben. Achte auf natürliche Keyword-Integration, klare Struktur und zielgruppengerechte Ansprache.
+=== SCHRITT 3: TEXTSTRUKTUR & SEO ===
+Fokus-Keyword: ${formData.focusKeyword}
+${formData.secondaryKeywords && formData.secondaryKeywords.length > 0 ? `Sekundär-Keywords: ${formData.secondaryKeywords.join(', ')}` : ''}
+Gewünschte Textstruktur: ${formData.contentStructure || 'Standard-SEO-Struktur'}
+Wortanzahl: ${formData.wordCount || '800-1200'} Wörter
+Überschriftenstruktur: ${formData.headingStructure || 'H1 > H2 > H3'}
+${formData.includeIntro ? '✓ Mit Einleitung/Intro-Text' : '✗ Ohne separate Einleitung'}
+${formData.includeFAQ ? '✓ Mit FAQ-Bereich am Ende' : '✗ Ohne FAQ-Bereich'}
+Ziel der Seite: ${goalMap[formData.pageGoal as keyof typeof goalMap] || 'Informieren'}
+${briefingContent ? `\n\n=== HOCHGELADENE BRIEFING-DOKUMENTE ===\nBerücksichtige folgende Informationen aus den hochgeladenen Dokumenten:${briefingContent}` : ''}${complianceInfo}
+
+=== AUFGABE ===
+Erstelle einen hochwertigen, SEO-optimierten Text, der:
+- Alle Keyword-Vorgaben natürlich integriert
+- Die gewünschte Struktur und Ansprache umsetzt
+- Auf die Zielgruppe zugeschnitten ist
+- Das definierte Ziel der Seite erreicht
+${formData.includeFAQ ? '- Einen umfassenden FAQ-Bereich enthält' : ''}
+${formData.includeIntro ? '- Mit einem fesselnden Intro beginnt' : ''}
 `;
 }
 
