@@ -58,6 +58,39 @@ serve(async (req) => {
       
       if (briefingContent) {
         console.log('Processed briefing files:', formData.briefingFiles.length);
+        
+        // Summarize the briefing content using AI
+        console.log('Summarizing briefing content...');
+        const summaryResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash',
+            messages: [
+              { 
+                role: 'system', 
+                content: 'Du bist ein Experte für die Zusammenfassung von Briefing-Dokumenten. Extrahiere die wichtigsten Punkte, Produktinformationen, Zielgruppendetails, USPs und relevante Fakten. Strukturiere die Zusammenfassung klar und prägnant.' 
+              },
+              { 
+                role: 'user', 
+                content: `Fasse folgende Briefing-Dokumente auf die wichtigsten Punkte zusammen:\n\n${briefingContent}` 
+              }
+            ],
+            temperature: 0.3,
+          }),
+        });
+
+        if (summaryResponse.ok) {
+          const summaryData = await summaryResponse.json();
+          const summary = summaryData.choices[0].message.content;
+          briefingContent = `\n\n=== ZUSAMMENFASSUNG DER BRIEFING-DOKUMENTE ===\n${summary}\n`;
+          console.log('Briefing successfully summarized');
+        } else {
+          console.error('Failed to summarize briefing, using original content');
+        }
       }
     }
 
