@@ -71,10 +71,22 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
 
     setIsUploading(true);
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: "Fehler",
+          description: "Sie müssen angemeldet sein, um Dateien hochzuladen",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const uploadedPaths: string[] = [];
 
       for (const file of Array.from(files)) {
-        const fileName = `${Date.now()}_${file.name}`;
+        // Include user_id in path for RLS policies
+        const fileName = `${user.id}/${Date.now()}_${file.name}`;
         const { error: uploadError } = await supabase.storage
           .from("briefings")
           .upload(fileName, file);
