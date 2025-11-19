@@ -99,88 +99,121 @@ async function scrapeSinglePage(url: string, apiKey: string) {
 async function crawlMultiplePages(url: string, apiKey: string) {
   console.log('Starting multi-page crawl for:', url);
   
-  // Start crawl job
-  const crawlResponse = await fetch('https://api.firecrawl.dev/v1/crawl', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      url: url,
-      limit: 50, // Maximum 50 pages
-      scrapeOptions: {
-        formats: ['markdown'],
-        onlyMainContent: true,
-      },
-      excludePaths: [
-        'impressum',
-        'datenschutz',
-        'agb',
-        'kontakt',
-        'cart',
-        'checkout',
-        'privacy',
-        'imprint',
-        'legal',
-        'terms',
-      ],
-    }),
-  });
-
-  if (!crawlResponse.ok) {
-    const errorText = await crawlResponse.text();
-    console.error('Firecrawl crawl start error:', crawlResponse.status, errorText);
-    throw new Error(`Failed to start crawl: ${crawlResponse.status} - ${errorText}`);
-  }
-
-  const crawlData = await crawlResponse.json();
-  console.log('Crawl response:', JSON.stringify(crawlData));
-  
-  if (!crawlData.success || !crawlData.id) {
-    throw new Error('Failed to start crawl job: ' + JSON.stringify(crawlData));
-  }
-
-  const jobId = crawlData.id;
-  console.log('Crawl job started:', jobId);
-
-  // Poll for completion (max 3 minutes)
-  const maxAttempts = 36; // 36 * 5s = 3 minutes
-  let attempts = 0;
-  
-  while (attempts < maxAttempts) {
-    await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
-    attempts++;
-
-    const statusResponse = await fetch(`https://api.firecrawl.dev/v1/crawl/${jobId}`, {
+  try {
+    // Use Firecrawl v2 API for better reliability
+    const crawlResponse = await fetch('https://api.firecrawl.dev/v2/crawl', {
+      method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({
+        url: url,
+        limit: 20, // Reduced from 50 for faster completion
+        maxDiscoveryDepth: 2, // Limit crawl depth
+        excludePaths: [
+          '/impressum',
+          '/datenschutz',
+          '/agb',
+          '/kontakt',
+          '/cart',
+          '/checkout',
+          '/privacy',
+          '/imprint',
+          '/legal',
+          '/terms',
+          '/account',
+          '/login',
+        ],
+        scrapeOptions: {
+          formats: ['markdown'],
+          onlyMainContent: true,
+          timeout: 30000,
+        },
+      }),
     });
 
-    if (!statusResponse.ok) {
-      console.error('Failed to check crawl status');
-      continue;
+    if (!crawlResponse.ok) {
+      const errorText = await crawlResponse.text();
+      console.error('Firecrawl v2 crawl error:', crawlResponse.status, errorText);
+      throw new Error(`Failed to start crawl: ${crawlResponse.status} - ${errorText}`);
     }
 
-    const statusData = await statusResponse.json();
-    console.log('Crawl status:', statusData.status, `(${statusData.completed}/${statusData.total})`);
+    const crawlData = await crawlResponse.json();
+    console.log('Crawl response:', JSON.stringify(crawlData).substring(0, 200));
+    
+    if (!crawlData.success || !crawlData.id) {
+      throw new Error('Failed to start crawl job: ' + JSON.stringify(crawlData));
+    }
 
-    if (statusData.status === 'completed') {
-      console.log('Crawl completed successfully');
-      
-      // Combine all scraped pages
-      const allContent = combineMultiplePages(statusData.data);
-      
-      return new Response(JSON.stringify(allContent), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    const jobId = crawlData.id;
+    console.log('Crawl job started with ID:', jobId);
+
+    // Poll for completion with timeout (max 5 minutes for v2)
+    const maxAttempts = 60; // 60 * 5s = 5 minutes
+    let attempts = 0;
+    let lastStatus = '';
+    
+    while (attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+      attempts++;
+
+      const statusResponse = await fetch(`https://api.firecrawl.dev/v2/crawl/${jobId}`, {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+        },
       });
-    } else if (statusData.status === 'failed') {
-      throw new Error('Crawl job failed');
-    }
-  }
 
-  throw new Error('Crawl timeout after 3 minutes');
+      if (!statusResponse.ok) {
+        console.error('Failed to check crawl status:', statusResponse.status);
+        continue;
+      }
+
+      const statusData = await statusResponse.json();
+      const currentStatus = `${statusData.status} (${statusData.completed || 0}/${statusData.total || 0})`;
+      
+      // Only log when status changes
+      if (currentStatus !== lastStatus) {
+        console.log('Crawl status:', currentStatus);
+        lastStatus = currentStatus;
+      }
+
+      if (statusData.status === 'completed') {
+        console.log('Crawl completed successfully. Pages scraped:', statusData.completed);
+        
+        if (!statusData.data || statusData.data.length === 0) {
+          throw new Error('No pages were successfully crawled');
+        }
+        
+        // Combine all scraped pages
+        const allContent = combineMultiplePages(statusData.data);
+        
+        return new Response(JSON.stringify(allContent), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } else if (statusData.status === 'failed') {
+        console.error('Crawl failed:', statusData.error || 'Unknown error');
+        throw new Error('Crawl job failed: ' + (statusData.error || 'Unknown error'));
+      }
+      
+      // If stuck at same number for too long (30 attempts = 2.5 minutes), return what we have
+      if (attempts > 30 && statusData.completed > 0 && statusData.data && statusData.data.length > 0) {
+        console.log('Crawl taking too long, returning partial results:', statusData.completed, 'pages');
+        const allContent = combineMultiplePages(statusData.data);
+        allContent.partial = true;
+        allContent.note = `Partial results: ${statusData.completed} of ${statusData.total} pages`;
+        
+        return new Response(JSON.stringify(allContent), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    throw new Error('Crawl timeout after 5 minutes');
+  } catch (error) {
+    console.error('Error in crawlMultiplePages:', error);
+    throw error;
+  }
 }
 
 function combineMultiplePages(pagesData: any[]): any {
@@ -201,7 +234,7 @@ function combineMultiplePages(pagesData: any[]): any {
     const metadata = page.metadata || {};
     
     if (markdown) {
-      combinedMarkdown += `\n\n--- Seite ${index + 1}: ${metadata.title || metadata.url || 'Unbekannt'} ---\n\n`;
+      combinedMarkdown += `\n\n--- Seite ${index + 1}: ${metadata.title || metadata.sourceURL || page.url || 'Unbekannt'} ---\n\n`;
       combinedMarkdown += markdown;
       
       const pageSections = markdown.split('\n## ');
@@ -212,13 +245,14 @@ function combineMultiplePages(pagesData: any[]): any {
           allSections.push({
             heading,
             content: lines.slice(1).join('\n').trim(),
-            source: metadata.url || '',
+            source: metadata.sourceURL || page.url || '',
           });
         }
       });
     }
 
-    if (metadata.url) allUrls.push(metadata.url);
+    if (metadata.sourceURL) allUrls.push(metadata.sourceURL);
+    else if (page.url) allUrls.push(page.url);
     if (metadata.keywords) allKeywords.push(...metadata.keywords);
   });
 
