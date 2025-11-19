@@ -105,8 +105,10 @@ serve(async (req) => {
       
       // Build a quick change prompt based on what changed
       let changeInstructions = 'Passe den folgenden Text an:\n\n';
+      let hasChanges = false;
       
       if (formData.tonality) {
+        hasChanges = true;
         const tonalityDescriptions: Record<string, string> = {
           'expert-mix': 'Expertenmix: 70% Fachwissen, 20% Lösungsorientierung, 10% Storytelling - wissenschaftlich-professionell für Fachpublikum',
           'consultant-mix': 'Beratermix: 40% Fachwissen, 40% Lösungsorientierung, 20% Storytelling - beratend-partnerschaftlich',
@@ -118,10 +120,12 @@ serve(async (req) => {
       }
       
       if (formData.formOfAddress) {
+        hasChanges = true;
         changeInstructions += `- Ändere die Anredeform zu: ${formData.formOfAddress === 'du' ? 'Du-Form (du, dich, dein)' : 'Sie-Form (Sie, Ihnen, Ihr)'}\n`;
       }
       
       if (formData.wordCount) {
+        hasChanges = true;
         const wordCountMap: Record<string, string> = {
           'short': '300-500 Wörter',
           'medium': '500-800 Wörter',
@@ -132,6 +136,7 @@ serve(async (req) => {
       }
       
       if (formData.keywordDensity) {
+        hasChanges = true;
         const densityMap: Record<string, string> = {
           'minimal': '0.5-1% Keyword-Dichte',
           'normal': '1-2% Keyword-Dichte',
@@ -141,16 +146,27 @@ serve(async (req) => {
       }
       
       if (typeof formData.includeFAQ === 'boolean') {
+        hasChanges = true;
         changeInstructions += `- FAQ-Bereich: ${formData.includeFAQ ? 'Hinzufügen falls nicht vorhanden' : 'Entfernen falls vorhanden'}\n`;
       }
       
       if (formData.addExamples === true) {
+        hasChanges = true;
         const isB2B = formData.targetAudience === 'b2b';
         if (isB2B) {
           changeInstructions += `- ANWENDUNGSBEISPIELE HINZUFÜGEN (B2B): Integriere 3-5 konkrete Praxisbeispiele aus dem professionellen Kontext. Zeige wie das Produkt in realen Arbeitsabläufen eingesetzt wird. Nutze Szenarien aus Kliniken, Praxen, Forschungseinrichtungen oder Unternehmen. Beispiele sollten messbare Ergebnisse, ROI, Effizienzsteigerungen oder Qualitätsverbesserungen demonstrieren.\n`;
         } else {
           changeInstructions += `- ANWENDUNGSBEISPIELE HINZUFÜGEN (B2C): Integriere 3-5 lebensnahe Alltagsbeispiele. Zeige wie das Produkt das tägliche Leben verbessert. Nutze Szenarien aus dem Alltag von Endverbrauchern: Zu Hause, beim Sport, in der Freizeit, mit der Familie. Beispiele sollten emotional nachvollziehbar sein und konkrete Situationen schildern, mit denen sich Nutzer identifizieren können.\n`;
         }
+      }
+      
+      // If no changes were detected, return existing content
+      if (!hasChanges) {
+        console.log('No changes detected, returning existing content');
+        return new Response(
+          JSON.stringify(formData.existingContent),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
       
       messages = [
