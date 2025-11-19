@@ -144,6 +144,15 @@ serve(async (req) => {
         changeInstructions += `- FAQ-Bereich: ${formData.includeFAQ ? 'Hinzufügen falls nicht vorhanden' : 'Entfernen falls vorhanden'}\n`;
       }
       
+      if (formData.addExamples === true) {
+        const isB2B = formData.targetAudience === 'b2b';
+        if (isB2B) {
+          changeInstructions += `- ANWENDUNGSBEISPIELE HINZUFÜGEN (B2B): Integriere 3-5 konkrete Praxisbeispiele aus dem professionellen Kontext. Zeige wie das Produkt in realen Arbeitsabläufen eingesetzt wird. Nutze Szenarien aus Kliniken, Praxen, Forschungseinrichtungen oder Unternehmen. Beispiele sollten messbare Ergebnisse, ROI, Effizienzsteigerungen oder Qualitätsverbesserungen demonstrieren.\n`;
+        } else {
+          changeInstructions += `- ANWENDUNGSBEISPIELE HINZUFÜGEN (B2C): Integriere 3-5 lebensnahe Alltagsbeispiele. Zeige wie das Produkt das tägliche Leben verbessert. Nutze Szenarien aus dem Alltag von Endverbrauchern: Zu Hause, beim Sport, in der Freizeit, mit der Familie. Beispiele sollten emotional nachvollziehbar sein und konkrete Situationen schildern, mit denen sich Nutzer identifizieren können.\n`;
+        }
+      }
+      
       messages = [
         { 
           role: 'system', 
