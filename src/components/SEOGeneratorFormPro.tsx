@@ -6,6 +6,8 @@ import { Step4Preview } from "./ProSteps/Step4Preview";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Progress } from "@/components/ui/progress";
+import { Loader2 } from "lucide-react";
 
 export interface FormData {
   // Step 1
@@ -76,6 +78,8 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
   });
   const [generatedContent, setGeneratedContent] = useState<any>(null);
   const [isRefining, setIsRefining] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState(0);
   const { toast } = useToast();
 
   const updateFormData = (data: Partial<FormData>) => {
@@ -83,6 +87,17 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
   };
 
   const handleGenerateContent = async () => {
+    setIsGenerating(true);
+    setGenerationProgress(0);
+    
+    // Simulate progress for better UX
+    const progressInterval = setInterval(() => {
+      setGenerationProgress(prev => {
+        if (prev >= 90) return prev;
+        return prev + Math.random() * 15;
+      });
+    }, 800);
+
     try {
       const { data, error } = await supabase.functions.invoke("generate-seo-content", {
         body: formData,
@@ -90,8 +105,14 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
 
       if (error) throw error;
 
+      setGenerationProgress(100);
       setGeneratedContent(data);
-      setCurrentStep(4);
+      
+      setTimeout(() => {
+        setCurrentStep(4);
+        setIsGenerating(false);
+        setGenerationProgress(0);
+      }, 500);
       
       toast({
         title: "Erfolgreich",
@@ -104,6 +125,10 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
         description: "Fehler beim Generieren des Inhalts",
         variant: "destructive",
       });
+      setIsGenerating(false);
+      setGenerationProgress(0);
+    } finally {
+      clearInterval(progressInterval);
     }
   };
 
@@ -212,6 +237,30 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
       <Card className="p-6">
         {renderStepIndicator()}
         
+        {isGenerating && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+            <Card className="p-8 max-w-md w-full mx-4">
+              <div className="space-y-4">
+                <div className="flex items-center justify-center">
+                  <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                </div>
+                <div className="space-y-2 text-center">
+                  <h3 className="text-lg font-semibold">SEO-Content wird generiert...</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Dies kann 30-60 Sekunden dauern. Bitte warten Sie.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Progress value={generationProgress} />
+                  <p className="text-xs text-center text-muted-foreground">
+                    {Math.round(generationProgress)}% abgeschlossen
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
+
         {currentStep === 1 && (
           <Step1InfoGathering
             data={{
