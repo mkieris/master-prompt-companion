@@ -44,33 +44,114 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
 
     setIsScraping(true);
     setCrawlProgress(0);
-    setCrawlStatus("");
+    setCrawlStatus("Starte Analyse...");
     
     try {
-      if (scrapeMode === 'multi') {
-        setCrawlStatus("Starte Multi-Page-Crawling...");
-        setCrawlProgress(10);
-      }
-      
-      const { data: scrapedData, error } = await supabase.functions.invoke("scrape-website", {
-        body: { url: data.manufacturerWebsite, mode: scrapeMode },
+      // Start the crawl/scrape
+      const { data: startData, error: startError } = await supabase.functions.invoke("scrape-website", {
+        body: { 
+          url: data.manufacturerWebsite, 
+          mode: scrapeMode,
+          action: 'scrape'
+        },
       });
 
-      if (error) throw error;
+      if (startError) throw startError;
 
-      if (scrapeMode === 'multi') {
-        setCrawlStatus(`${scrapedData.pageCount || 0} Seiten erfolgreich gecrawlt`);
+      // For single page, we get immediate results
+      if (scrapeMode === 'single') {
+        setCrawlStatus("Analyse abgeschlossen");
         setCrawlProgress(100);
+        
+        processScrapedData(startData);
+        return;
       }
 
+      // For multi-page, we need to poll for status
+      if (!startData.jobId) {
+        throw new Error('Keine Job-ID erhalten');
+      }
+
+      const jobId = startData.jobId;
+      setCrawlStatus("Crawle Website...");
+      
+      let attempts = 0;
+      const maxAttempts = 60; // 3 minutes max (60 * 3s)
+
+      const pollStatus = async () => {
+        attempts++;
+        
+        try {
+          const { data: statusData, error: statusError } = await supabase.functions.invoke("scrape-website", {
+            body: { 
+              action: 'check-status',
+              jobId: jobId
+            },
+          });
+
+          if (statusError) throw statusError;
+
+          console.log('Crawl status:', statusData);
+
+          // Update progress
+          const completed = statusData.completed || 0;
+          const total = statusData.total || 1;
+          const progressPercent = Math.min(90, (completed / total) * 100);
+          
+          setCrawlProgress(progressPercent);
+          setCrawlStatus(`${statusData.status} (${completed}/${total} Seiten)`);
+
+          // Check if completed
+          if (statusData.status === 'completed' && statusData.data) {
+            setCrawlProgress(100);
+            setCrawlStatus("Crawl abgeschlossen");
+            processScrapedData(statusData.data);
+            return;
+          }
+
+          // Check if failed
+          if (statusData.status === 'failed') {
+            throw new Error('Crawl fehlgeschlagen');
+          }
+
+          // Continue polling if not finished
+          if (attempts < maxAttempts && statusData.status === 'scraping') {
+            setTimeout(pollStatus, 3000); // Poll every 3 seconds
+          } else if (attempts >= maxAttempts) {
+            throw new Error('Timeout - Crawl dauert zu lange');
+          }
+        } catch (error) {
+          console.error('Status check error:', error);
+          throw error;
+        }
+      };
+
+      // Start polling after 3 seconds
+      setTimeout(pollStatus, 3000);
+
+    } catch (error) {
+      console.error("Scraping error:", error);
+      setCrawlStatus("");
+      setCrawlProgress(0);
+      toast({
+        title: "Fehler",
+        description: "Fehler beim Laden der Website-Daten",
+        variant: "destructive",
+      });
+      setIsScraping(false);
+    }
+  };
+
+  const processScrapedData = (scrapedData: any) => {
+    try {
       // Auto-fill product information if detected
       const updates: Partial<Step1Data> = {
-        additionalInfo: data.additionalInfo + "\n\n=== Gescrapte Informationen ===\n" + scrapedData.content
+        additionalInfo: data.additionalInfo + "\n\n=== Gescrapte Informationen ===\n" + (scrapedData.content || scrapedData.summary || '')
       };
 
       // Auto-fill product name if detected and not already set
       if (scrapedData.detectedProducts) {
-        const { isCategoryPage, category, detectedProducts, pageType } = scrapedData.detectedProducts;
+        const { isCategoryPage, category, detectedProducts } = scrapedData.detectedProducts;
         
         if (isCategoryPage && !data.productName) {
           updates.productName = category;
@@ -85,19 +166,17 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
 
       toast({
         title: "Erfolgreich",
-        description: scrapeMode === 'multi'
-          ? `${scrapedData.pageCount || 0} Seiten wurden analysiert`
+        description: scrapedData.pageCount
+          ? `${scrapedData.pageCount} Seiten wurden analysiert`
           : scrapedData.detectedProducts?.isCategoryPage 
             ? "Kategorie-Seite erkannt und Daten geladen"
             : "Website-Daten wurden erfolgreich geladen",
       });
     } catch (error) {
-      console.error("Scraping error:", error);
-      setCrawlStatus("");
+      console.error("Error processing scraped data:", error);
       toast({
-        title: "Fehler",
-        description: "Fehler beim Laden der Website-Daten",
-        variant: "destructive",
+        title: "Warnung",
+        description: "Daten wurden geladen, aber einige Informationen konnten nicht verarbeitet werden",
       });
     } finally {
       setIsScraping(false);

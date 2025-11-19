@@ -11,11 +11,18 @@ serve(async (req) => {
   }
 
   try {
-    const { url, mode = 'single' } = await req.json();
+    const { url, mode = 'single', action = 'scrape', jobId } = await req.json();
     const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
     
     if (!FIRECRAWL_API_KEY) {
       throw new Error('FIRECRAWL_API_KEY is not configured');
+    }
+
+    // Handle different actions
+    if (action === 'check-status' && jobId) {
+      // Check status of existing crawl job
+      console.log('Checking status for job:', jobId);
+      return await checkCrawlStatus(jobId, FIRECRAWL_API_KEY);
     }
 
     if (!url) {
@@ -25,8 +32,8 @@ serve(async (req) => {
     console.log('Scraping website:', url, 'Mode:', mode);
 
     if (mode === 'multi') {
-      // Multi-page crawling: Start crawl job and wait for completion
-      return await crawlMultiplePages(url, FIRECRAWL_API_KEY);
+      // Multi-page crawling: Start crawl job and return job ID
+      return await startCrawl(url, FIRECRAWL_API_KEY);
     } else {
       // Single-page scraping
       return await scrapeSinglePage(url, FIRECRAWL_API_KEY);
@@ -96,11 +103,10 @@ async function scrapeSinglePage(url: string, apiKey: string) {
   }
 }
 
-async function crawlMultiplePages(url: string, apiKey: string) {
+async function startCrawl(url: string, apiKey: string) {
   console.log('Starting multi-page crawl for:', url);
   
   try {
-    // Use Firecrawl v2 API for better reliability
     const crawlResponse = await fetch('https://api.firecrawl.dev/v2/crawl', {
       method: 'POST',
       headers: {
@@ -109,21 +115,21 @@ async function crawlMultiplePages(url: string, apiKey: string) {
       },
       body: JSON.stringify({
         url: url,
-        limit: 20, // Reduced from 50 for faster completion
-        maxDiscoveryDepth: 2, // Limit crawl depth
+        limit: 20,
+        maxDepth: 2,
         excludePaths: [
-          '/impressum',
-          '/datenschutz',
-          '/agb',
-          '/kontakt',
-          '/cart',
-          '/checkout',
-          '/privacy',
-          '/imprint',
-          '/legal',
-          '/terms',
-          '/account',
-          '/login',
+          'impressum',
+          'datenschutz',
+          'agb',
+          'kontakt',
+          'cart',
+          'checkout',
+          'privacy',
+          'imprint',
+          'legal',
+          'terms',
+          'account',
+          'login',
         ],
         scrapeOptions: {
           formats: ['markdown'],
@@ -140,78 +146,71 @@ async function crawlMultiplePages(url: string, apiKey: string) {
     }
 
     const crawlData = await crawlResponse.json();
-    console.log('Crawl response:', JSON.stringify(crawlData).substring(0, 200));
+    console.log('Crawl started successfully. Job ID:', crawlData.id);
     
     if (!crawlData.success || !crawlData.id) {
       throw new Error('Failed to start crawl job: ' + JSON.stringify(crawlData));
     }
 
-    const jobId = crawlData.id;
-    console.log('Crawl job started with ID:', jobId);
+    // Return job ID immediately - client will poll for status
+    return new Response(JSON.stringify({
+      success: true,
+      jobId: crawlData.id,
+      status: 'started',
+      message: 'Crawl job started successfully. Use jobId to check status.'
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('Error in startCrawl:', error);
+    throw error;
+  }
+}
 
-    // Poll for completion with timeout (max 5 minutes for v2)
-    const maxAttempts = 60; // 60 * 5s = 5 minutes
-    let attempts = 0;
-    let lastStatus = '';
-    
-    while (attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
-      attempts++;
+async function checkCrawlStatus(jobId: string, apiKey: string) {
+  try {
+    const statusResponse = await fetch(`https://api.firecrawl.dev/v2/crawl/${jobId}`, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+      },
+    });
 
-      const statusResponse = await fetch(`https://api.firecrawl.dev/v2/crawl/${jobId}`, {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-        },
-      });
-
-      if (!statusResponse.ok) {
-        console.error('Failed to check crawl status:', statusResponse.status);
-        continue;
-      }
-
-      const statusData = await statusResponse.json();
-      const currentStatus = `${statusData.status} (${statusData.completed || 0}/${statusData.total || 0})`;
-      
-      // Only log when status changes
-      if (currentStatus !== lastStatus) {
-        console.log('Crawl status:', currentStatus);
-        lastStatus = currentStatus;
-      }
-
-      if (statusData.status === 'completed') {
-        console.log('Crawl completed successfully. Pages scraped:', statusData.completed);
-        
-        if (!statusData.data || statusData.data.length === 0) {
-          throw new Error('No pages were successfully crawled');
-        }
-        
-        // Combine all scraped pages
-        const allContent = combineMultiplePages(statusData.data);
-        
-        return new Response(JSON.stringify(allContent), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      } else if (statusData.status === 'failed') {
-        console.error('Crawl failed:', statusData.error || 'Unknown error');
-        throw new Error('Crawl job failed: ' + (statusData.error || 'Unknown error'));
-      }
-      
-      // If stuck at same number for too long (30 attempts = 2.5 minutes), return what we have
-      if (attempts > 30 && statusData.completed > 0 && statusData.data && statusData.data.length > 0) {
-        console.log('Crawl taking too long, returning partial results:', statusData.completed, 'pages');
-        const allContent = combineMultiplePages(statusData.data);
-        allContent.partial = true;
-        allContent.note = `Partial results: ${statusData.completed} of ${statusData.total} pages`;
-        
-        return new Response(JSON.stringify(allContent), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
+    if (!statusResponse.ok) {
+      throw new Error(`Failed to check crawl status: ${statusResponse.status}`);
     }
 
-    throw new Error('Crawl timeout after 5 minutes');
+    const statusData = await statusResponse.json();
+    console.log('Crawl status:', statusData.status, `(${statusData.completed || 0}/${statusData.total || 0})`);
+
+    // If completed, process and return the data
+    if (statusData.status === 'completed') {
+      if (!statusData.data || statusData.data.length === 0) {
+        throw new Error('No pages were successfully crawled');
+      }
+      
+      const allContent = combineMultiplePages(statusData.data);
+      
+      return new Response(JSON.stringify({
+        success: true,
+        status: 'completed',
+        data: allContent
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Return current status
+    return new Response(JSON.stringify({
+      success: true,
+      status: statusData.status,
+      completed: statusData.completed || 0,
+      total: statusData.total || 0,
+      data: statusData.data || []
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   } catch (error) {
-    console.error('Error in crawlMultiplePages:', error);
+    console.error('Error in checkCrawlStatus:', error);
     throw error;
   }
 }
