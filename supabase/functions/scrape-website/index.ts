@@ -115,8 +115,8 @@ async function startCrawl(url: string, apiKey: string) {
       },
       body: JSON.stringify({
         url: url,
-        limit: 20,
-        maxDiscoveryDepth: 2,
+        limit: 8,
+        maxDiscoveryDepth: 1,
         excludePaths: [
           'impressum',
           'datenschutz',
@@ -134,7 +134,7 @@ async function startCrawl(url: string, apiKey: string) {
         scrapeOptions: {
           formats: ['markdown'],
           onlyMainContent: true,
-          timeout: 30000,
+          timeout: 15000,
         },
       }),
     });
