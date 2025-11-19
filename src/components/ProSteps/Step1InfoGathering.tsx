@@ -76,7 +76,7 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
       setCrawlStatus("Crawle Website...");
       
       let attempts = 0;
-      const maxAttempts = 60; // 3 minutes max (60 * 3s)
+      const maxAttempts = 90; // 3 minutes max (90 * 2s)
 
       const pollStatus = async () => {
         attempts++;
@@ -116,7 +116,7 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
 
           // Continue polling if not finished
           if (attempts < maxAttempts && statusData.status === 'scraping') {
-            setTimeout(pollStatus, 3000); // Poll every 3 seconds
+            setTimeout(pollStatus, 2000); // Poll every 2 seconds
           } else if (attempts >= maxAttempts) {
             throw new Error('Timeout - Crawl dauert zu lange');
           }
