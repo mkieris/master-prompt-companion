@@ -61,6 +61,15 @@ export const Step4Preview = ({
 
   const handleQuickChange = async () => {
     await onQuickChange(quickChanges);
+    // Reset quickChanges to new values after successful change
+    setQuickChanges({
+      tonality: quickChanges.tonality,
+      formOfAddress: quickChanges.formOfAddress,
+      wordCount: quickChanges.wordCount,
+      keywordDensity: quickChanges.keywordDensity,
+      includeFAQ: quickChanges.includeFAQ,
+      addExamples: false, // Reset to false after application
+    });
     setShowQuickChanges(false);
   };
 
@@ -68,6 +77,7 @@ export const Step4Preview = ({
     quickChanges.tonality !== currentFormData.tonality ||
     quickChanges.formOfAddress !== currentFormData.formOfAddress ||
     quickChanges.wordCount !== currentFormData.wordCount ||
+    quickChanges.keywordDensity !== "normal" || // Added missing check
     quickChanges.includeFAQ !== currentFormData.includeFAQ ||
     quickChanges.addExamples === true;
 
