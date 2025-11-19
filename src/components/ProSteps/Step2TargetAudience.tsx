@@ -85,11 +85,23 @@ export const Step2TargetAudience = ({ data, onUpdate, onNext, onBack }: Step2Pro
               <SelectValue placeholder="Tonalität wählen" />
             </SelectTrigger>
             <SelectContent>
+              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Informativ</div>
               <SelectItem value="professional">Professionell & Sachlich</SelectItem>
-              <SelectItem value="friendly">Freundlich & Zugänglich</SelectItem>
               <SelectItem value="scientific">Wissenschaftlich & Präzise</SelectItem>
+              <SelectItem value="educational">Lehrreich & Verständlich</SelectItem>
+              
+              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mt-2">Beziehungsorientiert</div>
+              <SelectItem value="friendly">Freundlich & Zugänglich</SelectItem>
               <SelectItem value="empathetic">Empathisch & Verständnisvoll</SelectItem>
-              <SelectItem value="authoritative">Autoritativ & Überzeugend</SelectItem>
+              <SelectItem value="trustworthy">Vertrauenswürdig & Transparent</SelectItem>
+              
+              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mt-2">Verkaufsorientiert</div>
+              <SelectItem value="persuasive">Überzeugend & Verkaufsstark</SelectItem>
+              <SelectItem value="benefit-focused">Nutzen-fokussiert & Lösungsorientiert</SelectItem>
+              <SelectItem value="urgent">Dringlich & Handlungsauffordernd</SelectItem>
+              <SelectItem value="premium">Premium & Exklusiv</SelectItem>
+              <SelectItem value="storytelling">Storytelling & Emotional</SelectItem>
+              <SelectItem value="innovative">Innovativ & Zukunftsorientiert</SelectItem>
             </SelectContent>
           </Select>
         </div>
