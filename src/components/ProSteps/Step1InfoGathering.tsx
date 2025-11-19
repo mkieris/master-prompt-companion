@@ -40,18 +40,36 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
     setIsScraping(true);
     try {
       const { data: scrapedData, error } = await supabase.functions.invoke("scrape-website", {
-        body: { url: data.manufacturerWebsite, multiPage: false },
+        body: { url: data.manufacturerWebsite, mode: 'single' },
       });
 
       if (error) throw error;
 
-      onUpdate({
+      // Auto-fill product information if detected
+      const updates: Partial<Step1Data> = {
         additionalInfo: data.additionalInfo + "\n\n=== Gescrapte Informationen ===\n" + scrapedData.content
-      });
+      };
+
+      // Auto-fill product name if detected and not already set
+      if (scrapedData.detectedProducts) {
+        const { isCategoryPage, category, detectedProducts, pageType } = scrapedData.detectedProducts;
+        
+        if (isCategoryPage && !data.productName) {
+          updates.productName = category;
+          updates.additionalInfo += `\n\n=== Automatisch erkannt ===\nSeitentyp: Kategorie/Shop-Seite\nKategorie: ${category}`;
+        } else if (detectedProducts?.length > 0 && !data.productName) {
+          updates.productName = detectedProducts[0].name;
+          updates.additionalInfo += `\n\n=== Automatisch erkannte Produkte ===\n${detectedProducts.map((p: any, i: number) => `${i + 1}. ${p.name}`).join('\n')}`;
+        }
+      }
+
+      onUpdate(updates);
 
       toast({
         title: "Erfolgreich",
-        description: "Website-Daten wurden erfolgreich geladen",
+        description: scrapedData.detectedProducts?.isCategoryPage 
+          ? "Kategorie-Seite erkannt und Daten geladen"
+          : "Website-Daten wurden erfolgreich geladen",
       });
     } catch (error) {
       console.error("Scraping error:", error);
@@ -138,7 +156,7 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
     onUpdate({ productUrls: data.productUrls.filter((_, i) => i !== index) });
   };
 
-  const canProceed = data.manufacturerName && data.productName;
+  const canProceed = data.manufacturerName; // Product name is now optional
 
   return (
     <div className="space-y-6">
@@ -185,13 +203,16 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
         </div>
 
         <div>
-          <Label htmlFor="productName">Produkt Name *</Label>
+          <Label htmlFor="productName">Produktname / Kategorie (optional)</Label>
           <Input
             id="productName"
             value={data.productName}
             onChange={(e) => onUpdate({ productName: e.target.value })}
-            placeholder="z.B. InsulinPump X2000"
+            placeholder="z.B. Smart Home Beleuchtungssystem oder Shop-Kategorie (wird automatisch erkannt)"
           />
+          <p className="text-sm text-muted-foreground mt-1">
+            Wird automatisch beim Scrapen der Website erkannt. Kann auch leer bleiben für Kategorie-Seiten.
+          </p>
         </div>
 
         <div>

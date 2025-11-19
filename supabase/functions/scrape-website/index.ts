@@ -185,6 +185,9 @@ function extractStructuredInfo(scrapedData: any): any {
   // Extract key information from the markdown content
   const sections = markdown.split('\n## ');
   
+  // Auto-detect products and categories
+  const detectedProducts = extractProducts(markdown, metadata);
+  
   return {
     title: metadata.title || '',
     description: metadata.description || '',
@@ -201,7 +204,57 @@ function extractStructuredInfo(scrapedData: any): any {
       language: metadata.language || 'de',
       keywords: metadata.keywords || [],
     },
+    detectedProducts,
     summary: markdown.substring(0, 500) + '...',
+  };
+}
+
+function extractProducts(markdown: string, metadata: any): any {
+  const products: any[] = [];
+  const text = markdown.toLowerCase();
+  
+  // Check if it's a category/shop page
+  const isCategoryPage = text.includes('kategorie') || 
+                         text.includes('category') || 
+                         text.includes('produkte') ||
+                         text.includes('products') ||
+                         text.includes('sortiment') ||
+                         text.includes('shop');
+  
+  // Extract potential product names from headings
+  const headingRegex = /^#+\s+(.+)$/gm;
+  let match;
+  const headings: string[] = [];
+  
+  while ((match = headingRegex.exec(markdown)) !== null) {
+    headings.push(match[1]);
+  }
+  
+  // Extract category information
+  let category = '';
+  if (isCategoryPage) {
+    category = metadata.title || headings[0] || 'Shop-Kategorie';
+  }
+  
+  // Look for product indicators
+  const productKeywords = ['produkt', 'product', 'artikel', 'item', 'modell', 'model', 'serie', 'series'];
+  headings.forEach(heading => {
+    const lowerHeading = heading.toLowerCase();
+    const hasProductKeyword = productKeywords.some(kw => lowerHeading.includes(kw));
+    
+    if (hasProductKeyword || (!isCategoryPage && heading.length < 100)) {
+      products.push({
+        name: heading.trim(),
+        confidence: hasProductKeyword ? 'high' : 'medium',
+      });
+    }
+  });
+  
+  return {
+    isCategoryPage,
+    category,
+    detectedProducts: products.slice(0, 5), // Limit to top 5
+    pageType: isCategoryPage ? 'category' : (products.length > 0 ? 'product' : 'general'),
   };
 }
 
