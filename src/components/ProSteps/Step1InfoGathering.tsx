@@ -417,15 +417,20 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
             </RadioGroup>
           </div>
 
-          {isScraping && scrapeMode === 'multi' && (
+          {isScraping && (
             <div className="space-y-3">
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">{crawlStatus}</span>
-                <span className="text-muted-foreground">{crawlProgress}%</span>
+                <span className="text-muted-foreground flex items-center gap-2">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  {crawlStatus || (scrapeMode === 'single' ? 'Analysiere Seite...' : 'Crawle Website...')}
+                </span>
+                {scrapeMode === 'multi' && (
+                  <span className="text-muted-foreground">{crawlProgress}%</span>
+                )}
               </div>
-              <Progress value={crawlProgress} />
+              <Progress value={scrapeMode === 'single' ? undefined : crawlProgress} />
               
-              {crawledUrls.length > 0 && (
+              {scrapeMode === 'multi' && crawledUrls.length > 0 && (
                 <Card className="p-3 bg-muted/50">
                   <div className="flex items-center gap-2 mb-2">
                     <Globe className="h-4 w-4 text-primary" />
