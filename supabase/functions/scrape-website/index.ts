@@ -115,7 +115,7 @@ async function startCrawl(url: string, apiKey: string) {
       },
       body: JSON.stringify({
         url: url,
-        limit: 8,
+        limit: 25,
         maxDiscoveryDepth: 1,
         excludePaths: [
           'impressum',
