@@ -25,6 +25,12 @@ serve(async (req) => {
       return await checkCrawlStatus(jobId, FIRECRAWL_API_KEY);
     }
 
+    if (action === 'use-partial' && jobId) {
+      // Force use of partial results
+      console.log('Using partial results for job:', jobId);
+      return await usePartialResults(jobId, FIRECRAWL_API_KEY);
+    }
+
     if (!url) {
       throw new Error('URL is required');
     }
@@ -206,19 +212,63 @@ async function checkCrawlStatus(jobId: string, apiKey: string) {
       });
     }
 
-    // Return current status with live URLs
+    // CRITICAL FIX: If we have partial data and it's taking too long,
+    // allow client to use partial results
+    const hasPartialData = statusData.data && statusData.data.length > 0;
+    const completed = statusData.completed || 0;
+    const total = statusData.total || 0;
+    
+    // Return current status with live URLs and partial data flag
     return new Response(JSON.stringify({
       success: true,
       status: statusData.status,
-      completed: statusData.completed || 0,
-      total: statusData.total || 0,
+      completed: completed,
+      total: total,
       crawledUrls: crawledUrls,
-      data: statusData.data || []
+      data: statusData.data || [],
+      hasPartialData: hasPartialData,
+      partialDataCount: statusData.data?.length || 0
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
     console.error('Error in checkCrawlStatus:', error);
+    throw error;
+  }
+}
+
+async function usePartialResults(jobId: string, apiKey: string) {
+  try {
+    const statusResponse = await fetch(`https://api.firecrawl.dev/v2/crawl/${jobId}`, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+      },
+    });
+
+    if (!statusResponse.ok) {
+      throw new Error(`Failed to get crawl data: ${statusResponse.status}`);
+    }
+
+    const statusData = await statusResponse.json();
+    console.log('Using partial results:', statusData.data?.length || 0, 'pages');
+
+    if (!statusData.data || statusData.data.length === 0) {
+      throw new Error('No data available for partial results');
+    }
+
+    // Combine whatever data we have
+    const combinedData = combineMultiplePages(statusData.data);
+
+    return new Response(JSON.stringify({
+      success: true,
+      status: 'partial',
+      data: combinedData,
+      pageCount: statusData.data.length
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('Error in usePartialResults:', error);
     throw error;
   }
 }

@@ -83,6 +83,7 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
       const maxAttempts = 180; // 6 minutes max (180 * 2s)
       let noProgressCount = 0;
       let lastCompleted = 0;
+      let stuckWithDataCount = 0; // Track how long we've been stuck WITH data
 
       const pollStatus = async () => {
         attempts++;
@@ -102,36 +103,51 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
           // Update progress
           const completed = statusData.completed || 0;
           const total = statusData.total || 0;
+          const hasPartialData = statusData.hasPartialData || false;
+          const partialDataCount = statusData.partialDataCount || 0;
           
-          // Track progress
+          // Track progress and stuckness
           if (completed === lastCompleted && completed > 0) {
             noProgressCount++;
           } else {
             noProgressCount = 0;
             lastCompleted = completed;
           }
+
+          // Track being stuck with partial data
+          if (hasPartialData && partialDataCount > 0 && noProgressCount > 0) {
+            stuckWithDataCount++;
+          } else {
+            stuckWithDataCount = 0;
+          }
           
           // Calculate progress (avoid division by zero)
           let progressPercent = 10; // Start with 10% minimum
           if (total > 0 && completed > 0) {
             progressPercent = Math.min(90, (completed / total) * 100);
+          } else if (partialDataCount > 0) {
+            // Show some progress even if total is unknown
+            progressPercent = Math.min(50, partialDataCount * 10);
           }
           
           setCrawlProgress(progressPercent);
           
-          // Improved status messages with time estimate
-          const estimatedTimeLeft = total > 0 && completed > 0 
-            ? Math.ceil(((total - completed) * 8)) // ~8 seconds per page
-            : 0;
-          
+          // Improved status messages
           if (statusData.status === 'started') {
             setCrawlStatus('Website wird analysiert...');
-          } else if (total === 0) {
+          } else if (total === 0 && partialDataCount === 0) {
             setCrawlStatus('Suche nach Seiten...');
-          } else if (estimatedTimeLeft > 0) {
-            setCrawlStatus(`${completed}/${total} Seiten • ~${estimatedTimeLeft}s verbleibend`);
-          } else {
-            setCrawlStatus(`${completed}/${total} Seiten gescraped`);
+          } else if (total > 0) {
+            const estimatedTimeLeft = completed > 0 
+              ? Math.ceil(((total - completed) * 8)) 
+              : 0;
+            if (estimatedTimeLeft > 0) {
+              setCrawlStatus(`${completed}/${total} Seiten • ~${estimatedTimeLeft}s verbleibend`);
+            } else {
+              setCrawlStatus(`${completed}/${total} Seiten gescraped`);
+            }
+          } else if (partialDataCount > 0) {
+            setCrawlStatus(`${partialDataCount} Seiten gefunden...`);
           }
           
           // Update crawled URLs live
@@ -152,9 +168,37 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
             throw new Error('Crawl fehlgeschlagen');
           }
 
-          // Check if stuck (no progress for 30 seconds with pages found)
-          if (noProgressCount > 15 && total > 0 && completed === 0) {
-            throw new Error('Crawl macht keinen Fortschritt. Bitte versuchen Sie es mit Single-Page-Modus.');
+          // CRITICAL: Use partial results if stuck for 45 seconds with data
+          if (stuckWithDataCount > 22 && partialDataCount >= 3) {
+            console.log(`Using partial results: ${partialDataCount} pages scraped`);
+            setCrawlProgress(100);
+            setCrawlStatus(`Partial Results: ${partialDataCount} Seiten verwendet`);
+            
+            // Call backend to combine and return partial data
+            const { data: partialData, error: partialError } = await supabase.functions.invoke("scrape-website", {
+              body: { 
+                action: 'use-partial',
+                jobId: jobId
+              },
+            });
+
+            if (partialError) {
+              console.error('Error getting partial results:', partialError);
+              throw partialError;
+            }
+            
+            processScrapedData(partialData.data);
+            
+            toast({
+              title: "Partial Results verwendet",
+              description: `${partialDataCount} Seiten erfolgreich gescraped. Nicht alle Seiten konnten geladen werden.`,
+            });
+            return;
+          }
+
+          // Check if stuck without any data
+          if (noProgressCount > 30 && partialDataCount === 0) {
+            throw new Error('Crawl macht keinen Fortschritt. Bitte versuchen Sie Single-Page-Modus.');
           }
 
           // Continue polling for all active statuses
@@ -162,7 +206,27 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
           if (attempts < maxAttempts && activeStatuses.includes(statusData.status)) {
             setTimeout(pollStatus, 2000); // Poll every 2 seconds
           } else if (attempts >= maxAttempts) {
-            throw new Error('Timeout - Crawl dauert zu lange. Bitte versuchen Sie Single-Page-Modus oder eine kleinere Website.');
+            // Try to use partial results if available
+            if (partialDataCount >= 3) {
+              console.log(`Timeout reached, using partial results: ${partialDataCount} pages`);
+              
+              const { data: partialData, error: partialError } = await supabase.functions.invoke("scrape-website", {
+                body: { 
+                  action: 'use-partial',
+                  jobId: jobId
+                },
+              });
+
+              if (!partialError && partialData) {
+                processScrapedData(partialData.data);
+                toast({
+                  title: "Timeout - Partial Results",
+                  description: `${partialDataCount} Seiten erfolgreich gescraped. Timeout erreicht.`,
+                });
+                return;
+              }
+            }
+            throw new Error('Timeout - Crawl dauert zu lange. Bitte versuchen Sie Single-Page-Modus.');
           } else if (!activeStatuses.includes(statusData.status)) {
             throw new Error(`Unerwarteter Status: ${statusData.status}`);
           }
