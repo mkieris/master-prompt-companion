@@ -134,11 +134,10 @@ async function startCrawl(url: string, apiKey: string) {
         scrapeOptions: {
           formats: ['markdown'],
           onlyMainContent: true,
-          timeout: 10000, // Reduced for faster failures
-          waitFor: 0, // Don't wait for JS rendering
+          timeout: 10000,
+          waitFor: 0,
         },
-        allowBackwardLinks: false, // Prevent going back in site hierarchy
-        allowExternalLinks: false, // Stay on same domain
+        allowExternalLinks: false,
       }),
     });
 
