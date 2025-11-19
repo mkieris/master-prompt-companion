@@ -99,11 +99,24 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
 
           // Update progress
           const completed = statusData.completed || 0;
-          const total = statusData.total || 1;
-          const progressPercent = Math.min(90, (completed / total) * 100);
+          const total = statusData.total || 0;
+          
+          // Calculate progress (avoid division by zero)
+          let progressPercent = 10; // Start with 10% minimum
+          if (total > 0 && completed > 0) {
+            progressPercent = Math.min(90, (completed / total) * 100);
+          }
           
           setCrawlProgress(progressPercent);
-          setCrawlStatus(`${statusData.status} (${completed}/${total} Seiten)`);
+          
+          // Improved status messages
+          if (statusData.status === 'started') {
+            setCrawlStatus('Website wird analysiert...');
+          } else if (total === 0) {
+            setCrawlStatus('Suche nach Seiten...');
+          } else {
+            setCrawlStatus(`${completed}/${total} Seiten gescraped`);
+          }
           
           // Update crawled URLs live
           if (statusData.crawledUrls && Array.isArray(statusData.crawledUrls)) {
@@ -123,11 +136,14 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
             throw new Error('Crawl fehlgeschlagen');
           }
 
-          // Continue polling if not finished
-          if (attempts < maxAttempts && statusData.status === 'scraping') {
-            setTimeout(pollStatus, 1500); // Poll every 1.5 seconds for faster updates
+          // Continue polling for all active statuses
+          const activeStatuses = ['started', 'scraping'];
+          if (attempts < maxAttempts && activeStatuses.includes(statusData.status)) {
+            setTimeout(pollStatus, 2000); // Poll every 2 seconds
           } else if (attempts >= maxAttempts) {
-            throw new Error('Timeout - Crawl dauert zu lange');
+            throw new Error('Timeout - Crawl dauert zu lange. Bitte versuchen Sie es mit einer kleineren Website.');
+          } else if (!activeStatuses.includes(statusData.status)) {
+            throw new Error(`Unerwarteter Status: ${statusData.status}`);
           }
         } catch (error) {
           console.error('Status check error:', error);
@@ -135,8 +151,8 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
         }
       };
 
-      // Start polling after 3 seconds
-      setTimeout(pollStatus, 3000);
+      // Start polling after 5 seconds to give Firecrawl time to initialize
+      setTimeout(pollStatus, 5000);
 
     } catch (error) {
       console.error("Scraping error:", error);
