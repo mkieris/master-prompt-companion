@@ -45,11 +45,11 @@ export const Step4Preview = ({
   const [refinePrompt, setRefinePrompt] = useState("");
   const [showQuickChanges, setShowQuickChanges] = useState(false);
   const [quickChanges, setQuickChanges] = useState<QuickChangeParams>({
-    tonality: currentFormData.tonality,
-    formOfAddress: currentFormData.formOfAddress,
-    wordCount: currentFormData.wordCount,
+    tonality: currentFormData.tonality || 'balanced-mix',
+    formOfAddress: currentFormData.formOfAddress || 'du',
+    wordCount: currentFormData.wordCount || 'medium',
     keywordDensity: "normal",
-    includeFAQ: currentFormData.includeFAQ,
+    includeFAQ: currentFormData.includeFAQ ?? true,
     addExamples: false,
   });
 

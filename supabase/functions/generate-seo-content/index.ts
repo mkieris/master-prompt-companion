@@ -313,11 +313,7 @@ function buildSystemPrompt(formData: any): string {
     }
   };
 
-  const tonalityConfig = tonalityMap[formData.tonality] || {
-    description: "Standard-Mix (Fallback)",
-    weights: "40% Fachwissen • 40% Lösungsorientierung • 20% Storytelling",
-    instructions: "Beratend und vertrauensvoll - kombiniere Fachkompetenz mit zugänglicher Sprache."
-  };
+  const tonalityConfig = tonalityMap[formData.tonality] || tonalityMap['balanced-mix'];
 
   const tonalityStyle = `
 ## TONALITÄT: ${tonalityConfig.description}
