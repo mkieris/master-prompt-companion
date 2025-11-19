@@ -141,7 +141,7 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
   const handleQuickChange = async (changes: any) => {
     setIsRefining(true);
     try {
-      // Update form data with changes
+      // Update form data with changes, including targetAudience for context
       const updatedFormData = {
         ...formData,
         ...changes,
@@ -151,6 +151,7 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
       const { data, error } = await supabase.functions.invoke("generate-seo-content", {
         body: {
           ...updatedFormData,
+          targetAudience: formData.targetAudience, // Ensure targetAudience is always passed
           quickChange: true,
           existingContent: generatedContent,
         },
@@ -276,6 +277,7 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
               formOfAddress: formData.formOfAddress,
               wordCount: formData.wordCount,
               includeFAQ: formData.includeFAQ,
+              targetAudience: formData.targetAudience,
             }}
           />
         )}

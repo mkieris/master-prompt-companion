@@ -20,6 +20,7 @@ interface Step4Props {
     formOfAddress: string;
     wordCount: string;
     includeFAQ: boolean;
+    targetAudience: string;
   };
 }
 
@@ -29,6 +30,7 @@ export interface QuickChangeParams {
   wordCount?: string;
   keywordDensity?: string;
   includeFAQ?: boolean;
+  addExamples?: boolean;
 }
 
 export const Step4Preview = ({ 
@@ -48,6 +50,7 @@ export const Step4Preview = ({
     wordCount: currentFormData.wordCount,
     keywordDensity: "normal",
     includeFAQ: currentFormData.includeFAQ,
+    addExamples: false,
   });
 
   const handleRefine = async () => {
@@ -65,7 +68,8 @@ export const Step4Preview = ({
     quickChanges.tonality !== currentFormData.tonality ||
     quickChanges.formOfAddress !== currentFormData.formOfAddress ||
     quickChanges.wordCount !== currentFormData.wordCount ||
-    quickChanges.includeFAQ !== currentFormData.includeFAQ;
+    quickChanges.includeFAQ !== currentFormData.includeFAQ ||
+    quickChanges.addExamples === true;
 
   return (
     <div className="space-y-6">
@@ -189,6 +193,21 @@ export const Step4Preview = ({
                       checked={quickChanges.includeFAQ}
                       onCheckedChange={(checked) => setQuickChanges({ ...quickChanges, includeFAQ: checked })}
                     />
+                  </div>
+
+                  {/* Anwendungsbeispiele Toggle */}
+                  <div className="space-y-2 flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="quick-examples">Anwendungsbeispiele hinzufügen</Label>
+                      <Switch
+                        id="quick-examples"
+                        checked={quickChanges.addExamples}
+                        onCheckedChange={(checked) => setQuickChanges({ ...quickChanges, addExamples: checked })}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      B2B: Praxisbeispiele • B2C: Alltagssituationen
+                    </p>
                   </div>
                 </div>
 
