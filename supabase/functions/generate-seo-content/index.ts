@@ -254,62 +254,108 @@ function buildSystemPrompt(formData: any): string {
   };
   const addressStyle = addressMap[formData.formOfAddress || 'du'] || addressMap.du;
   
-  // Tonalität-Mix mit präziser Gewichtungssteuerung
+  // Tonalität-Mix mit EXTREM PRÄZISER Gewichtungssteuerung
   const tonalityMap: Record<string, { description: string; weights: string; instructions: string }> = {
     'expert-mix': {
       description: "Expertenmix - Für B2B-Entscheider & wissenschaftliche Produkte",
       weights: "70% Fachwissen • 20% Lösungsorientierung • 10% Storytelling",
       instructions: `
-**GEWICHTUNG STRIKT EINHALTEN:**
-- 70% FACHWISSEN: Nutze präzise Fachterminologie, evidenzbasierte Aussagen, technische Details, Studienergebnisse. Zeige tiefe Expertise.
-- 20% LÖSUNGSORIENTIERUNG: Zeige konkrete Anwendungsfälle, praktische Implementierung, messbare Resultate. Was löst das Produkt?
-- 10% STORYTELLING: Kurze Praxisbeispiele aus dem professionellen Kontext, keine emotionalen Geschichten. Fokus bleibt auf Fakten.
+## GEWICHTUNG MATHEMATISCH UMSETZEN:
+Von 100 Sätzen im Text müssen sein:
+- **70 Sätze (70%) = FACHWISSEN**: Fachterminologie, Studienzitate, technische Spezifikationen, Wirkprinzipien, Evidenz
+- **20 Sätze (20%) = LÖSUNGSORIENTIERUNG**: "Das bewirkt...", "Dadurch können Sie...", Anwendungsfälle, ROI, Effizienz
+- **10 Sätze (10%) = STORYTELLING**: Kurze Praxisbeispiele, "In der Klinik X...", sachliche Anwendungsszenarien
 
-**TON:** Wissenschaftlich-professionell, autoritativ, faktenbasiert. Zielgruppe: Fachpublikum, Ärzte, Wissenschaftler, B2B-Entscheider.`
+**SELBSTPRÜFUNG VOR AUSGABE:**
+Zähle mental: Überwiegen Fachbegriffe und Evidenz (70%)? → Wenn nein, füge mehr hinzu!
+
+**KONKRETE UMSETZUNG:**
+- Jeder Absatz: Min. 3 Fachbegriffe, 1 Evidenz/Studie, max. 1 Beispiel
+- H2-Überschriften: Fachlich-präzise, nicht emotional
+- Intro: Sofort mit Fachkontext starten, nicht mit Frage/Story
+
+**TON:** Wissenschaftlich-autoritativ, wie in Nature/Lancet. Zielgruppe: Mediziner, Forscher, B2B-Entscheider mit Fachexpertise.`
     },
     'consultant-mix': {
       description: "Beratermix - Für Vergleichsphase & Problem-aware Käufer",
       weights: "40% Fachwissen • 40% Lösungsorientierung • 20% Storytelling",
       instructions: `
-**GEWICHTUNG STRIKT EINHALTEN:**
-- 40% FACHWISSEN: Erkläre Zusammenhänge fundiert aber verständlich. Nutze Fachbegriffe mit Erklärungen. Beweise Kompetenz ohne zu überfordern.
-- 40% LÖSUNGSORIENTIERUNG: Stehe im Zentrum! Zeige konkrete Problemlösungen, Nutzenargumente, Vergleichsvorteile. "Warum DIESE Lösung?"
-- 20% STORYTELLING: Nutze Fallbeispiele, Kundenszenarien, "Vorher-Nachher"-Situationen. Schaffe Identifikation mit der Problemstellung.
+## GEWICHTUNG MATHEMATISCH UMSETZEN:
+Von 100 Sätzen im Text müssen sein:
+- **40 Sätze (40%) = FACHWISSEN**: Fundiertes Wissen, aber verständlich erklärt. Fachbegriffe + Klammererklärung. "Das bedeutet konkret..."
+- **40 Sätze (40%) = LÖSUNGSORIENTIERUNG**: IM ZENTRUM! "Sie sparen...", "Das löst...", "Dadurch erreichen Sie...", Nutzenargumente, Vergleiche
+- **20 Sätze (20%) = STORYTELLING**: Fallbeispiele, "Kunde X hatte Y, jetzt Z", Vorher-Nachher-Szenarien
 
-**TON:** Beratend-partnerschaftlich, lösungsorientiert, vertrauensbildend. Zielgruppe: Informierte Käufer in der Entscheidungsphase.`
+**SELBSTPRÜFUNG VOR AUSGABE:**
+Zähle mental: Stehen Lösungen & Nutzen gleichwertig neben Fachwissen (40:40)? → Balance prüfen!
+
+**KONKRETE UMSETZUNG:**
+- Jeder Absatz: 2 Fach-Aussagen + 2 Nutzen-Aussagen + max. 1 Fallbeispiel
+- Verhältnis: Für jede Fach-Erklärung MUSS ein konkreter Nutzen folgen
+- H2-Überschriften: Mix aus "Was ist X?" (Fach) und "Was bringt X?" (Lösung)
+
+**TON:** Beratend-kompetent, wie ein erfahrener Consultant. "Ich verstehe Ihr Problem, hier die beste Lösung." Zielgruppe: Entscheider im Vergleichsmodus.`
     },
     'storytelling-mix': {
       description: "Storytelling-Mix - Für emotional getriebene Käufe & Lifestyle-Produkte",
       weights: "30% Fachwissen • 30% Lösungsorientierung • 40% Storytelling",
       instructions: `
-**GEWICHTUNG STRIKT EINHALTEN:**
-- 30% FACHWISSEN: Liefere genug Fakten für Glaubwürdigkeit, aber verpacke sie in Geschichten. Erkläre, warum es funktioniert - ohne Fachsprache.
-- 30% LÖSUNGSORIENTIERUNG: Zeige die Transformation: Wie verändert das Produkt den Alltag? Was wird besser, leichter, schöner?
-- 40% STORYTELLING: IM ZENTRUM! Erzähle emotionale Geschichten von echten Anwendern, schaffe Bilder, nutze sensorische Sprache (fühlen, spüren, erleben). Baue emotionale Verbindungen auf.
+## GEWICHTUNG MATHEMATISCH UMSETZEN:
+Von 100 Sätzen im Text müssen sein:
+- **30 Sätze (30%) = FACHWISSEN**: Genug für Glaubwürdigkeit, aber IN Geschichten verpackt. "Die Technologie nutzt..., was bedeutet, dass..."
+- **30 Sätze (30%) = LÖSUNGSORIENTIERUNG**: Transformation zeigen. "Stell dir vor, du...", "Dein Alltag wird...", konkrete Verbesserungen
+- **40 Sätze (40%) = STORYTELLING**: DOMINANZ! Echte Nutzer-Geschichten, sensorische Sprache, emotionale Bilder, "Als Maria das erste Mal..."
 
-**TON:** Emotional, inspirierend, lebendig, nahbar. Zielgruppe: Lifestyle-orientierte Käufer, emotionale Kaufentscheidungen.`
+**SELBSTPRÜFUNG VOR AUSGABE:**
+Zähle mental: Überwiegen Geschichten und Emotionen (40%)? Sind es echte Stories, nicht nur Fakten? → Wenn zu trocken, mehr Emotionen!
+
+**KONKRETE UMSETZUNG:**
+- Jeder Absatz STARTET mit Story oder Bild, dann Fakten einstreuen
+- Intro: IMMER mit emotionalem Szenario beginnen, nicht mit Definition
+- Sprache: "Du fühlst...", "Stell dir vor...", "Erlebe...", viele Adjektive
+
+**TON:** Emotional-inspirierend, wie in Lifestyle-Magazinen (GQ, Vogue). Zielgruppe: Emotionale Käufer, Lifestyle-Fokus, "Ich will mich gut fühlen".`
     },
     'conversion-mix': {
       description: "Conversion-Mix - Für Produktseiten & klare Problemlösungen",
       weights: "20% Fachwissen • 60% Lösungsorientierung • 20% Storytelling",
       instructions: `
-**GEWICHTUNG STRIKT EINHALTEN:**
-- 20% FACHWISSEN: Nur das nötigste an Fakten - genug für Glaubwürdigkeit, aber nicht mehr. Halte es einfach.
-- 60% LÖSUNGSORIENTIERUNG: IM ZENTRUM! Jeder Absatz muss einen konkreten Nutzen kommunizieren. "Was habe ICH davon?" Klare Vorteile, messbare Resultate, starke Call-to-Actions. VERKAUFE!
-- 20% STORYTELLING: Kurze, prägnante Erfolgsbeispiele. "Kunde X hatte Problem Y, jetzt Lösung Z." Halte es konkret und actionable.
+## GEWICHTUNG MATHEMATISCH UMSETZEN:
+Von 100 Sätzen im Text müssen sein:
+- **20 Sätze (20%) = FACHWISSEN**: Minimal! Nur zur Glaubwürdigkeit. "Zertifiziert nach...", "Basiert auf...", kurz und knapp
+- **60 Sätze (60%) = LÖSUNGSORIENTIERUNG**: ABSOLUTE DOMINANZ! "Sie sparen 30%", "In 5 Minuten einsatzbereit", "Reduziert Schmerzen um 70%", jeder Satz = Nutzen!
+- **20 Sätze (20%) = STORYTELLING**: Erfolgsbeweise. "1000+ Kunden nutzen es", "Dr. Meyer: 'Revolutioniert meine Praxis'", kurz & knackig
 
-**TON:** Überzeugend, verkaufsstark, nutzenorientiert, handlungsauffordernd. Zielgruppe: Kaufbereite Nutzer auf Produktseiten.`
+**SELBSTPRÜFUNG VOR AUSGABE:**
+Zähle mental: Kommuniziert JEDER Absatz einen klaren Nutzen (60%)? Gibt es starke CTAs? → Wenn zu informativ, mehr Verkaufsargumente!
+
+**KONKRETE UMSETZUNG:**
+- JEDER Absatz endet mit Nutzen oder CTA
+- Bullet Points: Nur Vorteile, keine Features ohne Nutzen
+- Überschriften: "Wie Sie damit...", "X Vorteile von...", aktionsorientiert
+- Sprache: "Jetzt", "Sofort", "Sparen Sie", imperativ
+
+**TON:** Verkaufsstark-überzeugend, wie Top-Produktseiten (Apple, Amazon). Zielgruppe: Kaufbereite Nutzer, "Ich will JETZT kaufen, überzeuge mich!"`
     },
     'balanced-mix': {
       description: "Balanced-Mix - Für ganzheitliche Landingpages & Kategorie-Seiten",
       weights: "33% Fachwissen • 33% Lösungsorientierung • 33% Storytelling",
       instructions: `
-**GEWICHTUNG STRIKT EINHALTEN:**
-- 33% FACHWISSEN: Liefere fundierte, aber verständliche Informationen. Baue Vertrauen durch Expertise auf, ohne zu überfordern.
-- 33% LÖSUNGSORIENTIERUNG: Zeige vielfältige Anwendungsfälle, verschiedene Nutzenargumente, breites Lösungsspektrum. Decke unterschiedliche Bedürfnisse ab.
-- 33% STORYTELLING: Mix aus rationalen Fallbeispielen und emotionalen Geschichten. Sprich verschiedene Käufertypen an.
+## GEWICHTUNG MATHEMATISCH UMSETZEN:
+Von 100 Sätzen im Text müssen sein:
+- **33 Sätze (33%) = FACHWISSEN**: Fundierte Infos, verständlich. "Studien zeigen...", "Die Technologie basiert auf...", Expertenzitate
+- **33 Sätze (33%) = LÖSUNGSORIENTIERUNG**: Vielfältige Nutzenargumente. "Ideal für...", "Löst Problem X", verschiedene Anwendungsfälle
+- **33 Sätze (33%) = STORYTELLING**: Mix aus Fallbeispielen & Emotionen. Sowohl "In Klinik X..." als auch "Erlebe..."
 
-**TON:** Ausgewogen, vielseitig, für breites Publikum zugänglich. Zielgruppe: Diverse Besuchergruppen auf Übersichtsseiten.`
+**SELBSTPRÜFUNG VOR AUSGABE:**
+Zähle mental: Sind alle drei Elemente GLEICHMÄSSIG verteilt (33:33:33)? → Perfekte Balance ist Ziel!
+
+**KONKRETE UMSETZUNG:**
+- Jeder Absatz: 1 Fach-Aussage + 1 Nutzen-Aussage + 1 Story/Beispiel
+- Abwechslung: Fach-Absatz → Nutzen-Absatz → Story-Absatz im Wechsel
+- Überschriften: Mix aus informativen, lösungsorientierten und emotionalen Titeln
+
+**TON:** Ausgewogen-vielseitig, spricht alle Käufertypen an. Zielgruppe: Breites Publikum mit unterschiedlichen Informationsbedürfnissen.`
     }
   };
 
@@ -317,9 +363,17 @@ function buildSystemPrompt(formData: any): string {
 
   const tonalityStyle = `
 ## TONALITÄT: ${tonalityConfig.description}
-${tonalityConfig.weights}
+### GEWICHTUNG: ${tonalityConfig.weights}
 
-${tonalityConfig.instructions}`;
+${tonalityConfig.instructions}
+
+## ⚠️ KRITISCH - GEWICHTUNGS-SELBSTVALIDIERUNG VOR AUSGABE:
+Bevor du den Text ausgibst, PRÜFE:
+1. Entspricht die Verteilung der Satztypen der Gewichtung?
+2. Dominiert der Hauptfokus (höchste %) deutlich erkennbar?
+3. Würde ein Leser die Tonalität sofort erkennen?
+
+Wenn NEIN → TEXT ANPASSEN, bis Gewichtung stimmt!`;
   
   return `Du bist ein erfahrener SEO-Texter für medizinische und therapeutische Produkte. Du verfasst hilfreiche, präzise, gut strukturierte SEO-Texte.
 
