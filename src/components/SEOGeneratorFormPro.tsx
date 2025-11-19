@@ -138,6 +138,44 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
     }
   };
 
+  const handleQuickChange = async (changes: any) => {
+    setIsRefining(true);
+    try {
+      // Update form data with changes
+      const updatedFormData = {
+        ...formData,
+        ...changes,
+      };
+      setFormData(updatedFormData);
+
+      const { data, error } = await supabase.functions.invoke("generate-seo-content", {
+        body: {
+          ...updatedFormData,
+          quickChange: true,
+          existingContent: generatedContent,
+        },
+      });
+
+      if (error) throw error;
+
+      setGeneratedContent(data);
+      
+      toast({
+        title: "Erfolgreich",
+        description: "Änderungen wurden übernommen",
+      });
+    } catch (error) {
+      console.error("Quick change error:", error);
+      toast({
+        title: "Fehler",
+        description: "Fehler beim Übernehmen der Änderungen",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefining(false);
+    }
+  };
+
   const handleFinish = () => {
     onGenerate(formData);
   };
@@ -229,9 +267,16 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
           <Step4Preview
             generatedContent={generatedContent}
             onRefine={handleRefineContent}
+            onQuickChange={handleQuickChange}
             onBack={() => setCurrentStep(3)}
             onFinish={handleFinish}
             isRefining={isRefining}
+            currentFormData={{
+              tonality: formData.tonality,
+              formOfAddress: formData.formOfAddress,
+              wordCount: formData.wordCount,
+              includeFAQ: formData.includeFAQ,
+            }}
           />
         )}
       </Card>

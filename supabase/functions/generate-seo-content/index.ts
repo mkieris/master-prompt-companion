@@ -98,9 +98,63 @@ serve(async (req) => {
     const systemPrompt = buildSystemPrompt(formData);
     const userPrompt = buildUserPrompt(formData, briefingContent);
 
-    // Check if this is a refinement request
+    // Check if this is a refinement or quick change request
     let messages;
-    if (formData.refinementPrompt && formData.existingContent) {
+    if (formData.quickChange && formData.existingContent) {
+      console.log('Processing quick change request');
+      
+      // Build a quick change prompt based on what changed
+      let changeInstructions = 'Passe den folgenden Text an:\n\n';
+      
+      if (formData.tonality) {
+        const tonalityDescriptions: Record<string, string> = {
+          'expert-mix': 'Expertenmix: 70% Fachwissen, 20% Lösungsorientierung, 10% Storytelling - wissenschaftlich-professionell für Fachpublikum',
+          'consultant-mix': 'Beratermix: 40% Fachwissen, 40% Lösungsorientierung, 20% Storytelling - beratend-partnerschaftlich',
+          'storytelling-mix': 'Storytelling-Mix: 30% Fachwissen, 30% Lösungsorientierung, 40% Storytelling - emotional und inspirierend',
+          'conversion-mix': 'Conversion-Mix: 20% Fachwissen, 60% Lösungsorientierung, 20% Storytelling - verkaufsstark und nutzenorientiert',
+          'balanced-mix': 'Balanced-Mix: je 33% - ausgewogen für breites Publikum'
+        };
+        changeInstructions += `- Ändere die Tonalität zu: ${tonalityDescriptions[formData.tonality] || formData.tonality}\n`;
+      }
+      
+      if (formData.formOfAddress) {
+        changeInstructions += `- Ändere die Anredeform zu: ${formData.formOfAddress === 'du' ? 'Du-Form (du, dich, dein)' : 'Sie-Form (Sie, Ihnen, Ihr)'}\n`;
+      }
+      
+      if (formData.wordCount) {
+        const wordCountMap: Record<string, string> = {
+          'short': '300-500 Wörter',
+          'medium': '500-800 Wörter',
+          'long': '800-1200 Wörter',
+          'very-long': '1200-1800 Wörter'
+        };
+        changeInstructions += `- Passe die Textlänge an auf: ${wordCountMap[formData.wordCount] || formData.wordCount}\n`;
+      }
+      
+      if (formData.keywordDensity) {
+        const densityMap: Record<string, string> = {
+          'minimal': '0.5-1% Keyword-Dichte',
+          'normal': '1-2% Keyword-Dichte',
+          'high': '2-3% Keyword-Dichte'
+        };
+        changeInstructions += `- Passe die Keyword-Dichte an auf: ${densityMap[formData.keywordDensity] || formData.keywordDensity}\n`;
+      }
+      
+      if (typeof formData.includeFAQ === 'boolean') {
+        changeInstructions += `- FAQ-Bereich: ${formData.includeFAQ ? 'Hinzufügen falls nicht vorhanden' : 'Entfernen falls vorhanden'}\n`;
+      }
+      
+      messages = [
+        { 
+          role: 'system', 
+          content: 'Du bist ein erfahrener SEO-Texter. Passe den vorhandenen Text gemäß den Anweisungen an. Behalte die JSON-Struktur bei und passe die relevanten Teile entsprechend der neuen Parameter an. Der Text soll weiterhin hochwertig und SEO-optimiert sein.' 
+        },
+        { 
+          role: 'user', 
+          content: `${changeInstructions}\n\nAktueller Text:\n${JSON.stringify(formData.existingContent, null, 2)}\n\nGib den angepassten Text im gleichen JSON-Format zurück.` 
+        }
+      ];
+    } else if (formData.refinementPrompt && formData.existingContent) {
       console.log('Processing refinement request');
       messages = [
         { role: 'system', content: 'Du bist ein erfahrener SEO-Texter. Überarbeite den vorhandenen Text gemäß den Anweisungen des Nutzers. Behalte die JSON-Struktur bei und passe nur die relevanten Teile an.' },
