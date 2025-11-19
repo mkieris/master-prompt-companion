@@ -41,40 +41,59 @@ serve(async (req) => {
 });
 
 async function scrapeSinglePage(url: string, apiKey: string) {
-  console.log('Starting single-page scrape');
+  console.log('Starting single-page scrape for:', url);
   
-  const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      url: url,
-      formats: ['markdown', 'html'],
-      onlyMainContent: true,
-      waitFor: 2000,
-    }),
-  });
+  try {
+    const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url: url,
+        formats: ['markdown', 'html'],
+        onlyMainContent: true,
+        waitFor: 5000,
+        timeout: 60000,
+      }),
+    });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Firecrawl API error:', response.status, errorText);
-    throw new Error(`Firecrawl API error: ${response.status}`);
+    const data = await response.json();
+    console.log('Firecrawl response status:', response.status, 'success:', data.success);
+    
+    if (!response.ok) {
+      console.error('Firecrawl API error details:', data);
+      
+      // Handle timeout specifically
+      if (response.status === 408 || data.code === 'SCRAPE_TIMEOUT') {
+        return new Response(JSON.stringify({ 
+          error: 'Website scraping timed out. Try a simpler page or use multi-page mode.',
+          code: 'TIMEOUT',
+          url: url
+        }), {
+          status: 408,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      throw new Error(`Firecrawl API error: ${response.status} - ${data.error || 'Unknown error'}`);
+    }
+    
+    if (!data.success) {
+      throw new Error('Failed to scrape website: ' + (data.error || 'Unknown error'));
+    }
+
+    console.log('Successfully scraped single page');
+    const structuredData = extractStructuredInfo(data.data);
+
+    return new Response(JSON.stringify(structuredData), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('Error in scrapeSinglePage:', error);
+    throw error;
   }
-
-  const data = await response.json();
-  
-  if (!data.success) {
-    throw new Error('Failed to scrape website');
-  }
-
-  console.log('Successfully scraped single page');
-  const structuredData = extractStructuredInfo(data.data);
-
-  return new Response(JSON.stringify(structuredData), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
 }
 
 async function crawlMultiplePages(url: string, apiKey: string) {
