@@ -6,6 +6,8 @@ import { Loader2, Link as LinkIcon, X } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Progress } from "@/components/ui/progress";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface Step1Data {
   manufacturerName: string;
@@ -25,6 +27,9 @@ interface Step1Props {
 export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
   const [isScraping, setIsScraping] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [scrapeMode, setScrapeMode] = useState<'single' | 'multi'>('single');
+  const [crawlProgress, setCrawlProgress] = useState(0);
+  const [crawlStatus, setCrawlStatus] = useState("");
   const { toast } = useToast();
 
   const handleScrapeWebsite = async () => {
@@ -38,12 +43,25 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
     }
 
     setIsScraping(true);
+    setCrawlProgress(0);
+    setCrawlStatus("");
+    
     try {
+      if (scrapeMode === 'multi') {
+        setCrawlStatus("Starte Multi-Page-Crawling...");
+        setCrawlProgress(10);
+      }
+      
       const { data: scrapedData, error } = await supabase.functions.invoke("scrape-website", {
-        body: { url: data.manufacturerWebsite, mode: 'single' },
+        body: { url: data.manufacturerWebsite, mode: scrapeMode },
       });
 
       if (error) throw error;
+
+      if (scrapeMode === 'multi') {
+        setCrawlStatus(`${scrapedData.pageCount || 0} Seiten erfolgreich gecrawlt`);
+        setCrawlProgress(100);
+      }
 
       // Auto-fill product information if detected
       const updates: Partial<Step1Data> = {
@@ -67,12 +85,15 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
 
       toast({
         title: "Erfolgreich",
-        description: scrapedData.detectedProducts?.isCategoryPage 
-          ? "Kategorie-Seite erkannt und Daten geladen"
-          : "Website-Daten wurden erfolgreich geladen",
+        description: scrapeMode === 'multi'
+          ? `${scrapedData.pageCount || 0} Seiten wurden analysiert`
+          : scrapedData.detectedProducts?.isCategoryPage 
+            ? "Kategorie-Seite erkannt und Daten geladen"
+            : "Website-Daten wurden erfolgreich geladen",
       });
     } catch (error) {
       console.error("Scraping error:", error);
+      setCrawlStatus("");
       toast({
         title: "Fehler",
         description: "Fehler beim Laden der Website-Daten",
@@ -176,6 +197,40 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
             onChange={(e) => onUpdate({ manufacturerName: e.target.value })}
             placeholder="z.B. Medtronic"
           />
+        </div>
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Scraping-Modus</Label>
+            <RadioGroup 
+              value={scrapeMode} 
+              onValueChange={(value: 'single' | 'multi') => setScrapeMode(value)}
+              disabled={isScraping}
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="single" id="single" />
+                <Label htmlFor="single" className="font-normal cursor-pointer">
+                  Einzelne Seite - Schnell, nur die eingegebene URL
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="multi" id="multi" />
+                <Label htmlFor="multi" className="font-normal cursor-pointer">
+                  Multi-Page - Crawlt bis zu 50 Unterseiten (dauert länger)
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          {isScraping && scrapeMode === 'multi' && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">{crawlStatus}</span>
+                <span className="text-muted-foreground">{crawlProgress}%</span>
+              </div>
+              <Progress value={crawlProgress} />
+            </div>
+          )}
         </div>
 
         <div>

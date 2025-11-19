@@ -178,6 +178,64 @@ async function crawlMultiplePages(url: string, apiKey: string) {
   throw new Error('Crawl timeout after 3 minutes');
 }
 
+function combineMultiplePages(pagesData: any[]): any {
+  if (!pagesData || pagesData.length === 0) {
+    throw new Error('No pages found in crawl result');
+  }
+
+  console.log(`Combining ${pagesData.length} pages`);
+
+  // Combine all markdown content from all pages
+  let combinedMarkdown = '';
+  const allSections: any[] = [];
+  const allUrls: string[] = [];
+  const allKeywords: string[] = [];
+
+  pagesData.forEach((page, index) => {
+    const markdown = page.markdown || '';
+    const metadata = page.metadata || {};
+    
+    if (markdown) {
+      combinedMarkdown += `\n\n--- Seite ${index + 1}: ${metadata.title || metadata.url || 'Unbekannt'} ---\n\n`;
+      combinedMarkdown += markdown;
+      
+      const pageSections = markdown.split('\n## ');
+      pageSections.forEach((section: string) => {
+        const lines = section.split('\n');
+        const heading = lines[0]?.replace(/^#+ /, '');
+        if (heading) {
+          allSections.push({
+            heading,
+            content: lines.slice(1).join('\n').trim(),
+            source: metadata.url || '',
+          });
+        }
+      });
+    }
+
+    if (metadata.url) allUrls.push(metadata.url);
+    if (metadata.keywords) allKeywords.push(...metadata.keywords);
+  });
+
+  // Remove duplicate keywords
+  const uniqueKeywords = [...new Set(allKeywords)];
+
+  return {
+    title: `Crawl-Ergebnis: ${pagesData.length} Seiten`,
+    description: `Kombinierte Inhalte von ${pagesData.length} Unterseiten`,
+    url: allUrls[0] || '',
+    crawledUrls: allUrls,
+    pageCount: pagesData.length,
+    content: combinedMarkdown,
+    sections: allSections,
+    metadata: {
+      language: 'de',
+      keywords: uniqueKeywords,
+    },
+    summary: combinedMarkdown.substring(0, 800) + `... (${pagesData.length} Seiten analysiert)`,
+  };
+}
+
 function extractStructuredInfo(scrapedData: any): any {
   const markdown = scrapedData.markdown || '';
   const metadata = scrapedData.metadata || {};
@@ -258,60 +316,3 @@ function extractProducts(markdown: string, metadata: any): any {
   };
 }
 
-function combineMultiplePages(pagesData: any[]): any {
-  if (!pagesData || pagesData.length === 0) {
-    throw new Error('No pages found in crawl result');
-  }
-
-  console.log(`Combining ${pagesData.length} pages`);
-
-  // Combine all markdown content from all pages
-  let combinedMarkdown = '';
-  const allSections: any[] = [];
-  const allUrls: string[] = [];
-  const allKeywords: string[] = [];
-
-  pagesData.forEach((page, index) => {
-    const markdown = page.markdown || '';
-    const metadata = page.metadata || {};
-    
-    if (markdown) {
-      combinedMarkdown += `\n\n--- Seite ${index + 1}: ${metadata.title || metadata.url || 'Unbekannt'} ---\n\n`;
-      combinedMarkdown += markdown;
-      
-      const pageSections = markdown.split('\n## ');
-      pageSections.forEach((section: string) => {
-        const lines = section.split('\n');
-        const heading = lines[0]?.replace(/^#+ /, '');
-        if (heading) {
-          allSections.push({
-            heading,
-            content: lines.slice(1).join('\n').trim(),
-            source: metadata.url || '',
-          });
-        }
-      });
-    }
-
-    if (metadata.url) allUrls.push(metadata.url);
-    if (metadata.keywords) allKeywords.push(...metadata.keywords);
-  });
-
-  // Remove duplicate keywords
-  const uniqueKeywords = [...new Set(allKeywords)];
-
-  return {
-    title: `Crawl-Ergebnis: ${pagesData.length} Seiten`,
-    description: `Kombinierte Inhalte von ${pagesData.length} Unterseiten`,
-    url: allUrls[0] || '',
-    crawledUrls: allUrls,
-    pageCount: pagesData.length,
-    content: combinedMarkdown,
-    sections: allSections,
-    metadata: {
-      language: 'de',
-      keywords: uniqueKeywords,
-    },
-    summary: combinedMarkdown.substring(0, 800) + `... (${pagesData.length} Seiten analysiert)`,
-  };
-}
