@@ -121,8 +121,8 @@ async function startCrawl(url: string, apiKey: string) {
       },
       body: JSON.stringify({
         url: url,
-        limit: 10, // Reduced from 25 for faster completion
-        maxDiscoveryDepth: 2, // Increased depth for better coverage
+        limit: 10,
+        maxDiscoveryDepth: 2,
         excludePaths: [
           'impressum',
           'datenschutz',
@@ -140,26 +140,29 @@ async function startCrawl(url: string, apiKey: string) {
         scrapeOptions: {
           formats: ['markdown'],
           onlyMainContent: true,
-          timeout: 10000,
-          waitFor: 0,
+          timeout: 30000, // Increased from 10000
+          waitFor: 2000,  // Changed from 0 to 2000ms
         },
         allowExternalLinks: false,
       }),
     });
 
+    const crawlData = await crawlResponse.json();
+    
     if (!crawlResponse.ok) {
-      const errorText = await crawlResponse.text();
-      console.error('Firecrawl v2 crawl error:', crawlResponse.status, errorText);
-      throw new Error(`Failed to start crawl: ${crawlResponse.status} - ${errorText}`);
+      console.error('Firecrawl v2 crawl error:', crawlResponse.status, JSON.stringify(crawlData));
+      throw new Error(`Failed to start crawl: ${crawlResponse.status} - ${crawlData.error || 'Unknown error'}`);
     }
 
-    const crawlData = await crawlResponse.json();
-    console.log('Crawl started successfully. Job ID:', crawlData.id);
+    console.log('Crawl response:', JSON.stringify(crawlData));
     
     if (!crawlData.success || !crawlData.id) {
-      throw new Error('Failed to start crawl job: ' + JSON.stringify(crawlData));
+      console.error('Invalid crawl response:', JSON.stringify(crawlData));
+      throw new Error('Failed to start crawl job: ' + (crawlData.error || 'No job ID returned'));
     }
 
+    console.log('✅ Crawl started successfully. Job ID:', crawlData.id);
+    
     // Return job ID immediately - client will poll for status
     return new Response(JSON.stringify({
       success: true,
@@ -170,7 +173,7 @@ async function startCrawl(url: string, apiKey: string) {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Error in startCrawl:', error);
+    console.error('❌ Error in startCrawl:', error);
     throw error;
   }
 }
