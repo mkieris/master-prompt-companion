@@ -175,10 +175,28 @@ function buildSystemPrompt(formData: any): string {
   };
   const addressStyle = addressMap[formData.formOfAddress || 'du'] || addressMap.du;
   
-  return `Du bist ein erfahrener SEO-Texter für medizinische und therapeutische Produkte. Du verfasst hilfreiche, präzise, gut strukturierte SEO-Texte für ${formData.pageType === 'category' ? 'Kategorieseiten' : 'Produktseiten'}.
+  // Enhanced tonality mapping
+  const tonalityMap: Record<string, string> = {
+    professional: "Professionell und sachlich - nutze Fachterminologie, aber erkläre sie. Fokus auf Fakten und Qualität.",
+    scientific: "Wissenschaftlich präzise - verwende evidenzbasierte Aussagen, zitiere Studien, nutze medizinische Fachsprache mit Erklärungen.",
+    educational: "Lehrreich und verständlich - erkläre komplexe Zusammenhänge einfach, nutze Beispiele und Analogien.",
+    friendly: "Freundlich und zugänglich - warmer, einladender Ton, persönlich aber professionell.",
+    empathetic: "Empathisch und verständnisvoll - zeige Verständnis für Probleme, sprich Sorgen an, biete Lösungen.",
+    trustworthy: "Vertrauenswürdig und transparent - ehrlich, authentisch, keine Übertreibungen.",
+    persuasive: "ÜBERZEUGEND & VERKAUFSSTARK - nutze starke Verkaufssprache, betone Vorteile, schaffe Dringlichkeit, klare Call-to-Actions.",
+    'benefit-focused': "NUTZEN-FOKUSSIERT - stelle in jedem Absatz den konkreten Nutzen für den Kunden in den Vordergrund. Beantworte 'Was habe ICH davon?'",
+    urgent: "DRINGLICH & HANDLUNGSAUFFORDERND - schaffe Handlungsdruck durch limitierte Verfügbarkeit, Zeitfenster, exklusive Angebote. Starke CTAs.",
+    premium: "PREMIUM & EXKLUSIV - vermittle Hochwertigkeit, Exklusivität, Prestige. Nutze elegante Sprache, betone Qualität und Status.",
+    storytelling: "STORYTELLING & EMOTIONAL - erzähle Geschichten von Anwendern, schaffe emotionale Verbindungen, nutze konkrete Szenarien.",
+    innovative: "INNOVATIV & ZUKUNFTSORIENTIERT - betone Neuheit, Technologie-Vorsprung, Zukunftsfähigkeit. Nutze moderne, dynamische Sprache."
+  };
+  const tonalityStyle = tonalityMap[formData.tonality] || "Beratend und vertrauensvoll - kombiniere Fachkompetenz mit zugänglicher Sprache.";
+  
+  return `Du bist ein erfahrener SEO-Texter für medizinische und therapeutische Produkte. Du verfasst hilfreiche, präzise, gut strukturierte SEO-Texte.
 
 **WICHTIG: LEBENDIGE, AKTIVIERENDE SPRACHE**
 - ${addressStyle}
+- ${tonalityStyle}
 - Vermeide langweilige Fachsprache
 - Nutze aktive Verben statt Passivkonstruktionen
 - Schaffe emotionale Verbindungen durch konkrete Nutzenbeispiele
@@ -373,6 +391,21 @@ function buildUserPrompt(formData: any, briefingContent: string = ''): string {
     neutral: 'Neutral (keine direkte Anrede, sachlich)'
   };
 
+  const tonalityLabels: Record<string, string> = {
+    professional: 'Professionell & Sachlich',
+    scientific: 'Wissenschaftlich & Präzise',
+    educational: 'Lehrreich & Verständlich',
+    friendly: 'Freundlich & Zugänglich',
+    empathetic: 'Empathisch & Verständnisvoll',
+    trustworthy: 'Vertrauenswürdig & Transparent',
+    persuasive: 'Überzeugend & Verkaufsstark',
+    'benefit-focused': 'Nutzen-fokussiert & Lösungsorientiert',
+    urgent: 'Dringlich & Handlungsauffordernd',
+    premium: 'Premium & Exklusiv',
+    storytelling: 'Storytelling & Emotional',
+    innovative: 'Innovativ & Zukunftsorientiert'
+  };
+
   // Build compliance info
   let complianceInfo = '';
   if (formData.complianceChecks && (formData.complianceChecks.mdr || formData.complianceChecks.hwg || formData.complianceChecks.studies)) {
@@ -415,7 +448,7 @@ ${formData.additionalInfo ? `Zusätzliche Informationen/USPs:\n${formData.additi
 Zielgruppe: ${formData.targetAudience || 'Nicht angegeben'}
 Anrede: ${addressMap[formData.formOfAddress as keyof typeof addressMap] || 'Du-Form'}
 Sprache: ${formData.language || 'Deutsch'}
-Tonalität: ${formData.tonality || 'Beratend und vertrauensvoll'}
+Tonalität: ${tonalityLabels[formData.tonality] || formData.tonality || 'Beratend und vertrauensvoll'}
 
 === SCHRITT 3: TEXTSTRUKTUR & SEO ===
 Fokus-Keyword: ${formData.focusKeyword}
@@ -433,6 +466,7 @@ Erstelle einen hochwertigen, SEO-optimierten Text, der:
 - Auf die Zielgruppe zugeschnitten ist
 - Das definierte Ziel der Seite erreicht
 - Überschriften und Text perfekt aufeinander abstimmt
+- Die gewählte Tonalität konsequent umsetzt
 `;
 }
 
