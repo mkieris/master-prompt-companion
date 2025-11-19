@@ -97,7 +97,7 @@ async function scrapeSinglePage(url: string, apiKey: string) {
 }
 
 async function crawlMultiplePages(url: string, apiKey: string) {
-  console.log('Starting multi-page crawl');
+  console.log('Starting multi-page crawl for:', url);
   
   // Start crawl job
   const crawlResponse = await fetch('https://api.firecrawl.dev/v1/crawl', {
@@ -114,12 +114,16 @@ async function crawlMultiplePages(url: string, apiKey: string) {
         onlyMainContent: true,
       },
       excludePaths: [
-        '**/impressum*',
-        '**/datenschutz*',
-        '**/agb*',
-        '**/kontakt*',
-        '**/cart*',
-        '**/checkout*',
+        'impressum',
+        'datenschutz',
+        'agb',
+        'kontakt',
+        'cart',
+        'checkout',
+        'privacy',
+        'imprint',
+        'legal',
+        'terms',
       ],
     }),
   });
@@ -127,13 +131,14 @@ async function crawlMultiplePages(url: string, apiKey: string) {
   if (!crawlResponse.ok) {
     const errorText = await crawlResponse.text();
     console.error('Firecrawl crawl start error:', crawlResponse.status, errorText);
-    throw new Error(`Failed to start crawl: ${crawlResponse.status}`);
+    throw new Error(`Failed to start crawl: ${crawlResponse.status} - ${errorText}`);
   }
 
   const crawlData = await crawlResponse.json();
+  console.log('Crawl response:', JSON.stringify(crawlData));
   
   if (!crawlData.success || !crawlData.id) {
-    throw new Error('Failed to start crawl job');
+    throw new Error('Failed to start crawl job: ' + JSON.stringify(crawlData));
   }
 
   const jobId = crawlData.id;
