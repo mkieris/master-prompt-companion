@@ -80,28 +80,53 @@ export const Step2TargetAudience = ({ data, onUpdate, onNext, onBack }: Step2Pro
 
         <div>
           <Label htmlFor="tonality">Tonalität *</Label>
+          <p className="text-xs text-muted-foreground mb-2">
+            Perfekte Mischung aus Fachwissen, Storytelling und Lösungsorientierung
+          </p>
           <Select value={data.tonality} onValueChange={(value) => onUpdate({ tonality: value })}>
             <SelectTrigger id="tonality">
               <SelectValue placeholder="Tonalität wählen" />
             </SelectTrigger>
-            <SelectContent>
-              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Informativ</div>
-              <SelectItem value="professional">Professionell & Sachlich</SelectItem>
-              <SelectItem value="scientific">Wissenschaftlich & Präzise</SelectItem>
-              <SelectItem value="educational">Lehrreich & Verständlich</SelectItem>
+            <SelectContent className="max-h-[400px]">
+              <SelectItem value="expert-mix">
+                <div className="flex flex-col gap-1 py-1">
+                  <span className="font-semibold">Expertenmix</span>
+                  <span className="text-xs text-muted-foreground">70% Fachwissen • 20% Lösung • 10% Story</span>
+                  <span className="text-xs">Für B2B-Entscheider & wissenschaftliche Produkte</span>
+                </div>
+              </SelectItem>
               
-              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mt-2">Beziehungsorientiert</div>
-              <SelectItem value="friendly">Freundlich & Zugänglich</SelectItem>
-              <SelectItem value="empathetic">Empathisch & Verständnisvoll</SelectItem>
-              <SelectItem value="trustworthy">Vertrauenswürdig & Transparent</SelectItem>
+              <SelectItem value="consultant-mix">
+                <div className="flex flex-col gap-1 py-1">
+                  <span className="font-semibold">Beratermix</span>
+                  <span className="text-xs text-muted-foreground">40% Fachwissen • 40% Lösung • 20% Story</span>
+                  <span className="text-xs">Für Vergleichsphase & Problem-aware Käufer</span>
+                </div>
+              </SelectItem>
               
-              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mt-2">Verkaufsorientiert</div>
-              <SelectItem value="persuasive">Überzeugend & Verkaufsstark</SelectItem>
-              <SelectItem value="benefit-focused">Nutzen-fokussiert & Lösungsorientiert</SelectItem>
-              <SelectItem value="urgent">Dringlich & Handlungsauffordernd</SelectItem>
-              <SelectItem value="premium">Premium & Exklusiv</SelectItem>
-              <SelectItem value="storytelling">Storytelling & Emotional</SelectItem>
-              <SelectItem value="innovative">Innovativ & Zukunftsorientiert</SelectItem>
+              <SelectItem value="storytelling-mix">
+                <div className="flex flex-col gap-1 py-1">
+                  <span className="font-semibold">Storytelling-Mix</span>
+                  <span className="text-xs text-muted-foreground">30% Fachwissen • 30% Lösung • 40% Story</span>
+                  <span className="text-xs">Für emotional getriebene Käufe & Lifestyle-Produkte</span>
+                </div>
+              </SelectItem>
+              
+              <SelectItem value="conversion-mix">
+                <div className="flex flex-col gap-1 py-1">
+                  <span className="font-semibold">Conversion-Mix</span>
+                  <span className="text-xs text-muted-foreground">20% Fachwissen • 60% Lösung • 20% Story</span>
+                  <span className="text-xs">Für Produktseiten & klare Problemlösungen</span>
+                </div>
+              </SelectItem>
+              
+              <SelectItem value="balanced-mix">
+                <div className="flex flex-col gap-1 py-1">
+                  <span className="font-semibold">Balanced-Mix</span>
+                  <span className="text-xs text-muted-foreground">33% Fachwissen • 33% Lösung • 33% Story</span>
+                  <span className="text-xs">Für ganzheitliche Landingpages & Kategorie-Seiten</span>
+                </div>
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
