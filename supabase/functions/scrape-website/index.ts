@@ -134,8 +134,11 @@ async function startCrawl(url: string, apiKey: string) {
         scrapeOptions: {
           formats: ['markdown'],
           onlyMainContent: true,
-          timeout: 15000,
+          timeout: 10000, // Reduced for faster failures
+          waitFor: 0, // Don't wait for JS rendering
         },
+        allowBackwardLinks: false, // Prevent going back in site hierarchy
+        allowExternalLinks: false, // Stay on same domain
       }),
     });
 
@@ -182,6 +185,11 @@ async function checkCrawlStatus(jobId: string, apiKey: string) {
     const statusData = await statusResponse.json();
     console.log('Crawl status:', statusData.status, `(${statusData.completed || 0}/${statusData.total || 0})`);
 
+    // Extract URLs from current data
+    const crawledUrls = statusData.data?.map((page: any) => 
+      page.metadata?.sourceURL || page.url || ''
+    ).filter(Boolean) || [];
+
     // If completed, process and return the data
     if (statusData.status === 'completed') {
       if (!statusData.data || statusData.data.length === 0) {
@@ -199,12 +207,13 @@ async function checkCrawlStatus(jobId: string, apiKey: string) {
       });
     }
 
-    // Return current status
+    // Return current status with live URLs
     return new Response(JSON.stringify({
       success: true,
       status: statusData.status,
       completed: statusData.completed || 0,
       total: statusData.total || 0,
+      crawledUrls: crawledUrls,
       data: statusData.data || []
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

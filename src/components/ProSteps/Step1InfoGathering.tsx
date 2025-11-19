@@ -2,12 +2,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Loader2, Link as LinkIcon, X } from "lucide-react";
+import { Loader2, Link as LinkIcon, X, Globe, CheckCircle2 } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Card } from "@/components/ui/card";
 
 interface Step1Data {
   manufacturerName: string;
@@ -30,6 +32,7 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
   const [scrapeMode, setScrapeMode] = useState<'single' | 'multi'>('single');
   const [crawlProgress, setCrawlProgress] = useState(0);
   const [crawlStatus, setCrawlStatus] = useState("");
+  const [crawledUrls, setCrawledUrls] = useState<string[]>([]);
   const { toast } = useToast();
 
   const handleScrapeWebsite = async () => {
@@ -45,6 +48,7 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
     setIsScraping(true);
     setCrawlProgress(0);
     setCrawlStatus("Starte Analyse...");
+    setCrawledUrls([]);
     
     try {
       // Start the crawl/scrape
@@ -100,6 +104,11 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
           
           setCrawlProgress(progressPercent);
           setCrawlStatus(`${statusData.status} (${completed}/${total} Seiten)`);
+          
+          // Update crawled URLs live
+          if (statusData.crawledUrls && Array.isArray(statusData.crawledUrls)) {
+            setCrawledUrls(statusData.crawledUrls);
+          }
 
           // Check if completed
           if (statusData.status === 'completed' && statusData.data) {
@@ -116,7 +125,7 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
 
           // Continue polling if not finished
           if (attempts < maxAttempts && statusData.status === 'scraping') {
-            setTimeout(pollStatus, 2000); // Poll every 2 seconds
+            setTimeout(pollStatus, 1500); // Poll every 1.5 seconds for faster updates
           } else if (attempts >= maxAttempts) {
             throw new Error('Timeout - Crawl dauert zu lange');
           }
@@ -131,14 +140,16 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
 
     } catch (error) {
       console.error("Scraping error:", error);
-      setCrawlStatus("");
-      setCrawlProgress(0);
       toast({
         title: "Fehler",
         description: "Fehler beim Laden der Website-Daten",
         variant: "destructive",
       });
+    } finally {
       setIsScraping(false);
+      setCrawlStatus("");
+      setCrawlProgress(0);
+      setCrawledUrls([]);
     }
   };
 
@@ -302,12 +313,31 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
           </div>
 
           {isScraping && scrapeMode === 'multi' && (
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">{crawlStatus}</span>
                 <span className="text-muted-foreground">{crawlProgress}%</span>
               </div>
               <Progress value={crawlProgress} />
+              
+              {crawledUrls.length > 0 && (
+                <Card className="p-3 bg-muted/50">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Globe className="h-4 w-4 text-primary" />
+                    <span className="text-xs font-medium">Gefundene Seiten ({crawledUrls.length})</span>
+                  </div>
+                  <ScrollArea className="h-32">
+                    <div className="space-y-1">
+                      {crawledUrls.map((url, index) => (
+                        <div key={index} className="flex items-start gap-2 text-xs">
+                          <CheckCircle2 className="h-3 w-3 text-green-600 mt-0.5 flex-shrink-0" />
+                          <span className="text-muted-foreground break-all line-clamp-1">{url}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </Card>
+              )}
             </div>
           )}
         </div>
