@@ -80,7 +80,9 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
       setCrawlStatus("Crawle Website...");
       
       let attempts = 0;
-      const maxAttempts = 90; // 3 minutes max (90 * 2s)
+      const maxAttempts = 180; // 6 minutes max (180 * 2s)
+      let noProgressCount = 0;
+      let lastCompleted = 0;
 
       const pollStatus = async () => {
         attempts++;
@@ -101,6 +103,14 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
           const completed = statusData.completed || 0;
           const total = statusData.total || 0;
           
+          // Track progress
+          if (completed === lastCompleted && completed > 0) {
+            noProgressCount++;
+          } else {
+            noProgressCount = 0;
+            lastCompleted = completed;
+          }
+          
           // Calculate progress (avoid division by zero)
           let progressPercent = 10; // Start with 10% minimum
           if (total > 0 && completed > 0) {
@@ -109,11 +119,17 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
           
           setCrawlProgress(progressPercent);
           
-          // Improved status messages
+          // Improved status messages with time estimate
+          const estimatedTimeLeft = total > 0 && completed > 0 
+            ? Math.ceil(((total - completed) * 8)) // ~8 seconds per page
+            : 0;
+          
           if (statusData.status === 'started') {
             setCrawlStatus('Website wird analysiert...');
           } else if (total === 0) {
             setCrawlStatus('Suche nach Seiten...');
+          } else if (estimatedTimeLeft > 0) {
+            setCrawlStatus(`${completed}/${total} Seiten • ~${estimatedTimeLeft}s verbleibend`);
           } else {
             setCrawlStatus(`${completed}/${total} Seiten gescraped`);
           }
@@ -136,12 +152,17 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
             throw new Error('Crawl fehlgeschlagen');
           }
 
+          // Check if stuck (no progress for 30 seconds with pages found)
+          if (noProgressCount > 15 && total > 0 && completed === 0) {
+            throw new Error('Crawl macht keinen Fortschritt. Bitte versuchen Sie es mit Single-Page-Modus.');
+          }
+
           // Continue polling for all active statuses
           const activeStatuses = ['started', 'scraping'];
           if (attempts < maxAttempts && activeStatuses.includes(statusData.status)) {
             setTimeout(pollStatus, 2000); // Poll every 2 seconds
           } else if (attempts >= maxAttempts) {
-            throw new Error('Timeout - Crawl dauert zu lange. Bitte versuchen Sie es mit einer kleineren Website.');
+            throw new Error('Timeout - Crawl dauert zu lange. Bitte versuchen Sie Single-Page-Modus oder eine kleinere Website.');
           } else if (!activeStatuses.includes(statusData.status)) {
             throw new Error(`Unerwarteter Status: ${statusData.status}`);
           }
@@ -307,7 +328,11 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Scraping-Modus</Label>
+            <Label>Scraping-Modus *</Label>
+            <p className="text-xs text-muted-foreground">
+              <strong>Single-Page:</strong> Schnell & zuverlässig (empfohlen für Start) • 
+              <strong>Multi-Page:</strong> Gründlich, crawlt bis zu 10 Seiten (~2-3 Minuten)
+            </p>
             <RadioGroup 
               value={scrapeMode} 
               onValueChange={(value: 'single' | 'multi') => setScrapeMode(value)}
@@ -322,7 +347,7 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="multi" id="multi" />
                 <Label htmlFor="multi" className="font-normal cursor-pointer">
-                  Multi-Page - Crawlt bis zu 50 Unterseiten (dauert länger)
+                  Multi-Page - Crawlt bis zu 10 Seiten (2-3 Minuten)
                 </Label>
               </div>
             </RadioGroup>
