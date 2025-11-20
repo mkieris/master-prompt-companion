@@ -149,10 +149,12 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
               ? Math.ceil(((total - completed) * 8)) 
               : 0;
             
-            // Show warning if stuck at high completion
-            if (highCompletionStuckCount > 10 && completionRate > 70) {
+            // Show status with smart detection of stuck crawls
+            if (completionRate > 85 && noProgressCount > 3) {
+              setCrawlStatus(`⏳ ${completed}/${total} Seiten • Schließe ab (${Math.round(completionRate)}%)...`);
+            } else if (highCompletionStuckCount > 7 && completionRate > 70) {
               setCrawlStatus(`⏳ ${completed}/${total} Seiten • Fast fertig (${Math.round(completionRate)}%)`);
-            } else if (noProgressCount > 15 && partialDataCount > 0) {
+            } else if (noProgressCount > 10 && partialDataCount > 0) {
               setCrawlStatus(`⚠️ ${completed}/${total} Seiten • Verwendet vorhandene Daten`);
             } else if (estimatedTimeLeft > 0) {
               setCrawlStatus(`📄 ${completed}/${total} Seiten • ~${estimatedTimeLeft}s verbleibend`);
@@ -182,14 +184,15 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
           }
 
           // CRITICAL: Use partial results in these scenarios:
-          // 1. Stuck at high completion (>70%) for 20 seconds
-          // 2. Stuck with any data for 45 seconds
-          // 3. Any stuck situation with good amount of data (>=5 pages)
+          // 1. Very high completion (>85%) stuck for just 6 seconds = use immediately 
+          // 2. High completion (>70%) stuck for 15 seconds
+          // 3. Medium completion with good data stuck for 30 seconds
           
           const shouldUsePartial = 
-            (highCompletionStuckCount > 10 && partialDataCount >= 7) || // Stuck at 70%+ for 20s
-            (stuckWithDataCount > 22 && partialDataCount >= 3) || // Stuck 45s with 3+ pages
-            (noProgressCount > 30 && partialDataCount >= 5); // Stuck 60s with 5+ pages
+            (completionRate > 85 && noProgressCount > 3 && partialDataCount >= 8) || // 85%+ stuck 6s
+            (completionRate > 70 && highCompletionStuckCount > 7 && partialDataCount >= 7) || // 70%+ stuck 14s
+            (stuckWithDataCount > 15 && partialDataCount >= 5) || // Any data stuck 30s with 5+ pages
+            (noProgressCount > 20 && partialDataCount >= 3); // Stuck 40s with 3+ pages
           
           if (shouldUsePartial) {
             console.log(`✅ Using partial results: ${partialDataCount} pages (completion: ${Math.round(completionRate)}%)`);
