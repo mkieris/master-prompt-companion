@@ -627,6 +627,7 @@ ${formData.manufacturerWebsite ? `Hersteller-Website: ${formData.manufacturerWeb
 ${formData.productName ? `Produktname: ${formData.productName}` : ''}
 ${formData.productUrls && formData.productUrls.length > 0 ? `Produkt-URLs:\n${formData.productUrls.map((url: string) => `- ${url}`).join('\n')}` : ''}
 ${formData.additionalInfo ? `Zusätzliche Informationen/USPs:\n${formData.additionalInfo}` : ''}
+${formData.competitorData ? `\n=== KONKURRENTEN-ANALYSE (BEST PRACTICES) ===\n${formData.competitorData}\n\nNUTZE DIESE ERKENNTNISSE:\n- Übernimm erfolgreiche Keyword-Strategien\n- Adaptiere bewährte Content-Strukturen\n- Integriere überzeugende Argumentationsmuster\n- Hebe dich gleichzeitig mit einzigartigen USPs ab\n` : ''}
 
 === SCHRITT 2: ZIELGRUPPE & ANSPRACHE ===
 Zielgruppe: ${formData.targetAudience || 'Nicht angegeben'}

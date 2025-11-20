@@ -17,6 +17,8 @@ export interface FormData {
   productUrls: string[];
   additionalInfo: string;
   briefingFiles: string[];
+  competitorUrls: string[];
+  competitorData: string;
   // Step 2
   targetAudience: string;
   formOfAddress: string;
@@ -55,6 +57,8 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
     productUrls: [],
     additionalInfo: "",
     briefingFiles: [],
+    competitorUrls: [],
+    competitorData: "",
     targetAudience: "",
     formOfAddress: "",
     language: "",
@@ -270,6 +274,8 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
               productUrls: formData.productUrls,
               additionalInfo: formData.additionalInfo,
               briefingFiles: formData.briefingFiles,
+              competitorUrls: formData.competitorUrls,
+              competitorData: formData.competitorData,
             }}
             onUpdate={updateFormData}
             onNext={() => setCurrentStep(2)}

@@ -2,7 +2,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Loader2, Link as LinkIcon, X, Globe, CheckCircle2 } from "lucide-react";
+import { Loader2, Link as LinkIcon, X, Globe, CheckCircle2, Plus, Target, Search } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -18,6 +18,8 @@ interface Step1Data {
   productUrls: string[];
   additionalInfo: string;
   briefingFiles: string[];
+  competitorUrls: string[];
+  competitorData: string;
 }
 
 interface Step1Props {
@@ -33,6 +35,9 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
   const [crawlProgress, setCrawlProgress] = useState(0);
   const [crawlStatus, setCrawlStatus] = useState("");
   const [crawledUrls, setCrawledUrls] = useState<string[]>([]);
+  const [competitorInput, setCompetitorInput] = useState("");
+  const [isCompetitorCrawling, setIsCompetitorCrawling] = useState(false);
+  const [competitorCrawlStatus, setCompetitorCrawlStatus] = useState("");
   const { toast } = useToast();
 
   const handleScrapeWebsite = async () => {
@@ -320,6 +325,72 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
     }
   };
 
+  const addCompetitor = () => {
+    if (competitorInput.trim() && data.competitorUrls.length < 3) {
+      const url = competitorInput.trim().startsWith('http') 
+        ? competitorInput.trim() 
+        : `https://${competitorInput.trim()}`;
+      
+      onUpdate({
+        competitorUrls: [...data.competitorUrls, url]
+      });
+      setCompetitorInput("");
+    }
+  };
+
+  const removeCompetitor = (index: number) => {
+    const newUrls = data.competitorUrls.filter((_, i) => i !== index);
+    onUpdate({ competitorUrls: newUrls });
+  };
+
+  const crawlCompetitors = async () => {
+    if (data.competitorUrls.length === 0) return;
+
+    setIsCompetitorCrawling(true);
+    setCompetitorCrawlStatus("🔍 Starte Konkurrenten-Analyse...");
+
+    try {
+      const crawlPromises = data.competitorUrls.map(async (url, index) => {
+        setCompetitorCrawlStatus(`📊 Analysiere Konkurrent ${index + 1}/${data.competitorUrls.length}...`);
+        
+        const { data: crawlData, error } = await supabase.functions.invoke("scrape-website", {
+          body: { url, crawlSubpages: false, mode: 'single', action: 'scrape' }
+        });
+
+        if (error) throw error;
+
+        if (crawlData.success && crawlData.content) {
+          return `\n=== KONKURRENT ${index + 1}: ${url} ===\n${crawlData.content.substring(0, 5000)}`;
+        }
+        return null;
+      });
+
+      const results = await Promise.all(crawlPromises);
+      const combinedData = results.filter(Boolean).join("\n\n");
+
+      if (combinedData) {
+        onUpdate({ competitorData: `=== KONKURRENTEN-ANALYSE ===\n\nFolgende Best Practices wurden von ${data.competitorUrls.length} Konkurrenten extrahiert:\n${combinedData}\n\nNutze diese Erkenntnisse für bessere Keyword-Strategien, Content-Strukturen und Argumentationsmuster.` });
+        
+        toast({
+          title: "✅ Konkurrenten analysiert",
+          description: `${data.competitorUrls.length} Website(s) erfolgreich gecrawlt`,
+        });
+      }
+
+      setCompetitorCrawlStatus("");
+    } catch (error) {
+      console.error("Competitor crawl error:", error);
+      toast({
+        title: "Fehler",
+        description: "Fehler beim Analysieren der Konkurrenten",
+        variant: "destructive",
+      });
+      setCompetitorCrawlStatus("");
+    } finally {
+      setIsCompetitorCrawling(false);
+    }
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -575,6 +646,87 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
                   </Button>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Competitor Analysis Section */}
+      <div className="space-y-4 border-t pt-6">
+        <div className="flex items-start gap-2">
+          <Target className="h-5 w-5 text-primary mt-0.5" />
+          <div className="flex-1">
+            <Label className="text-base font-semibold">Konkurrenten analysieren (Optional)</Label>
+            <p className="text-sm text-muted-foreground mt-1">
+              Füge bis zu 3 Konkurrenten-URLs hinzu, um Best Practices für deinen Content zu extrahieren
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <Input
+              placeholder="https://konkurrent.de"
+              value={competitorInput}
+              onChange={(e) => setCompetitorInput(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && addCompetitor()}
+              disabled={data.competitorUrls.length >= 3 || isCompetitorCrawling}
+            />
+            <Button
+              onClick={addCompetitor}
+              disabled={!competitorInput.trim() || data.competitorUrls.length >= 3 || isCompetitorCrawling}
+              variant="outline"
+              size="icon"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {data.competitorUrls.length > 0 && (
+            <div className="space-y-2">
+              {data.competitorUrls.map((url, index) => (
+                <div key={index} className="flex items-center gap-2 p-2 bg-secondary/50 rounded-md">
+                  <LinkIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <span className="text-sm flex-1 truncate">{url}</span>
+                  <Button
+                    onClick={() => removeCompetitor(index)}
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    disabled={isCompetitorCrawling}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+
+              <Button
+                onClick={crawlCompetitors}
+                disabled={isCompetitorCrawling}
+                variant="secondary"
+                className="w-full"
+              >
+                {isCompetitorCrawling ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {competitorCrawlStatus}
+                  </>
+                ) : (
+                  <>
+                    <Search className="mr-2 h-4 w-4" />
+                    Konkurrenten analysieren
+                  </>
+                )}
+              </Button>
+
+              {data.competitorData && (
+                <div className="p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-md">
+                  <p className="text-sm text-green-800 dark:text-green-200 flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Konkurrenten-Analyse abgeschlossen • Best Practices wurden extrahiert
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
