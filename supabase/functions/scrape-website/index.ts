@@ -113,6 +113,17 @@ async function startCrawl(url: string, apiKey: string) {
   console.log('Starting multi-page crawl for:', url);
   
   try {
+    // Extract the path from the URL to use as includePaths pattern
+    const urlObj = new URL(url);
+    const basePath = urlObj.pathname.endsWith('/') 
+      ? urlObj.pathname 
+      : urlObj.pathname + '/';
+    
+    // Create include pattern: only crawl from this path downwards
+    const includePattern = basePath + '*';
+    
+    console.log('Crawl restricted to path:', includePattern);
+    
     const crawlResponse = await fetch('https://api.firecrawl.dev/v2/crawl', {
       method: 'POST',
       headers: {
@@ -123,6 +134,7 @@ async function startCrawl(url: string, apiKey: string) {
         url: url,
         limit: 10,
         maxDiscoveryDepth: 2,
+        includePaths: [includePattern],
         excludePaths: [
           'impressum',
           'datenschutz',
