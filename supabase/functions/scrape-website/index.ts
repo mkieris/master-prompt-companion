@@ -132,7 +132,7 @@ async function startCrawl(url: string, apiKey: string) {
       },
       body: JSON.stringify({
         url: url,
-        limit: 10,
+        limit: 50,
         maxDiscoveryDepth: 2,
         includePaths: [includePattern],
         excludePaths: [
