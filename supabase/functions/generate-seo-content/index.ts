@@ -201,7 +201,6 @@ serve(async (req) => {
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
         messages: messages,
-        temperature: 0.7,
       }),
     });
 
