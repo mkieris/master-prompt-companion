@@ -58,12 +58,25 @@ serve(async (req) => {
       const errorText = await crawlResponse.text();
       console.error('Firecrawl error:', errorText);
       
+      // Parse error for better messaging
+      let errorMessage = 'Failed to start crawl';
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.error?.includes('Insufficient credits')) {
+          errorMessage = 'Firecrawl credits exhausted. Please check your Firecrawl plan.';
+        } else if (errorData.error) {
+          errorMessage = errorData.error;
+        }
+      } catch (e) {
+        // Keep default error message
+      }
+      
       await supabase
         .from('domain_knowledge')
         .update({ crawl_status: 'failed' })
         .eq('id', domainId);
 
-      throw new Error('Failed to start crawl');
+      throw new Error(errorMessage);
     }
 
     const crawlData = await crawlResponse.json();
