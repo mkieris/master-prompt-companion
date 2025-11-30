@@ -30,8 +30,10 @@ import {
   ChevronDown,
   ChevronRight,
   Eye,
-  ArrowUpRight,
-  ArrowDownLeft
+  Shield,
+  BookOpen,
+  Hash,
+  Languages
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -83,6 +85,30 @@ interface ImageInfo {
   hasAlt: boolean;
 }
 
+interface HreflangInfo {
+  lang: string;
+  url: string;
+  hasIssue: boolean;
+  issue?: string;
+}
+
+interface SecurityHeaderInfo {
+  name: string;
+  present: boolean;
+  value?: string;
+  recommendation?: string;
+}
+
+interface KeywordAnalysis {
+  keyword: string;
+  density: number;
+  inTitle: boolean;
+  inH1: boolean;
+  inUrl: boolean;
+  inDescription: boolean;
+  occurrences: number;
+}
+
 interface SEOCheckResult {
   url: string;
   timestamp: string;
@@ -93,6 +119,7 @@ interface SEOCheckResult {
     technical: CategoryResult;
     links: CategoryResult;
     media: CategoryResult;
+    security: CategoryResult;
   };
   issues: SEOIssue[];
   recommendations: string[];
@@ -100,6 +127,10 @@ interface SEOCheckResult {
     markdown: string;
     wordCount: number;
     headings: HeadingInfo[];
+    readabilityScore: number;
+    readabilityLevel: string;
+    avgSentenceLength: number;
+    avgWordLength: number;
   };
   linkData: {
     internal: LinkInfo[];
@@ -114,12 +145,26 @@ interface SEOCheckResult {
     description: string;
     canonical: string;
     robots: string;
+    hreflang: HreflangInfo[];
+  };
+  keywordData: KeywordAnalysis | null;
+  securityData: {
+    isHttps: boolean;
+    headers: SecurityHeaderInfo[];
+  };
+  urlData: {
+    hasUppercase: boolean;
+    hasParameters: boolean;
+    hasUnderscores: boolean;
+    length: number;
+    depth: number;
   };
 }
 
 const SEOCheck = ({ session }: IndexProps) => {
   const navigate = useNavigate();
   const [url, setUrl] = useState("");
+  const [keyword, setKeyword] = useState("");
   const [mode, setMode] = useState<"single" | "domain">("single");
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<SEOCheckResult | null>(null);
@@ -164,7 +209,7 @@ const SEOCheck = ({ session }: IndexProps) => {
 
     try {
       const { data, error } = await supabase.functions.invoke("seo-check", {
-        body: { url: normalizedUrl, mode },
+        body: { url: normalizedUrl, mode, keyword: keyword.trim() || undefined },
       });
 
       if (error) {
@@ -240,6 +285,8 @@ const SEOCheck = ({ session }: IndexProps) => {
         return <Link2 className="h-5 w-5" />;
       case 'media':
         return <Image className="h-5 w-5" />;
+      case 'security':
+        return <Shield className="h-5 w-5" />;
       default:
         return <Globe className="h-5 w-5" />;
     }
@@ -257,6 +304,8 @@ const SEOCheck = ({ session }: IndexProps) => {
         return 'Links';
       case 'media':
         return 'Medien';
+      case 'security':
+        return 'Sicherheit';
       default:
         return category;
     }
@@ -312,12 +361,95 @@ const SEOCheck = ({ session }: IndexProps) => {
   const renderContentTab = () => {
     if (!result?.contentData) return renderCategoryCard('content', result!.categories.content);
 
-    const { headings, markdown, wordCount } = result.contentData;
+    const { headings, markdown, wordCount, readabilityScore, readabilityLevel, avgSentenceLength } = result.contentData;
     const hasHeadingIssues = headings.some(h => h.hasIssue);
 
     return (
       <div className="space-y-4">
         {renderCategoryCard('content', result.categories.content)}
+        
+        {/* Readability Card */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <BookOpen className="h-5 w-5" />
+              Lesbarkeits-Analyse (Flesch DE)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                <p className={`text-3xl font-bold ${readabilityScore >= 60 ? 'text-success' : readabilityScore >= 40 ? 'text-warning' : 'text-destructive'}`}>
+                  {readabilityScore}
+                </p>
+                <p className="text-xs text-muted-foreground">Flesch Score</p>
+                <Badge variant="outline" className="mt-1">{readabilityLevel}</Badge>
+              </div>
+              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                <p className={`text-3xl font-bold ${avgSentenceLength <= 20 ? 'text-success' : 'text-warning'}`}>
+                  {avgSentenceLength}
+                </p>
+                <p className="text-xs text-muted-foreground">Ø Satzlänge</p>
+                <p className="text-xs text-muted-foreground">Wörter/Satz</p>
+              </div>
+              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                <p className="text-3xl font-bold text-foreground">{wordCount}</p>
+                <p className="text-xs text-muted-foreground">Wörter</p>
+                <p className="text-xs text-muted-foreground">gesamt</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Keyword Analysis */}
+        {result.keywordData && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Hash className="h-5 w-5" />
+                Keyword-Analyse: "{result.keywordData.keyword}"
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className={`p-3 rounded-lg border ${result.keywordData.inTitle ? 'bg-success/10 border-success/30' : 'bg-destructive/10 border-destructive/30'}`}>
+                  <div className="flex items-center gap-2">
+                    {result.keywordData.inTitle ? <CheckCircle2 className="h-4 w-4 text-success" /> : <XCircle className="h-4 w-4 text-destructive" />}
+                    <span className="text-sm font-medium">In Title</span>
+                  </div>
+                </div>
+                <div className={`p-3 rounded-lg border ${result.keywordData.inH1 ? 'bg-success/10 border-success/30' : 'bg-destructive/10 border-destructive/30'}`}>
+                  <div className="flex items-center gap-2">
+                    {result.keywordData.inH1 ? <CheckCircle2 className="h-4 w-4 text-success" /> : <XCircle className="h-4 w-4 text-destructive" />}
+                    <span className="text-sm font-medium">In H1</span>
+                  </div>
+                </div>
+                <div className={`p-3 rounded-lg border ${result.keywordData.inUrl ? 'bg-success/10 border-success/30' : 'bg-muted border-border'}`}>
+                  <div className="flex items-center gap-2">
+                    {result.keywordData.inUrl ? <CheckCircle2 className="h-4 w-4 text-success" /> : <Info className="h-4 w-4 text-muted-foreground" />}
+                    <span className="text-sm font-medium">In URL</span>
+                  </div>
+                </div>
+                <div className={`p-3 rounded-lg border ${result.keywordData.inDescription ? 'bg-success/10 border-success/30' : 'bg-destructive/10 border-destructive/30'}`}>
+                  <div className="flex items-center gap-2">
+                    {result.keywordData.inDescription ? <CheckCircle2 className="h-4 w-4 text-success" /> : <XCircle className="h-4 w-4 text-destructive" />}
+                    <span className="text-sm font-medium">In Description</span>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm">Keyword-Dichte</span>
+                  <span className={`font-bold ${result.keywordData.density >= 1 && result.keywordData.density <= 3 ? 'text-success' : 'text-warning'}`}>
+                    {result.keywordData.density}% ({result.keywordData.occurrences}x)
+                  </span>
+                </div>
+                <Progress value={Math.min(result.keywordData.density * 25, 100)} className="h-2 mt-2" />
+                <p className="text-xs text-muted-foreground mt-1">Optimal: 1-3%</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
         
         {/* Headings Structure */}
         <Card>
@@ -327,19 +459,14 @@ const SEOCheck = ({ session }: IndexProps) => {
                 <Eye className="h-5 w-5" />
                 Überschriften-Struktur
               </CardTitle>
-              {hasHeadingIssues && (
-                <Badge variant="destructive">Probleme gefunden</Badge>
-              )}
+              {hasHeadingIssues && <Badge variant="destructive">Probleme</Badge>}
             </div>
-            <CardDescription>
-              {headings.length} Überschriften auf der Seite
-            </CardDescription>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-[300px] rounded border p-3 bg-muted/30">
+            <ScrollArea className="h-[250px] rounded border p-3 bg-muted/30">
               <div className="space-y-1 font-mono text-sm">
                 {headings.length === 0 ? (
-                  <p className="text-muted-foreground italic">Keine Überschriften gefunden</p>
+                  <p className="text-muted-foreground italic">Keine Überschriften</p>
                 ) : (
                   headings.map((heading, idx) => (
                     <div 
@@ -347,10 +474,7 @@ const SEOCheck = ({ session }: IndexProps) => {
                       className={`flex items-start gap-2 py-1 ${heading.hasIssue ? 'bg-destructive/10 rounded px-2 -mx-2' : ''}`}
                       style={{ paddingLeft: `${(heading.level - 1) * 16}px` }}
                     >
-                      <Badge 
-                        variant={heading.hasIssue ? "destructive" : "outline"} 
-                        className="text-xs shrink-0"
-                      >
+                      <Badge variant={heading.hasIssue ? "destructive" : "outline"} className="text-xs shrink-0">
                         H{heading.level}
                       </Badge>
                       <div className="flex-1 min-w-0">
@@ -368,28 +492,6 @@ const SEOCheck = ({ session }: IndexProps) => {
             </ScrollArea>
           </CardContent>
         </Card>
-
-        {/* Content Preview */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Content-Vorschau
-            </CardTitle>
-            <CardDescription>
-              {wordCount} Wörter extrahiert
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-[200px] rounded border p-3 bg-muted/30">
-              <div className="prose prose-sm max-w-none text-foreground">
-                <pre className="whitespace-pre-wrap text-xs font-sans">
-                  {markdown.substring(0, 3000)}{markdown.length > 3000 ? '...' : ''}
-                </pre>
-              </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
       </div>
     );
   };
@@ -403,34 +505,26 @@ const SEOCheck = ({ session }: IndexProps) => {
       <div className="space-y-4">
         {renderCategoryCard('links', result.categories.links)}
 
-        {/* Internal Links (Outgoing to same domain) */}
         <Card>
           <Collapsible open={internalLinksOpen} onOpenChange={setInternalLinksOpen}>
             <CollapsibleTrigger asChild>
               <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <ArrowUpRight className="h-5 w-5 text-primary" />
-                    Interne Links (ausgehend)
+                    <Link2 className="h-5 w-5 text-primary" />
+                    Interne Links
                     <Badge variant="secondary">{internal.length}</Badge>
                   </CardTitle>
-                  {internalLinksOpen ? (
-                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
-                  ) : (
-                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                  )}
+                  {internalLinksOpen ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
                 </div>
-                <CardDescription>
-                  Links zu anderen Seiten derselben Domain
-                </CardDescription>
               </CardHeader>
             </CollapsibleTrigger>
             <CollapsibleContent>
               <CardContent>
-                <ScrollArea className="h-[250px] rounded border bg-muted/30">
+                <ScrollArea className="h-[200px] rounded border bg-muted/30">
                   <div className="p-3 space-y-2">
                     {internal.length === 0 ? (
-                      <p className="text-muted-foreground italic text-sm">Keine internen Links gefunden</p>
+                      <p className="text-muted-foreground italic text-sm">Keine internen Links</p>
                     ) : (
                       internal.map((link, idx) => (
                         <div key={idx} className="flex items-start gap-2 text-sm p-2 rounded hover:bg-muted/50">
@@ -438,9 +532,6 @@ const SEOCheck = ({ session }: IndexProps) => {
                           <div className="flex-1 min-w-0">
                             <p className="font-medium truncate">{link.text || "(kein Ankertext)"}</p>
                             <p className="text-xs text-muted-foreground truncate">{link.url}</p>
-                            {link.hasNofollow && (
-                              <Badge variant="outline" className="text-xs mt-1">nofollow</Badge>
-                            )}
                           </div>
                         </div>
                       ))
@@ -452,7 +543,6 @@ const SEOCheck = ({ session }: IndexProps) => {
           </Collapsible>
         </Card>
 
-        {/* External Links (Outgoing to other domains) */}
         <Card>
           <Collapsible open={externalLinksOpen} onOpenChange={setExternalLinksOpen}>
             <CollapsibleTrigger asChild>
@@ -460,43 +550,29 @@ const SEOCheck = ({ session }: IndexProps) => {
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <ExternalLink className="h-5 w-5 text-accent" />
-                    Externe Links (ausgehend)
+                    Externe Links
                     <Badge variant="secondary">{external.length}</Badge>
                   </CardTitle>
-                  {externalLinksOpen ? (
-                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
-                  ) : (
-                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                  )}
+                  {externalLinksOpen ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
                 </div>
-                <CardDescription>
-                  Links zu anderen Domains
-                </CardDescription>
               </CardHeader>
             </CollapsibleTrigger>
             <CollapsibleContent>
               <CardContent>
-                <ScrollArea className="h-[250px] rounded border bg-muted/30">
+                <ScrollArea className="h-[200px] rounded border bg-muted/30">
                   <div className="p-3 space-y-2">
                     {external.length === 0 ? (
-                      <p className="text-muted-foreground italic text-sm">Keine externen Links gefunden</p>
+                      <p className="text-muted-foreground italic text-sm">Keine externen Links</p>
                     ) : (
                       external.map((link, idx) => (
                         <div key={idx} className="flex items-start gap-2 text-sm p-2 rounded hover:bg-muted/50">
                           <ExternalLink className="h-4 w-4 text-accent mt-0.5 shrink-0" />
                           <div className="flex-1 min-w-0">
                             <p className="font-medium truncate">{link.text || "(kein Ankertext)"}</p>
-                            <a 
-                              href={link.url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-xs text-primary hover:underline truncate block"
-                            >
+                            <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline truncate block">
                               {link.url}
                             </a>
-                            {link.hasNofollow && (
-                              <Badge variant="outline" className="text-xs mt-1">nofollow</Badge>
-                            )}
+                            {link.hasNofollow && <Badge variant="outline" className="text-xs mt-1">nofollow</Badge>}
                           </div>
                         </div>
                       ))
@@ -511,6 +587,110 @@ const SEOCheck = ({ session }: IndexProps) => {
     );
   };
 
+  const renderSecurityTab = () => {
+    if (!result?.securityData) return null;
+
+    return (
+      <div className="space-y-4">
+        {renderCategoryCard('security', result.categories.security)}
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Security Headers
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {result.securityData.headers.map((header, idx) => (
+                <div key={idx} className={`flex items-start gap-2 p-3 rounded-lg ${header.present ? 'bg-success/10' : 'bg-muted/50'}`}>
+                  {header.present ? (
+                    <CheckCircle2 className="h-4 w-4 text-success mt-0.5" />
+                  ) : (
+                    <XCircle className="h-4 w-4 text-muted-foreground mt-0.5" />
+                  )}
+                  <div className="flex-1">
+                    <p className="font-medium text-sm">{header.name}</p>
+                    {header.present && header.value && (
+                      <p className="text-xs text-muted-foreground truncate">{header.value}</p>
+                    )}
+                    {!header.present && header.recommendation && (
+                      <p className="text-xs text-primary mt-1">→ {header.recommendation}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* URL Quality */}
+        {result.urlData && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Globe className="h-5 w-5" />
+                URL-Qualität
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-3">
+                <div className={`p-3 rounded-lg border ${!result.urlData.hasUppercase ? 'bg-success/10 border-success/30' : 'bg-warning/10 border-warning/30'}`}>
+                  <div className="flex items-center gap-2">
+                    {!result.urlData.hasUppercase ? <CheckCircle2 className="h-4 w-4 text-success" /> : <AlertTriangle className="h-4 w-4 text-warning" />}
+                    <span className="text-sm">Kleinschreibung</span>
+                  </div>
+                </div>
+                <div className={`p-3 rounded-lg border ${!result.urlData.hasParameters ? 'bg-success/10 border-success/30' : 'bg-muted border-border'}`}>
+                  <div className="flex items-center gap-2">
+                    {!result.urlData.hasParameters ? <CheckCircle2 className="h-4 w-4 text-success" /> : <Info className="h-4 w-4 text-muted-foreground" />}
+                    <span className="text-sm">Keine Parameter</span>
+                  </div>
+                </div>
+                <div className={`p-3 rounded-lg border ${!result.urlData.hasUnderscores ? 'bg-success/10 border-success/30' : 'bg-muted border-border'}`}>
+                  <div className="flex items-center gap-2">
+                    {!result.urlData.hasUnderscores ? <CheckCircle2 className="h-4 w-4 text-success" /> : <Info className="h-4 w-4 text-muted-foreground" />}
+                    <span className="text-sm">Keine Unterstriche</span>
+                  </div>
+                </div>
+                <div className={`p-3 rounded-lg border ${result.urlData.length <= 115 ? 'bg-success/10 border-success/30' : 'bg-warning/10 border-warning/30'}`}>
+                  <div className="flex items-center gap-2">
+                    {result.urlData.length <= 115 ? <CheckCircle2 className="h-4 w-4 text-success" /> : <AlertTriangle className="h-4 w-4 text-warning" />}
+                    <span className="text-sm">{result.urlData.length} Zeichen</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Hreflang */}
+        {result.metaData.hreflang.length > 0 && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Languages className="h-5 w-5" />
+                Hreflang Tags
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {result.metaData.hreflang.map((hreflang, idx) => (
+                  <div key={idx} className={`flex items-center gap-2 p-2 rounded ${hreflang.hasIssue ? 'bg-warning/10' : 'bg-muted/50'}`}>
+                    <Badge variant="outline">{hreflang.lang}</Badge>
+                    <span className="text-xs text-muted-foreground truncate flex-1">{hreflang.url}</span>
+                    {hreflang.hasIssue && <AlertTriangle className="h-4 w-4 text-warning" />}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
+  };
+
   const renderMediaTab = () => {
     if (!result?.mediaData) return renderCategoryCard('media', result!.categories.media);
 
@@ -520,7 +700,6 @@ const SEOCheck = ({ session }: IndexProps) => {
       <div className="space-y-4">
         {renderCategoryCard('media', result.categories.media)}
 
-        {/* Images without Alt */}
         {imagesWithoutAlt.length > 0 && (
           <Card>
             <CardHeader className="pb-2">
@@ -531,20 +710,14 @@ const SEOCheck = ({ session }: IndexProps) => {
                 </CardTitle>
                 <Badge variant="destructive">{imagesWithoutAlt.length}</Badge>
               </div>
-              <CardDescription>
-                Diese Bilder benötigen beschreibende Alt-Texte
-              </CardDescription>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-[200px] rounded border bg-muted/30">
+              <ScrollArea className="h-[150px] rounded border bg-muted/30">
                 <div className="p-3 space-y-2">
                   {imagesWithoutAlt.map((img, idx) => (
                     <div key={idx} className="flex items-start gap-2 text-sm p-2 rounded bg-destructive/5 border border-destructive/20">
                       <XCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-muted-foreground truncate">{img.src}</p>
-                        <p className="text-xs text-destructive mt-1">Alt-Text fehlt</p>
-                      </div>
+                      <p className="text-xs text-muted-foreground truncate">{img.src}</p>
                     </div>
                   ))}
                 </div>
@@ -553,40 +726,25 @@ const SEOCheck = ({ session }: IndexProps) => {
           </Card>
         )}
 
-        {/* All Images */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center gap-2">
               <Image className="h-5 w-5" />
-              Alle Bilder
+              Alle Bilder ({images.length})
             </CardTitle>
-            <CardDescription>
-              {images.length} Bilder auf der Seite, {images.filter(i => i.hasAlt).length} mit Alt-Text
-            </CardDescription>
           </CardHeader>
           <CardContent>
             <ScrollArea className="h-[200px] rounded border bg-muted/30">
               <div className="p-3 space-y-2">
                 {images.length === 0 ? (
-                  <p className="text-muted-foreground italic text-sm">Keine Bilder gefunden</p>
+                  <p className="text-muted-foreground italic text-sm">Keine Bilder</p>
                 ) : (
                   images.map((img, idx) => (
-                    <div 
-                      key={idx} 
-                      className={`flex items-start gap-2 text-sm p-2 rounded ${!img.hasAlt ? 'bg-destructive/5 border border-destructive/20' : 'hover:bg-muted/50'}`}
-                    >
-                      {img.hasAlt ? (
-                        <CheckCircle2 className="h-4 w-4 text-success mt-0.5 shrink-0" />
-                      ) : (
-                        <XCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
-                      )}
+                    <div key={idx} className={`flex items-start gap-2 text-sm p-2 rounded ${!img.hasAlt ? 'bg-destructive/5 border border-destructive/20' : 'hover:bg-muted/50'}`}>
+                      {img.hasAlt ? <CheckCircle2 className="h-4 w-4 text-success mt-0.5 shrink-0" /> : <XCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />}
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-muted-foreground truncate">{img.src}</p>
-                        {img.hasAlt ? (
-                          <p className="text-xs text-foreground mt-1">Alt: {img.alt}</p>
-                        ) : (
-                          <p className="text-xs text-destructive mt-1">Alt-Text fehlt</p>
-                        )}
+                        {img.hasAlt && <p className="text-xs text-foreground mt-1">Alt: {img.alt}</p>}
                       </div>
                     </div>
                   ))
@@ -613,10 +771,10 @@ const SEOCheck = ({ session }: IndexProps) => {
               <div>
                 <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
                   <Search className="h-6 w-6" />
-                  SEO-Check
+                  SEO-Check Pro
                 </h1>
                 <p className="text-sm text-muted-foreground">
-                  Umfassende On-Page SEO-Analyse wie bei professionellen Tools
+                  Umfassende On-Page Analyse wie Screaming Frog, Ahrefs & SEMrush
                 </p>
               </div>
             </div>
@@ -637,26 +795,54 @@ const SEOCheck = ({ session }: IndexProps) => {
       </header>
 
       <div className="container mx-auto p-4 space-y-6">
-        {/* Input Section */}
         <Card>
           <CardHeader>
             <CardTitle>Website analysieren</CardTitle>
             <CardDescription>
-              Geben Sie eine URL ein und wählen Sie den Analyse-Modus
+              URL eingeben und optional ein Focus-Keyword für die Keyword-Analyse
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleCheck} className="space-y-4">
-              <div className="flex gap-4">
-                <div className="flex-1">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-2">
+                  <Label htmlFor="url" className="text-sm mb-1 block">URL</Label>
                   <Input
+                    id="url"
                     type="text"
                     placeholder="https://example.com/page"
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
-                    className="text-lg"
                   />
                 </div>
+                <div>
+                  <Label htmlFor="keyword" className="text-sm mb-1 block">Focus-Keyword (optional)</Label>
+                  <Input
+                    id="keyword"
+                    type="text"
+                    placeholder="z.B. Kinesio Tape"
+                    value={keyword}
+                    onChange={(e) => setKeyword(e.target.value)}
+                  />
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <RadioGroup
+                  value={mode}
+                  onValueChange={(v) => setMode(v as "single" | "domain")}
+                  className="flex gap-6"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="single" id="single" />
+                    <Label htmlFor="single" className="cursor-pointer">Einzelne Seite</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="domain" id="domain" disabled />
+                    <Label htmlFor="domain" className="cursor-pointer text-muted-foreground">Ganze Domain (bald)</Label>
+                  </div>
+                </RadioGroup>
+
                 <Button type="submit" disabled={isLoading} size="lg">
                   {isLoading ? (
                     <>
@@ -671,36 +857,10 @@ const SEOCheck = ({ session }: IndexProps) => {
                   )}
                 </Button>
               </div>
-              
-              <RadioGroup
-                value={mode}
-                onValueChange={(v) => setMode(v as "single" | "domain")}
-                className="flex gap-6"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="single" id="single" />
-                  <Label htmlFor="single" className="cursor-pointer">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4" />
-                      Einzelne Seite
-                    </div>
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="domain" id="domain" disabled />
-                  <Label htmlFor="domain" className="cursor-pointer text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <Globe className="h-4 w-4" />
-                      Ganze Domain (bald verfügbar)
-                    </div>
-                  </Label>
-                </div>
-              </RadioGroup>
             </form>
           </CardContent>
         </Card>
 
-        {/* Loading State */}
         {isLoading && (
           <Card>
             <CardContent className="py-12">
@@ -709,7 +869,7 @@ const SEOCheck = ({ session }: IndexProps) => {
                 <div>
                   <p className="text-lg font-medium">SEO-Analyse läuft...</p>
                   <p className="text-sm text-muted-foreground">
-                    Die Seite wird gecrawlt und auf über 20 SEO-Faktoren geprüft
+                    Crawling, Readability, Keywords, Security Headers und mehr...
                   </p>
                 </div>
               </div>
@@ -717,21 +877,14 @@ const SEOCheck = ({ session }: IndexProps) => {
           </Card>
         )}
 
-        {/* Results */}
         {result && !isLoading && (
           <div className="space-y-6">
-            {/* Score Overview */}
             <Card className={getScoreBgColor(result.score)}>
               <CardContent className="py-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Analysierte URL</p>
-                    <a 
-                      href={result.url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-primary hover:underline"
-                    >
+                    <a href={result.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-primary hover:underline">
                       {result.url}
                       <ExternalLink className="h-4 w-4" />
                     </a>
@@ -739,15 +892,13 @@ const SEOCheck = ({ session }: IndexProps) => {
                   <div className="text-right">
                     <p className="text-sm text-muted-foreground mb-1">SEO Score</p>
                     <p className={`text-5xl font-bold ${getScoreColor(result.score)}`}>
-                      {result.score}
-                      <span className="text-2xl text-muted-foreground">/100</span>
+                      {result.score}<span className="text-2xl text-muted-foreground">/100</span>
                     </p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Issues Summary */}
             {result.issues.length > 0 && (
               <Card>
                 <CardHeader>
@@ -776,7 +927,6 @@ const SEOCheck = ({ session }: IndexProps) => {
               </Card>
             )}
 
-            {/* Top Recommendations */}
             {result.recommendations.length > 0 && (
               <Card>
                 <CardHeader>
@@ -795,9 +945,8 @@ const SEOCheck = ({ session }: IndexProps) => {
               </Card>
             )}
 
-            {/* Detailed Analysis Tabs */}
             <Tabs defaultValue="meta">
-              <TabsList className="grid grid-cols-5 w-full">
+              <TabsList className="grid grid-cols-6 w-full">
                 <TabsTrigger value="meta" className="flex items-center gap-1">
                   <FileText className="h-4 w-4" />
                   <span className="hidden sm:inline">Meta</span>
@@ -818,6 +967,10 @@ const SEOCheck = ({ session }: IndexProps) => {
                   <Image className="h-4 w-4" />
                   <span className="hidden sm:inline">Medien</span>
                 </TabsTrigger>
+                <TabsTrigger value="security" className="flex items-center gap-1">
+                  <Shield className="h-4 w-4" />
+                  <span className="hidden sm:inline">Security</span>
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="meta" className="mt-4">
@@ -835,11 +988,13 @@ const SEOCheck = ({ session }: IndexProps) => {
               <TabsContent value="media" className="mt-4">
                 {renderMediaTab()}
               </TabsContent>
+              <TabsContent value="security" className="mt-4">
+                {renderSecurityTab()}
+              </TabsContent>
             </Tabs>
           </div>
         )}
 
-        {/* Empty State */}
         {!result && !isLoading && (
           <Card>
             <CardContent className="py-12">
@@ -850,18 +1005,16 @@ const SEOCheck = ({ session }: IndexProps) => {
                 <div>
                   <p className="text-lg font-medium">Keine Analyse vorhanden</p>
                   <p className="text-sm text-muted-foreground">
-                    Geben Sie oben eine URL ein, um die SEO-Analyse zu starten
+                    Geben Sie eine URL ein, um die professionelle SEO-Analyse zu starten
                   </p>
                 </div>
                 <div className="flex flex-wrap justify-center gap-2 mt-4">
-                  <Badge variant="outline">Title & Meta</Badge>
-                  <Badge variant="outline">Überschriften</Badge>
-                  <Badge variant="outline">Content-Länge</Badge>
-                  <Badge variant="outline">Interne Links</Badge>
-                  <Badge variant="outline">Bilder Alt-Texte</Badge>
-                  <Badge variant="outline">Schema.org</Badge>
-                  <Badge variant="outline">Mobile-Friendly</Badge>
-                  <Badge variant="outline">HTTPS</Badge>
+                  <Badge variant="outline">Readability Score</Badge>
+                  <Badge variant="outline">Keyword-Analyse</Badge>
+                  <Badge variant="outline">Security Headers</Badge>
+                  <Badge variant="outline">Hreflang</Badge>
+                  <Badge variant="outline">URL-Qualität</Badge>
+                  <Badge variant="outline">Canonical</Badge>
                 </div>
               </div>
             </CardContent>

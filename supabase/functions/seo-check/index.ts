@@ -25,6 +25,30 @@ interface ImageInfo {
   hasAlt: boolean;
 }
 
+interface HreflangInfo {
+  lang: string;
+  url: string;
+  hasIssue: boolean;
+  issue?: string;
+}
+
+interface SecurityHeaderInfo {
+  name: string;
+  present: boolean;
+  value?: string;
+  recommendation?: string;
+}
+
+interface KeywordAnalysis {
+  keyword: string;
+  density: number;
+  inTitle: boolean;
+  inH1: boolean;
+  inUrl: boolean;
+  inDescription: boolean;
+  occurrences: number;
+}
+
 interface SEOCheckResult {
   url: string;
   timestamp: string;
@@ -35,14 +59,18 @@ interface SEOCheckResult {
     technical: CategoryResult;
     links: CategoryResult;
     media: CategoryResult;
+    security: CategoryResult;
   };
   issues: SEOIssue[];
   recommendations: string[];
-  // New detailed data
   contentData: {
     markdown: string;
     wordCount: number;
     headings: HeadingInfo[];
+    readabilityScore: number;
+    readabilityLevel: string;
+    avgSentenceLength: number;
+    avgWordLength: number;
   };
   linkData: {
     internal: LinkInfo[];
@@ -57,6 +85,19 @@ interface SEOCheckResult {
     description: string;
     canonical: string;
     robots: string;
+    hreflang: HreflangInfo[];
+  };
+  keywordData: KeywordAnalysis | null;
+  securityData: {
+    isHttps: boolean;
+    headers: SecurityHeaderInfo[];
+  };
+  urlData: {
+    hasUppercase: boolean;
+    hasParameters: boolean;
+    hasUnderscores: boolean;
+    length: number;
+    depth: number;
   };
 }
 
@@ -89,7 +130,7 @@ serve(async (req) => {
   }
 
   try {
-    const { url, mode } = await req.json();
+    const { url, mode, keyword } = await req.json();
     
     if (!url) {
       return new Response(
@@ -98,7 +139,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Starting SEO check for: ${url}, mode: ${mode}`);
+    console.log(`Starting SEO check for: ${url}, mode: ${mode}, keyword: ${keyword || 'none'}`);
 
     const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
     if (!FIRECRAWL_API_KEY) {
@@ -147,9 +188,10 @@ serve(async (req) => {
     const html = pageData.html || '';
     const markdown = pageData.markdown || '';
     const metadata = pageData.metadata || {};
+    const responseHeaders = scrapeData.data.headers || {};
 
     // Perform comprehensive SEO analysis
-    const result = analyzeSEO(url, html, markdown, metadata);
+    const result = analyzeSEO(url, html, markdown, metadata, responseHeaders, keyword);
 
     console.log(`SEO check completed. Score: ${result.score}/100`);
 
@@ -168,9 +210,90 @@ serve(async (req) => {
   }
 });
 
-function analyzeSEO(url: string, html: string, markdown: string, metadata: any): SEOCheckResult {
+// Calculate Flesch Reading Ease for German text
+function calculateFleschDE(text: string): { score: number; level: string; avgSentenceLength: number; avgWordLength: number } {
+  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+  const words = text.split(/\s+/).filter(w => w.length > 0);
+  
+  if (words.length === 0 || sentences.length === 0) {
+    return { score: 0, level: 'Nicht berechenbar', avgSentenceLength: 0, avgWordLength: 0 };
+  }
+  
+  // Count syllables (simplified German approximation)
+  const countSyllables = (word: string): number => {
+    const vowels = word.toLowerCase().match(/[aeiouäöü]/gi);
+    return vowels ? vowels.length : 1;
+  };
+  
+  const totalSyllables = words.reduce((sum, word) => sum + countSyllables(word), 0);
+  const avgSentenceLength = words.length / sentences.length;
+  const avgSyllablesPerWord = totalSyllables / words.length;
+  const avgWordLength = words.reduce((sum, w) => sum + w.length, 0) / words.length;
+  
+  // German Flesch formula: 180 - ASL - (58.5 * ASW)
+  const score = Math.round(180 - avgSentenceLength - (58.5 * avgSyllablesPerWord));
+  
+  let level: string;
+  if (score >= 80) level = 'Sehr leicht';
+  else if (score >= 60) level = 'Leicht';
+  else if (score >= 40) level = 'Mittelschwer';
+  else if (score >= 20) level = 'Schwer';
+  else level = 'Sehr schwer';
+  
+  return { 
+    score: Math.max(0, Math.min(100, score)), 
+    level, 
+    avgSentenceLength: Math.round(avgSentenceLength * 10) / 10,
+    avgWordLength: Math.round(avgWordLength * 10) / 10
+  };
+}
+
+// Analyze keyword usage
+function analyzeKeyword(keyword: string, text: string, title: string, h1: string, url: string, description: string): KeywordAnalysis {
+  const lowerKeyword = keyword.toLowerCase();
+  const lowerText = text.toLowerCase();
+  const words = lowerText.split(/\s+/).filter(w => w.length > 0);
+  
+  // Count exact and partial matches
+  const keywordWords = lowerKeyword.split(/\s+/);
+  let occurrences = 0;
+  
+  if (keywordWords.length === 1) {
+    occurrences = words.filter(w => w.includes(lowerKeyword)).length;
+  } else {
+    // Multi-word keyword - count phrase occurrences
+    const regex = new RegExp(lowerKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    const matches = lowerText.match(regex);
+    occurrences = matches ? matches.length : 0;
+  }
+  
+  const density = words.length > 0 ? (occurrences / words.length) * 100 : 0;
+  
+  return {
+    keyword,
+    density: Math.round(density * 100) / 100,
+    inTitle: title.toLowerCase().includes(lowerKeyword),
+    inH1: h1.toLowerCase().includes(lowerKeyword),
+    inUrl: url.toLowerCase().includes(lowerKeyword.replace(/\s+/g, '-')),
+    inDescription: description.toLowerCase().includes(lowerKeyword),
+    occurrences,
+  };
+}
+
+function analyzeSEO(url: string, html: string, markdown: string, metadata: any, responseHeaders: any, keyword?: string): SEOCheckResult {
   const issues: SEOIssue[] = [];
   const recommendations: string[] = [];
+  const urlObj = new URL(url);
+
+  // === URL ANALYSIS ===
+  const urlPath = urlObj.pathname;
+  const urlData = {
+    hasUppercase: /[A-Z]/.test(urlPath),
+    hasParameters: urlObj.search.length > 0,
+    hasUnderscores: urlPath.includes('_'),
+    length: urlPath.length,
+    depth: urlPath.split('/').filter(p => p.length > 0).length,
+  };
 
   // === META ANALYSIS ===
   const metaChecks: CheckResult[] = [];
@@ -231,31 +354,35 @@ function analyzeSEO(url: string, html: string, markdown: string, metadata: any):
     message: `Description hat ${descLength} Zeichen`,
     value: descLength,
     recommendation: descLength < 150 ? 'Meta Description ist zu kurz' : 
-                   descLength > 160 ? 'Meta Description ist zu lang, wird in den SERPs abgeschnitten' : undefined,
+                   descLength > 160 ? 'Meta Description ist zu lang' : undefined,
   });
-
-  if (descLength === 0) {
-    issues.push({
-      category: 'Meta',
-      severity: 'critical',
-      title: 'Fehlende Meta Description',
-      description: 'Die Seite hat keine Meta Description für die Suchergebnisse.',
-      recommendation: 'Fügen Sie eine einzigartige Meta Description mit 150-160 Zeichen hinzu.',
-    });
-  }
 
   // Canonical URL
   const canonicalMatch = html.match(/<link[^>]*rel=["']canonical["'][^>]*href=["']([^"']*)["']/i);
   const canonical = canonicalMatch ? canonicalMatch[1] : '';
   
+  // Check for canonical issues
+  const canonicalIsRelative = canonical.startsWith('/');
+  const canonicalMatchesUrl = canonical === url || canonical === url.replace(/\/$/, '') || canonical === url + '/';
+  
   metaChecks.push({
-    name: 'Canonical URL',
+    name: 'Canonical URL vorhanden',
     passed: canonical.length > 0,
     severity: 'warning',
     message: canonical ? `Canonical: ${canonical}` : 'Kein Canonical Tag gefunden',
     value: canonical,
-    recommendation: !canonical ? 'Fügen Sie einen Canonical Tag hinzu um Duplicate Content zu vermeiden' : undefined,
+    recommendation: !canonical ? 'Fügen Sie einen Canonical Tag hinzu' : undefined,
   });
+
+  if (canonical && canonicalIsRelative) {
+    metaChecks.push({
+      name: 'Canonical ist absolut',
+      passed: false,
+      severity: 'warning',
+      message: 'Canonical URL ist relativ statt absolut',
+      recommendation: 'Verwenden Sie absolute URLs für Canonical Tags',
+    });
+  }
 
   // Viewport Meta
   const viewportMatch = html.match(/<meta[^>]*name=["']viewport["'][^>]*/i);
@@ -264,7 +391,7 @@ function analyzeSEO(url: string, html: string, markdown: string, metadata: any):
     passed: !!viewportMatch,
     severity: 'critical',
     message: viewportMatch ? 'Viewport Tag vorhanden' : 'Kein Viewport Tag gefunden',
-    recommendation: !viewportMatch ? 'Fügen Sie einen Viewport Meta Tag für Mobile-Optimierung hinzu' : undefined,
+    recommendation: !viewportMatch ? 'Fügen Sie einen Viewport Meta Tag hinzu' : undefined,
   });
 
   // Robots Meta
@@ -290,8 +417,48 @@ function analyzeSEO(url: string, html: string, markdown: string, metadata: any):
     passed: !!(ogTitle && ogDesc && ogImage),
     severity: 'warning',
     message: `OG Tags: Title ${ogTitle ? '✓' : '✗'}, Description ${ogDesc ? '✓' : '✗'}, Image ${ogImage ? '✓' : '✗'}`,
-    recommendation: !(ogTitle && ogDesc && ogImage) ? 'Vervollständigen Sie die Open Graph Tags für besseres Social Sharing' : undefined,
+    recommendation: !(ogTitle && ogDesc && ogImage) ? 'Vervollständigen Sie die Open Graph Tags' : undefined,
   });
+
+  // === HREFLANG ANALYSIS ===
+  const hreflangMatches = html.matchAll(/<link[^>]*rel=["']alternate["'][^>]*hreflang=["']([^"']*)["'][^>]*href=["']([^"']*)["']/gi);
+  const hreflangList: HreflangInfo[] = [];
+  
+  for (const match of hreflangMatches) {
+    const lang = match[1];
+    const hrefUrl = match[2];
+    let hasIssue = false;
+    let issue: string | undefined;
+    
+    if (!hrefUrl.startsWith('http')) {
+      hasIssue = true;
+      issue = 'Hreflang URL sollte absolut sein';
+    }
+    
+    hreflangList.push({ lang, url: hrefUrl, hasIssue, issue });
+  }
+
+  // Check for x-default
+  const hasXDefault = hreflangList.some(h => h.lang === 'x-default');
+  if (hreflangList.length > 0 && !hasXDefault) {
+    metaChecks.push({
+      name: 'Hreflang x-default vorhanden',
+      passed: false,
+      severity: 'warning',
+      message: 'Kein x-default hreflang Tag gefunden',
+      recommendation: 'Fügen Sie einen x-default hreflang Tag für die Standardsprache hinzu',
+    });
+  }
+
+  if (hreflangList.length > 0) {
+    metaChecks.push({
+      name: 'Hreflang Tags vorhanden',
+      passed: true,
+      severity: 'info',
+      message: `${hreflangList.length} Hreflang Tags gefunden`,
+      value: hreflangList.length,
+    });
+  }
 
   // === CONTENT ANALYSIS ===
   const contentChecks: CheckResult[] = [];
@@ -309,10 +476,9 @@ function analyzeSEO(url: string, html: string, markdown: string, metadata: any):
     let hasIssue = false;
     let issue: string | undefined;
     
-    // Check for hierarchy issues (e.g., H3 after H1 without H2)
     if (level > lastLevel + 1 && lastLevel !== 0) {
       hasIssue = true;
-      issue = `Sprung von H${lastLevel} zu H${level} - H${lastLevel + 1} übersprungen`;
+      issue = `Sprung von H${lastLevel} zu H${level}`;
     }
     
     headingsList.push({ level, text, hasIssue, issue });
@@ -324,14 +490,13 @@ function analyzeSEO(url: string, html: string, markdown: string, metadata: any):
   const h1Count = h1Matches.length;
   const h1Text = h1Matches[0]?.replace(/<[^>]*>/g, '').trim() || '';
   
-  // Mark H1 issues
   if (h1Count === 0) {
     headingsList.unshift({ level: 1, text: '(Keine H1 vorhanden)', hasIssue: true, issue: 'H1 fehlt komplett' });
   } else if (h1Count > 1) {
     headingsList.forEach(h => {
       if (h.level === 1) {
         h.hasIssue = true;
-        h.issue = 'Mehrere H1-Tags gefunden - sollte nur eine sein';
+        h.issue = 'Mehrere H1-Tags gefunden';
       }
     });
   }
@@ -342,19 +507,20 @@ function analyzeSEO(url: string, html: string, markdown: string, metadata: any):
     severity: h1Count === 0 ? 'critical' : (h1Count > 1 ? 'warning' : 'info'),
     message: h1Count === 0 ? 'Keine H1 gefunden' : 
              h1Count === 1 ? `H1: "${h1Text.substring(0, 50)}${h1Text.length > 50 ? '...' : ''}"` : 
-             `${h1Count} H1 Tags gefunden (sollte nur 1 sein)`,
+             `${h1Count} H1 Tags gefunden`,
     value: h1Count,
-    recommendation: h1Count === 0 ? 'Fügen Sie genau eine H1 Überschrift hinzu' : 
-                   h1Count > 1 ? 'Reduzieren Sie auf genau eine H1 Überschrift' : undefined,
+    recommendation: h1Count === 0 ? 'Fügen Sie genau eine H1 hinzu' : 
+                   h1Count > 1 ? 'Reduzieren Sie auf eine H1' : undefined,
   });
 
-  if (h1Count === 0) {
-    issues.push({
-      category: 'Content',
-      severity: 'critical',
-      title: 'Fehlende H1 Überschrift',
-      description: 'Die Seite hat keine H1 Überschrift.',
-      recommendation: 'Fügen Sie eine aussagekräftige H1 Überschrift mit dem Haupt-Keyword hinzu.',
+  // Title vs H1 check
+  if (title && h1Text && title.toLowerCase() === h1Text.toLowerCase()) {
+    contentChecks.push({
+      name: 'Title unterscheidet sich von H1',
+      passed: false,
+      severity: 'info',
+      message: 'Title und H1 sind identisch',
+      recommendation: 'Variieren Sie Title und H1 leicht für mehr Keyword-Vielfalt',
     });
   }
 
@@ -385,15 +551,26 @@ function analyzeSEO(url: string, html: string, markdown: string, metadata: any):
     recommendation: wordCount < 300 ? 'Erweitern Sie den Content auf mindestens 300 Wörter' : undefined,
   });
 
-  if (wordCount < 300) {
-    issues.push({
-      category: 'Content',
-      severity: 'warning',
-      title: 'Zu wenig Textinhalt',
-      description: `Die Seite hat nur ${wordCount} Wörter.`,
-      recommendation: 'Erweitern Sie den Content auf mindestens 300 Wörter für bessere Rankings.',
-    });
-  }
+  // Readability Score
+  const readability = calculateFleschDE(textContent);
+  
+  contentChecks.push({
+    name: 'Lesbarkeit (Flesch DE)',
+    passed: readability.score >= 40,
+    severity: readability.score < 30 ? 'warning' : 'info',
+    message: `Score: ${readability.score} - ${readability.level}`,
+    value: readability.score,
+    recommendation: readability.score < 40 ? 'Vereinfachen Sie Satzstruktur und Wortwahl' : undefined,
+  });
+
+  contentChecks.push({
+    name: 'Durchschnittliche Satzlänge',
+    passed: readability.avgSentenceLength <= 20,
+    severity: readability.avgSentenceLength > 25 ? 'warning' : 'info',
+    message: `${readability.avgSentenceLength} Wörter pro Satz`,
+    value: readability.avgSentenceLength,
+    recommendation: readability.avgSentenceLength > 20 ? 'Kürzen Sie lange Sätze für bessere Lesbarkeit' : undefined,
+  });
 
   // Structured Data
   const jsonLdMatches = html.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) || [];
@@ -402,27 +579,85 @@ function analyzeSEO(url: string, html: string, markdown: string, metadata: any):
     name: 'Strukturierte Daten (Schema.org)',
     passed: jsonLdMatches.length > 0,
     severity: 'warning',
-    message: jsonLdMatches.length > 0 ? `${jsonLdMatches.length} Schema(s) gefunden` : 'Keine strukturierten Daten gefunden',
+    message: jsonLdMatches.length > 0 ? `${jsonLdMatches.length} Schema(s) gefunden` : 'Keine strukturierten Daten',
     value: jsonLdMatches.length,
-    recommendation: jsonLdMatches.length === 0 ? 'Fügen Sie Schema.org Markup hinzu (FAQ, Product, Article, etc.)' : undefined,
+    recommendation: jsonLdMatches.length === 0 ? 'Fügen Sie Schema.org Markup hinzu' : undefined,
   });
+
+  // === KEYWORD ANALYSIS ===
+  let keywordData: KeywordAnalysis | null = null;
+  
+  if (keyword && keyword.trim().length > 0) {
+    keywordData = analyzeKeyword(keyword.trim(), textContent, title, h1Text, url, description);
+    
+    contentChecks.push({
+      name: 'Keyword in Title',
+      passed: keywordData.inTitle,
+      severity: keywordData.inTitle ? 'info' : 'warning',
+      message: keywordData.inTitle ? 'Keyword im Title enthalten' : 'Keyword fehlt im Title',
+      recommendation: !keywordData.inTitle ? 'Fügen Sie das Keyword zum Title hinzu' : undefined,
+    });
+
+    contentChecks.push({
+      name: 'Keyword in H1',
+      passed: keywordData.inH1,
+      severity: keywordData.inH1 ? 'info' : 'warning',
+      message: keywordData.inH1 ? 'Keyword in H1 enthalten' : 'Keyword fehlt in H1',
+      recommendation: !keywordData.inH1 ? 'Fügen Sie das Keyword zur H1 hinzu' : undefined,
+    });
+
+    contentChecks.push({
+      name: 'Keyword-Dichte (1-3%)',
+      passed: keywordData.density >= 1 && keywordData.density <= 3,
+      severity: keywordData.density < 0.5 || keywordData.density > 4 ? 'warning' : 'info',
+      message: `${keywordData.density}% (${keywordData.occurrences}x)`,
+      value: keywordData.density,
+      recommendation: keywordData.density < 1 ? 'Erhöhen Sie die Keyword-Dichte' : 
+                     keywordData.density > 3 ? 'Reduzieren Sie die Keyword-Dichte' : undefined,
+    });
+  }
 
   // === TECHNICAL ANALYSIS ===
   const technicalChecks: CheckResult[] = [];
 
   // URL Structure
-  const urlObj = new URL(url);
-  const urlPath = urlObj.pathname;
-  const hasCleanUrl = !urlPath.includes('?') && !urlPath.includes('&') && urlPath.length < 100;
-  
   technicalChecks.push({
     name: 'Saubere URL-Struktur',
-    passed: hasCleanUrl,
-    severity: hasCleanUrl ? 'info' : 'warning',
-    message: `URL-Pfad: ${urlPath}`,
+    passed: !urlData.hasUppercase && !urlData.hasParameters && !urlData.hasUnderscores,
+    severity: urlData.hasUppercase || urlData.hasParameters ? 'warning' : 'info',
+    message: `Länge: ${urlData.length}, Tiefe: ${urlData.depth}`,
     value: urlPath,
-    recommendation: !hasCleanUrl ? 'Verwenden Sie kurze, sprechende URLs ohne Parameter' : undefined,
   });
+
+  if (urlData.hasUppercase) {
+    technicalChecks.push({
+      name: 'URL kleingeschrieben',
+      passed: false,
+      severity: 'warning',
+      message: 'URL enthält Großbuchstaben',
+      recommendation: 'Verwenden Sie ausschließlich Kleinbuchstaben in URLs',
+    });
+  }
+
+  if (urlData.hasUnderscores) {
+    technicalChecks.push({
+      name: 'URL ohne Unterstriche',
+      passed: false,
+      severity: 'info',
+      message: 'URL enthält Unterstriche',
+      recommendation: 'Verwenden Sie Bindestriche statt Unterstriche',
+    });
+  }
+
+  if (urlData.length > 115) {
+    technicalChecks.push({
+      name: 'URL-Länge optimal',
+      passed: false,
+      severity: 'warning',
+      message: `URL hat ${urlData.length} Zeichen (max. 115 empfohlen)`,
+      recommendation: 'Kürzen Sie die URL auf unter 115 Zeichen',
+    });
+  }
 
   // HTTPS
   const isHttps = urlObj.protocol === 'https:';
@@ -430,19 +665,9 @@ function analyzeSEO(url: string, html: string, markdown: string, metadata: any):
     name: 'HTTPS',
     passed: isHttps,
     severity: isHttps ? 'info' : 'critical',
-    message: isHttps ? 'Seite ist HTTPS-gesichert' : 'Seite verwendet kein HTTPS!',
-    recommendation: !isHttps ? 'Migrieren Sie zu HTTPS für Sicherheit und Rankings' : undefined,
+    message: isHttps ? 'HTTPS aktiv' : 'Kein HTTPS!',
+    recommendation: !isHttps ? 'Migrieren Sie zu HTTPS' : undefined,
   });
-
-  if (!isHttps) {
-    issues.push({
-      category: 'Technical',
-      severity: 'critical',
-      title: 'Keine HTTPS-Verschlüsselung',
-      description: 'Die Seite ist nicht über HTTPS erreichbar.',
-      recommendation: 'Aktivieren Sie HTTPS mit einem SSL-Zertifikat.',
-    });
-  }
 
   // Language Tag
   const langMatch = html.match(/<html[^>]*lang=["']([^"']*)["']/i);
@@ -452,7 +677,7 @@ function analyzeSEO(url: string, html: string, markdown: string, metadata: any):
     name: 'Sprach-Attribut',
     passed: language.length > 0,
     severity: 'warning',
-    message: language ? `Sprache: ${language}` : 'Kein lang-Attribut im HTML-Tag',
+    message: language ? `Sprache: ${language}` : 'Kein lang-Attribut',
     value: language,
     recommendation: !language ? 'Fügen Sie lang="de" zum HTML-Tag hinzu' : undefined,
   });
@@ -465,15 +690,83 @@ function analyzeSEO(url: string, html: string, markdown: string, metadata: any):
     name: 'UTF-8 Encoding',
     passed: charset === 'UTF-8',
     severity: charset === 'UTF-8' ? 'info' : 'warning',
-    message: charset ? `Charset: ${charset}` : 'Kein Charset definiert',
+    message: charset ? `Charset: ${charset}` : 'Kein Charset',
     value: charset,
-    recommendation: charset !== 'UTF-8' ? 'Verwenden Sie UTF-8 als Zeichenkodierung' : undefined,
+    recommendation: charset !== 'UTF-8' ? 'Verwenden Sie UTF-8' : undefined,
   });
+
+  // === SECURITY ANALYSIS ===
+  const securityChecks: CheckResult[] = [];
+  const securityHeaders: SecurityHeaderInfo[] = [];
+
+  // HSTS Header
+  const hstsPresent = responseHeaders['strict-transport-security'] !== undefined;
+  securityHeaders.push({
+    name: 'Strict-Transport-Security (HSTS)',
+    present: hstsPresent,
+    value: responseHeaders['strict-transport-security'],
+    recommendation: !hstsPresent ? 'Aktivieren Sie HSTS für sichere Verbindungen' : undefined,
+  });
+
+  // CSP Header
+  const cspPresent = responseHeaders['content-security-policy'] !== undefined;
+  securityHeaders.push({
+    name: 'Content-Security-Policy',
+    present: cspPresent,
+    value: responseHeaders['content-security-policy']?.substring(0, 100),
+    recommendation: !cspPresent ? 'Implementieren Sie eine Content Security Policy' : undefined,
+  });
+
+  // X-Frame-Options
+  const xfoPresent = responseHeaders['x-frame-options'] !== undefined;
+  securityHeaders.push({
+    name: 'X-Frame-Options',
+    present: xfoPresent,
+    value: responseHeaders['x-frame-options'],
+    recommendation: !xfoPresent ? 'Setzen Sie X-Frame-Options gegen Clickjacking' : undefined,
+  });
+
+  // X-Content-Type-Options
+  const xctoPresent = responseHeaders['x-content-type-options'] !== undefined;
+  securityHeaders.push({
+    name: 'X-Content-Type-Options',
+    present: xctoPresent,
+    value: responseHeaders['x-content-type-options'],
+    recommendation: !xctoPresent ? 'Setzen Sie X-Content-Type-Options: nosniff' : undefined,
+  });
+
+  const presentHeaders = securityHeaders.filter(h => h.present).length;
+  
+  securityChecks.push({
+    name: 'HTTPS aktiv',
+    passed: isHttps,
+    severity: isHttps ? 'info' : 'critical',
+    message: isHttps ? 'Verbindung ist verschlüsselt' : 'Keine Verschlüsselung',
+  });
+
+  securityChecks.push({
+    name: 'Security Headers',
+    passed: presentHeaders >= 2,
+    severity: presentHeaders < 2 ? 'warning' : 'info',
+    message: `${presentHeaders} von ${securityHeaders.length} Headers vorhanden`,
+    value: presentHeaders,
+    recommendation: presentHeaders < 2 ? 'Implementieren Sie wichtige Security Headers' : undefined,
+  });
+
+  // Mixed Content Check
+  const mixedContent = html.match(/src=["']http:\/\//gi) || [];
+  if (isHttps && mixedContent.length > 0) {
+    securityChecks.push({
+      name: 'Kein Mixed Content',
+      passed: false,
+      severity: 'warning',
+      message: `${mixedContent.length} HTTP-Ressourcen auf HTTPS-Seite`,
+      recommendation: 'Ändern Sie alle HTTP-URLs zu HTTPS',
+    });
+  }
 
   // === LINKS ANALYSIS ===
   const linkChecks: CheckResult[] = [];
-
-  // Extract detailed link information
   const allLinks = html.match(/<a[^>]*href=["'][^"']*["'][^>]*>[\s\S]*?<\/a>/gi) || [];
   
   const internalLinksList: LinkInfo[] = [];
@@ -488,7 +781,6 @@ function analyzeSEO(url: string, html: string, markdown: string, metadata: any):
     const text = textMatch ? textMatch[1].trim() : '';
     const hasNofollow = link.toLowerCase().includes('nofollow');
     
-    // Skip anchors, javascript, mailto, tel
     if (href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:')) {
       return;
     }
@@ -507,32 +799,33 @@ function analyzeSEO(url: string, html: string, markdown: string, metadata: any):
     name: 'Interne Links',
     passed: internalLinksList.length >= 3,
     severity: internalLinksList.length < 3 ? 'warning' : 'info',
-    message: `${internalLinksList.length} interne Links gefunden`,
+    message: `${internalLinksList.length} interne Links`,
     value: internalLinksList.length,
-    recommendation: internalLinksList.length < 3 ? 'Fügen Sie mehr interne Links zu relevanten Seiten hinzu' : undefined,
+    recommendation: internalLinksList.length < 3 ? 'Fügen Sie mehr interne Links hinzu' : undefined,
   });
 
   linkChecks.push({
     name: 'Externe Links',
     passed: externalLinksList.length > 0,
     severity: 'info',
-    message: `${externalLinksList.length} externe Links gefunden`,
+    message: `${externalLinksList.length} externe Links`,
     value: externalLinksList.length,
   });
 
-  // Check for rel="nofollow" on external links
-  const nofollowExternal = externalLinksList.filter(link => link.hasNofollow);
-  linkChecks.push({
-    name: 'Nofollow auf externen Links',
-    passed: true,
-    severity: 'info',
-    message: `${nofollowExternal.length} von ${externalLinksList.length} externen Links mit nofollow`,
-    value: nofollowExternal.length,
-  });
+  // Empty anchor texts
+  const emptyAnchors = [...internalLinksList, ...externalLinksList].filter(l => l.text.length === 0);
+  if (emptyAnchors.length > 0) {
+    linkChecks.push({
+      name: 'Links mit Ankertext',
+      passed: false,
+      severity: 'warning',
+      message: `${emptyAnchors.length} Links ohne Ankertext`,
+      recommendation: 'Fügen Sie beschreibende Ankertexte zu allen Links hinzu',
+    });
+  }
 
   // === MEDIA ANALYSIS ===
   const mediaChecks: CheckResult[] = [];
-
   const imageMatches = html.match(/<img[^>]*>/gi) || [];
   const imagesList: ImageInfo[] = [];
   const imagesWithoutAltList: ImageInfo[] = [];
@@ -557,30 +850,20 @@ function analyzeSEO(url: string, html: string, markdown: string, metadata: any):
     name: 'Bilder mit Alt-Text',
     passed: imagesList.length === 0 || imagesWithoutAltList.length === 0,
     severity: imagesWithoutAltList.length > 0 ? 'warning' : 'info',
-    message: `${imagesList.length - imagesWithoutAltList.length} von ${imagesList.length} Bildern haben Alt-Text`,
+    message: `${imagesList.length - imagesWithoutAltList.length} von ${imagesList.length} mit Alt-Text`,
     value: `${imagesList.length - imagesWithoutAltList.length}/${imagesList.length}`,
-    recommendation: imagesWithoutAltList.length > 0 ? 'Fügen Sie beschreibende Alt-Texte zu allen Bildern hinzu' : undefined,
+    recommendation: imagesWithoutAltList.length > 0 ? 'Fügen Sie Alt-Texte zu allen Bildern hinzu' : undefined,
   });
 
-  if (imagesWithoutAltList.length > 0) {
-    issues.push({
-      category: 'Media',
-      severity: 'warning',
-      title: 'Fehlende Alt-Texte',
-      description: `${imagesWithoutAltList.length} Bilder haben keinen Alt-Text.`,
-      recommendation: 'Fügen Sie beschreibende Alt-Texte zu allen Bildern hinzu.',
-    });
-  }
-
-  // Check for lazy loading
+  // Lazy loading
   const lazyImages = imageMatches.filter(img => img.includes('loading="lazy"') || img.includes("loading='lazy'"));
   mediaChecks.push({
-    name: 'Lazy Loading für Bilder',
+    name: 'Lazy Loading',
     passed: imagesList.length === 0 || lazyImages.length > 0,
-    severity: imagesList.length > 0 && lazyImages.length === 0 ? 'info' : 'info',
-    message: `${lazyImages.length} von ${imagesList.length} Bildern mit Lazy Loading`,
+    severity: imagesList.length > 3 && lazyImages.length === 0 ? 'info' : 'info',
+    message: `${lazyImages.length} von ${imagesList.length} mit Lazy Loading`,
     value: lazyImages.length,
-    recommendation: imagesList.length > 3 && lazyImages.length === 0 ? 'Implementieren Sie Lazy Loading für bessere Performance' : undefined,
+    recommendation: imagesList.length > 3 && lazyImages.length === 0 ? 'Implementieren Sie Lazy Loading' : undefined,
   });
 
   // Calculate scores
@@ -602,13 +885,14 @@ function analyzeSEO(url: string, html: string, markdown: string, metadata: any):
   const technicalScore = calculateCategoryScore(technicalChecks);
   const linkScore = calculateCategoryScore(linkChecks);
   const mediaScore = calculateCategoryScore(mediaChecks);
+  const securityScore = calculateCategoryScore(securityChecks);
 
-  const totalScore = metaScore.score + contentScore.score + technicalScore.score + linkScore.score + mediaScore.score;
-  const totalMaxScore = metaScore.maxScore + contentScore.maxScore + technicalScore.maxScore + linkScore.maxScore + mediaScore.maxScore;
+  const totalScore = metaScore.score + contentScore.score + technicalScore.score + linkScore.score + mediaScore.score + securityScore.score;
+  const totalMaxScore = metaScore.maxScore + contentScore.maxScore + technicalScore.maxScore + linkScore.maxScore + mediaScore.maxScore + securityScore.maxScore;
   const percentageScore = Math.round((totalScore / totalMaxScore) * 100);
 
-  // Generate top recommendations
-  const allChecks = [...metaChecks, ...contentChecks, ...technicalChecks, ...linkChecks, ...mediaChecks];
+  // Generate recommendations
+  const allChecks = [...metaChecks, ...contentChecks, ...technicalChecks, ...linkChecks, ...mediaChecks, ...securityChecks];
   const failedChecks = allChecks.filter(c => !c.passed && c.recommendation);
   const sortedFailed = failedChecks.sort((a, b) => {
     const severityOrder = { critical: 0, warning: 1, info: 2 };
@@ -631,13 +915,18 @@ function analyzeSEO(url: string, html: string, markdown: string, metadata: any):
       technical: { ...technicalScore, checks: technicalChecks },
       links: { ...linkScore, checks: linkChecks },
       media: { ...mediaScore, checks: mediaChecks },
+      security: { ...securityScore, checks: securityChecks },
     },
     issues,
     recommendations,
     contentData: {
-      markdown: markdown.substring(0, 10000), // Limit size
+      markdown: markdown.substring(0, 10000),
       wordCount,
       headings: headingsList,
+      readabilityScore: readability.score,
+      readabilityLevel: readability.level,
+      avgSentenceLength: readability.avgSentenceLength,
+      avgWordLength: readability.avgWordLength,
     },
     linkData: {
       internal: internalLinksList,
@@ -652,6 +941,13 @@ function analyzeSEO(url: string, html: string, markdown: string, metadata: any):
       description,
       canonical,
       robots,
+      hreflang: hreflangList,
     },
+    keywordData,
+    securityData: {
+      isHttps,
+      headers: securityHeaders,
+    },
+    urlData,
   };
 }
