@@ -251,6 +251,16 @@ export const TextAnalysisEditor = ({ initialText = '' }: TextAnalysisEditorProps
   
   const analysis = useMemo(() => analyzeText(text), [text]);
   
+  // Helper function - must be defined before useMemo that uses it
+  const escapeHtml = useCallback((str: string) => {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }, []);
+  
   // Generate highlighted HTML
   const highlightedText = useMemo(() => {
     if (!text) return '';
@@ -294,7 +304,6 @@ export const TextAnalysisEditor = ({ initialText = '' }: TextAnalysisEditorProps
     
     // Build highlighted text
     let result = '';
-    let lastIndex = 0;
     
     // For overlapping highlights, we need to handle them carefully
     // We'll use a simple approach: just add spans for word-level highlights
@@ -352,16 +361,7 @@ export const TextAnalysisEditor = ({ initialText = '' }: TextAnalysisEditorProps
     result = result.replace(/\n/g, '<br>');
     
     return result;
-  }, [text, analysis, highlightConfig]);
-  
-  const escapeHtml = (str: string) => {
-    return str
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  };
+  }, [text, analysis, highlightConfig, escapeHtml]);
   
   const getFleschColor = (score: number) => {
     if (score >= 60) return 'text-success';
