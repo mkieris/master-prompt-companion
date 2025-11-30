@@ -8,6 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Loader2, 
   LogOut, 
@@ -24,7 +26,12 @@ import {
   Link2,
   Image,
   Code,
-  Zap
+  Zap,
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  ArrowUpRight,
+  ArrowDownLeft
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -57,6 +64,25 @@ interface SEOIssue {
   recommendation: string;
 }
 
+interface LinkInfo {
+  url: string;
+  text: string;
+  hasNofollow: boolean;
+}
+
+interface HeadingInfo {
+  level: number;
+  text: string;
+  hasIssue: boolean;
+  issue?: string;
+}
+
+interface ImageInfo {
+  src: string;
+  alt: string;
+  hasAlt: boolean;
+}
+
 interface SEOCheckResult {
   url: string;
   timestamp: string;
@@ -70,6 +96,25 @@ interface SEOCheckResult {
   };
   issues: SEOIssue[];
   recommendations: string[];
+  contentData: {
+    markdown: string;
+    wordCount: number;
+    headings: HeadingInfo[];
+  };
+  linkData: {
+    internal: LinkInfo[];
+    external: LinkInfo[];
+  };
+  mediaData: {
+    images: ImageInfo[];
+    imagesWithoutAlt: ImageInfo[];
+  };
+  metaData: {
+    title: string;
+    description: string;
+    canonical: string;
+    robots: string;
+  };
 }
 
 const SEOCheck = ({ session }: IndexProps) => {
@@ -78,6 +123,8 @@ const SEOCheck = ({ session }: IndexProps) => {
   const [mode, setMode] = useState<"single" | "domain">("single");
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<SEOCheckResult | null>(null);
+  const [internalLinksOpen, setInternalLinksOpen] = useState(false);
+  const [externalLinksOpen, setExternalLinksOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -259,6 +306,296 @@ const SEOCheck = ({ session }: IndexProps) => {
           </div>
         </CardContent>
       </Card>
+    );
+  };
+
+  const renderContentTab = () => {
+    if (!result?.contentData) return renderCategoryCard('content', result!.categories.content);
+
+    const { headings, markdown, wordCount } = result.contentData;
+    const hasHeadingIssues = headings.some(h => h.hasIssue);
+
+    return (
+      <div className="space-y-4">
+        {renderCategoryCard('content', result.categories.content)}
+        
+        {/* Headings Structure */}
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Eye className="h-5 w-5" />
+                Überschriften-Struktur
+              </CardTitle>
+              {hasHeadingIssues && (
+                <Badge variant="destructive">Probleme gefunden</Badge>
+              )}
+            </div>
+            <CardDescription>
+              {headings.length} Überschriften auf der Seite
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-[300px] rounded border p-3 bg-muted/30">
+              <div className="space-y-1 font-mono text-sm">
+                {headings.length === 0 ? (
+                  <p className="text-muted-foreground italic">Keine Überschriften gefunden</p>
+                ) : (
+                  headings.map((heading, idx) => (
+                    <div 
+                      key={idx} 
+                      className={`flex items-start gap-2 py-1 ${heading.hasIssue ? 'bg-destructive/10 rounded px-2 -mx-2' : ''}`}
+                      style={{ paddingLeft: `${(heading.level - 1) * 16}px` }}
+                    >
+                      <Badge 
+                        variant={heading.hasIssue ? "destructive" : "outline"} 
+                        className="text-xs shrink-0"
+                      >
+                        H{heading.level}
+                      </Badge>
+                      <div className="flex-1 min-w-0">
+                        <span className={heading.hasIssue ? "text-destructive" : "text-foreground"}>
+                          {heading.text || "(leer)"}
+                        </span>
+                        {heading.hasIssue && heading.issue && (
+                          <p className="text-xs text-destructive mt-0.5">⚠ {heading.issue}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+
+        {/* Content Preview */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Content-Vorschau
+            </CardTitle>
+            <CardDescription>
+              {wordCount} Wörter extrahiert
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-[200px] rounded border p-3 bg-muted/30">
+              <div className="prose prose-sm max-w-none text-foreground">
+                <pre className="whitespace-pre-wrap text-xs font-sans">
+                  {markdown.substring(0, 3000)}{markdown.length > 3000 ? '...' : ''}
+                </pre>
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
+  const renderLinksTab = () => {
+    if (!result?.linkData) return renderCategoryCard('links', result!.categories.links);
+
+    const { internal, external } = result.linkData;
+
+    return (
+      <div className="space-y-4">
+        {renderCategoryCard('links', result.categories.links)}
+
+        {/* Internal Links (Outgoing to same domain) */}
+        <Card>
+          <Collapsible open={internalLinksOpen} onOpenChange={setInternalLinksOpen}>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <ArrowUpRight className="h-5 w-5 text-primary" />
+                    Interne Links (ausgehend)
+                    <Badge variant="secondary">{internal.length}</Badge>
+                  </CardTitle>
+                  {internalLinksOpen ? (
+                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </div>
+                <CardDescription>
+                  Links zu anderen Seiten derselben Domain
+                </CardDescription>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent>
+                <ScrollArea className="h-[250px] rounded border bg-muted/30">
+                  <div className="p-3 space-y-2">
+                    {internal.length === 0 ? (
+                      <p className="text-muted-foreground italic text-sm">Keine internen Links gefunden</p>
+                    ) : (
+                      internal.map((link, idx) => (
+                        <div key={idx} className="flex items-start gap-2 text-sm p-2 rounded hover:bg-muted/50">
+                          <Link2 className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{link.text || "(kein Ankertext)"}</p>
+                            <p className="text-xs text-muted-foreground truncate">{link.url}</p>
+                            {link.hasNofollow && (
+                              <Badge variant="outline" className="text-xs mt-1">nofollow</Badge>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
+        </Card>
+
+        {/* External Links (Outgoing to other domains) */}
+        <Card>
+          <Collapsible open={externalLinksOpen} onOpenChange={setExternalLinksOpen}>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <ExternalLink className="h-5 w-5 text-accent" />
+                    Externe Links (ausgehend)
+                    <Badge variant="secondary">{external.length}</Badge>
+                  </CardTitle>
+                  {externalLinksOpen ? (
+                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </div>
+                <CardDescription>
+                  Links zu anderen Domains
+                </CardDescription>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent>
+                <ScrollArea className="h-[250px] rounded border bg-muted/30">
+                  <div className="p-3 space-y-2">
+                    {external.length === 0 ? (
+                      <p className="text-muted-foreground italic text-sm">Keine externen Links gefunden</p>
+                    ) : (
+                      external.map((link, idx) => (
+                        <div key={idx} className="flex items-start gap-2 text-sm p-2 rounded hover:bg-muted/50">
+                          <ExternalLink className="h-4 w-4 text-accent mt-0.5 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{link.text || "(kein Ankertext)"}</p>
+                            <a 
+                              href={link.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-xs text-primary hover:underline truncate block"
+                            >
+                              {link.url}
+                            </a>
+                            {link.hasNofollow && (
+                              <Badge variant="outline" className="text-xs mt-1">nofollow</Badge>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
+        </Card>
+      </div>
+    );
+  };
+
+  const renderMediaTab = () => {
+    if (!result?.mediaData) return renderCategoryCard('media', result!.categories.media);
+
+    const { images, imagesWithoutAlt } = result.mediaData;
+
+    return (
+      <div className="space-y-4">
+        {renderCategoryCard('media', result.categories.media)}
+
+        {/* Images without Alt */}
+        {imagesWithoutAlt.length > 0 && (
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-warning" />
+                  Bilder ohne Alt-Text
+                </CardTitle>
+                <Badge variant="destructive">{imagesWithoutAlt.length}</Badge>
+              </div>
+              <CardDescription>
+                Diese Bilder benötigen beschreibende Alt-Texte
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[200px] rounded border bg-muted/30">
+                <div className="p-3 space-y-2">
+                  {imagesWithoutAlt.map((img, idx) => (
+                    <div key={idx} className="flex items-start gap-2 text-sm p-2 rounded bg-destructive/5 border border-destructive/20">
+                      <XCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground truncate">{img.src}</p>
+                        <p className="text-xs text-destructive mt-1">Alt-Text fehlt</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* All Images */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Image className="h-5 w-5" />
+              Alle Bilder
+            </CardTitle>
+            <CardDescription>
+              {images.length} Bilder auf der Seite, {images.filter(i => i.hasAlt).length} mit Alt-Text
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-[200px] rounded border bg-muted/30">
+              <div className="p-3 space-y-2">
+                {images.length === 0 ? (
+                  <p className="text-muted-foreground italic text-sm">Keine Bilder gefunden</p>
+                ) : (
+                  images.map((img, idx) => (
+                    <div 
+                      key={idx} 
+                      className={`flex items-start gap-2 text-sm p-2 rounded ${!img.hasAlt ? 'bg-destructive/5 border border-destructive/20' : 'hover:bg-muted/50'}`}
+                    >
+                      {img.hasAlt ? (
+                        <CheckCircle2 className="h-4 w-4 text-success mt-0.5 shrink-0" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground truncate">{img.src}</p>
+                        {img.hasAlt ? (
+                          <p className="text-xs text-foreground mt-1">Alt: {img.alt}</p>
+                        ) : (
+                          <p className="text-xs text-destructive mt-1">Alt-Text fehlt</p>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      </div>
     );
   };
 
@@ -487,16 +824,16 @@ const SEOCheck = ({ session }: IndexProps) => {
                 {renderCategoryCard('meta', result.categories.meta)}
               </TabsContent>
               <TabsContent value="content" className="mt-4">
-                {renderCategoryCard('content', result.categories.content)}
+                {renderContentTab()}
               </TabsContent>
               <TabsContent value="technical" className="mt-4">
                 {renderCategoryCard('technical', result.categories.technical)}
               </TabsContent>
               <TabsContent value="links" className="mt-4">
-                {renderCategoryCard('links', result.categories.links)}
+                {renderLinksTab()}
               </TabsContent>
               <TabsContent value="media" className="mt-4">
-                {renderCategoryCard('media', result.categories.media)}
+                {renderMediaTab()}
               </TabsContent>
             </Tabs>
           </div>
