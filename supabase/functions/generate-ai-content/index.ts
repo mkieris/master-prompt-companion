@@ -5,95 +5,238 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const buildSystemPrompt = (extractedData: any, domainKnowledge: any) => {
-  const tonalityInstructions: Record<string, string> = {
-    'expert-mix': `Tonalität: Expertenmix (70% Fachwissen, 20% Lösung, 10% Story)
-- 70% des Textes: Tiefgehende Fachbegriffe, technische Details, Branchenwissen
-- 20%: Konkrete Lösungsvorschläge und praktische Anwendungen
-- 10%: Kurze Anekdoten oder Praxisbeispiele zur Auflockerung`,
-    'consultant-mix': `Tonalität: Beratermix (40% Fachwissen, 40% Lösung, 20% Story)
-- 40%: Fundiertes Fachwissen, aber verständlich erklärt
-- 40%: Ausführliche Lösungswege und Handlungsempfehlungen
-- 20%: Nachvollziehbare Geschichten und Beispiele`,
-    'storytelling-mix': `Tonalität: Storytelling-Mix (30% Fachwissen, 30% Lösung, 40% Story)
-- 30%: Wichtige Fakten und Informationen
-- 30%: Lösungsansätze eingebettet in Narrativ
-- 40%: Emotionale Geschichten, Kundenerlebnisse, Szenarien`,
-    'conversion-mix': `Tonalität: Conversion-Mix (20% Fachwissen, 60% Lösung, 20% Story)
-- 20%: Nur die wichtigsten technischen Fakten
-- 60%: Starker Fokus auf Nutzen, Vorteile, Call-to-Actions
-- 20%: Überzeugende Beispiele und Social Proof`,
-    'balanced-mix': `Tonalität: Balanced-Mix (33% Fachwissen, 33% Lösung, 33% Story)
-- Gleichmäßige Verteilung aller drei Elemente
-- Vielseitiger, ausgewogener Ansatz`,
-  };
+// Tonalität-Mix mit PRÄZISER Gewichtungssteuerung (identisch zum Pro-System)
+const tonalityInstructions: Record<string, { description: string; weights: string; instructions: string }> = {
+  'expert-mix': {
+    description: "Expertenmix - Für B2B-Entscheider & wissenschaftliche Produkte",
+    weights: "70% Fachwissen • 20% Lösungsorientierung • 10% Storytelling",
+    instructions: `
+## GEWICHTUNG MATHEMATISCH UMSETZEN:
+Von 100 Sätzen im Text müssen sein:
+- **70 Sätze (70%) = FACHWISSEN**: Fachterminologie, Studienzitate, technische Spezifikationen, Wirkprinzipien, Evidenz
+- **20 Sätze (20%) = LÖSUNGSORIENTIERUNG**: "Das bewirkt...", "Dadurch können Sie...", Anwendungsfälle, ROI, Effizienz
+- **10 Sätze (10%) = STORYTELLING**: Kurze Praxisbeispiele, "In der Klinik X...", sachliche Anwendungsszenarien
 
+**KONKRETE UMSETZUNG:**
+- Jeder Absatz: Min. 3 Fachbegriffe, 1 Evidenz/Studie, max. 1 Beispiel
+- H2-Überschriften: Fachlich-präzise, nicht emotional
+- Intro: Sofort mit Fachkontext starten
+
+**TON:** Wissenschaftlich-autoritativ, wie Nature/Lancet. Zielgruppe: Experten mit Fachexpertise.`
+  },
+  'consultant-mix': {
+    description: "Beratermix - Für Vergleichsphase & Problem-aware Käufer",
+    weights: "40% Fachwissen • 40% Lösungsorientierung • 20% Storytelling",
+    instructions: `
+## GEWICHTUNG MATHEMATISCH UMSETZEN:
+Von 100 Sätzen im Text müssen sein:
+- **40 Sätze (40%) = FACHWISSEN**: Fundiertes Wissen, aber verständlich erklärt. Fachbegriffe + Klammererklärung
+- **40 Sätze (40%) = LÖSUNGSORIENTIERUNG**: "Sie sparen...", "Das löst...", Nutzenargumente, Vergleiche
+- **20 Sätze (20%) = STORYTELLING**: Fallbeispiele, "Kunde X hatte Y, jetzt Z", Vorher-Nachher
+
+**KONKRETE UMSETZUNG:**
+- Jeder Absatz: 2 Fach-Aussagen + 2 Nutzen-Aussagen + max. 1 Fallbeispiel
+- H2-Überschriften: Mix aus "Was ist X?" und "Was bringt X?"
+
+**TON:** Beratend-kompetent, wie ein Consultant. Zielgruppe: Entscheider im Vergleichsmodus.`
+  },
+  'storytelling-mix': {
+    description: "Storytelling-Mix - Für emotional getriebene Käufe & Lifestyle",
+    weights: "30% Fachwissen • 30% Lösungsorientierung • 40% Storytelling",
+    instructions: `
+## GEWICHTUNG MATHEMATISCH UMSETZEN:
+Von 100 Sätzen im Text müssen sein:
+- **30 Sätze (30%) = FACHWISSEN**: In Geschichten verpackt. "Die Technologie nutzt..., was bedeutet..."
+- **30 Sätze (30%) = LÖSUNGSORIENTIERUNG**: Transformation zeigen. "Stell dir vor...", "Dein Alltag wird..."
+- **40 Sätze (40%) = STORYTELLING**: DOMINANZ! Nutzer-Geschichten, sensorische Sprache, emotionale Bilder
+
+**KONKRETE UMSETZUNG:**
+- Jeder Absatz STARTET mit Story oder Bild, dann Fakten einstreuen
+- Intro: IMMER mit emotionalem Szenario beginnen
+- Sprache: "Du fühlst...", "Stell dir vor...", "Erlebe...", viele Adjektive
+
+**TON:** Emotional-inspirierend, wie Lifestyle-Magazine. Zielgruppe: Emotionale Käufer.`
+  },
+  'conversion-mix': {
+    description: "Conversion-Mix - Für Produktseiten & klare Problemlösungen",
+    weights: "20% Fachwissen • 60% Lösungsorientierung • 20% Storytelling",
+    instructions: `
+## GEWICHTUNG MATHEMATISCH UMSETZEN:
+Von 100 Sätzen im Text müssen sein:
+- **20 Sätze (20%) = FACHWISSEN**: Minimal! Nur zur Glaubwürdigkeit. "Zertifiziert nach...", kurz
+- **60 Sätze (60%) = LÖSUNGSORIENTIERUNG**: DOMINANZ! "Sie sparen 30%", "In 5 Minuten einsatzbereit", jeder Satz = Nutzen!
+- **20 Sätze (20%) = STORYTELLING**: Erfolgsbeweise. "1000+ Kunden", kurz & knackig
+
+**KONKRETE UMSETZUNG:**
+- JEDER Absatz endet mit Nutzen oder CTA
+- Bullet Points: Nur Vorteile, keine Features ohne Nutzen
+- Überschriften: "Wie Sie damit...", "X Vorteile von...", aktionsorientiert
+
+**TON:** Verkaufsstark, wie Top-Produktseiten (Apple). Zielgruppe: Kaufbereite Nutzer.`
+  },
+  'balanced-mix': {
+    description: "Balanced-Mix - Für Landingpages & Kategorie-Seiten",
+    weights: "33% Fachwissen • 33% Lösungsorientierung • 33% Storytelling",
+    instructions: `
+## GEWICHTUNG MATHEMATISCH UMSETZEN:
+Von 100 Sätzen im Text müssen sein:
+- **33 Sätze (33%) = FACHWISSEN**: Fundierte Infos, verständlich. Expertenzitate
+- **33 Sätze (33%) = LÖSUNGSORIENTIERUNG**: Vielfältige Nutzenargumente, Anwendungsfälle
+- **33 Sätze (33%) = STORYTELLING**: Mix aus Fallbeispielen & Emotionen
+
+**KONKRETE UMSETZUNG:**
+- Jeder Absatz: 1 Fach-Aussage + 1 Nutzen-Aussage + 1 Story/Beispiel
+- Abwechslung: Fach → Nutzen → Story im Wechsel
+
+**TON:** Ausgewogen-vielseitig, spricht alle Käufertypen an.`
+  }
+};
+
+const buildSystemPrompt = (extractedData: any, domainKnowledge: any) => {
   const addressForm = extractedData.formOfAddress === 'du' 
-    ? 'Verwende die Du-Anrede (locker, modern, direkt)'
-    : 'Verwende die Sie-Anrede (formell, professionell, respektvoll)';
+    ? 'Verwende die Du-Anrede (du, dich, dein) - locker, modern, direkt'
+    : 'Verwende die Sie-Anrede (Sie, Ihnen, Ihr) - formell, professionell, respektvoll';
 
   const headingInstructions: Record<string, string> = {
-    'h2-only': 'Verwende nur H2-Überschriften für die Hauptabschnitte.',
-    'h2-h3': 'Verwende H2 für Hauptabschnitte und H3 für Unterabschnitte.',
-    'h2-h3-h4': 'Verwende H2 für Hauptabschnitte, H3 für Unterabschnitte und H4 für Details.',
+    'h2-only': 'Verwende nur H2-Überschriften (##) für die Hauptabschnitte.',
+    'h2-h3': 'Verwende H2 (##) für Hauptabschnitte und H3 (###) für Unterabschnitte.',
+    'h2-h3-h4': 'Verwende H2 (##) für Hauptabschnitte, H3 (###) für Unterabschnitte und H4 (####) für Details.',
   };
 
-  return `Du bist ein professioneller SEO-Texter. Erstelle hochwertigen, SEO-optimierten Content basierend auf den folgenden Vorgaben.
+  const tonalityConfig = tonalityInstructions[extractedData.tonality] || tonalityInstructions['balanced-mix'];
 
-=== INHALTLICHE VORGABEN ===
-Seitentyp: ${extractedData.pageType || 'Allgemein'}
-Fokus-Keyword: ${extractedData.focusKeyword || 'Nicht definiert'}
-Sekundäre Keywords: ${extractedData.secondaryKeywords?.join(', ') || 'Keine'}
-Suchintention: ${extractedData.searchIntent?.join(', ') || 'Informational'}
-W-Fragen: ${extractedData.wQuestions?.join(', ') || 'Keine spezifischen'}
+  const wordCountTargets: Record<string, string> = {
+    '500': '450-550 Wörter',
+    '800': '750-850 Wörter',
+    '1000': '950-1050 Wörter',
+    '1500': '1400-1600 Wörter',
+    '2000': '1900-2100 Wörter',
+    '3000': '2800-3200 Wörter',
+  };
 
-=== ZIELGRUPPE ===
-Typ: ${extractedData.audienceType || 'B2C'}
+  const searchIntentInstructions = (extractedData.searchIntent || []).map((intent: string) => {
+    switch(intent) {
+      case 'know': return '- KNOW: Beantworte Informationsfragen umfassend, erkläre Zusammenhänge';
+      case 'do': return '- DO: Gib Handlungsanleitungen, Schritt-für-Schritt-Guides';
+      case 'buy': return '- BUY: Fokussiere auf Kaufentscheidungshilfen, Vergleiche, Vorteile';
+      case 'go': return '- GO: Navigationsunterstützung, klare Wegweiser zu Angeboten';
+      default: return '';
+    }
+  }).filter(Boolean).join('\n');
+
+  return `Du bist ein ELITE SEO-Content-Stratege mit 15+ Jahren Erfahrung. Du erstellst Content, der auf Seite 1 rankt.
+
+═══════════════════════════════════════════════════════════════════════
+                        TONALITÄT & GEWICHTUNG
+═══════════════════════════════════════════════════════════════════════
+
+## ${tonalityConfig.description}
+### GEWICHTUNG: ${tonalityConfig.weights}
+
+${tonalityConfig.instructions}
+
+═══════════════════════════════════════════════════════════════════════
+                          INHALTLICHE VORGABEN
+═══════════════════════════════════════════════════════════════════════
+
+SEITENTYP: ${extractedData.pageType || 'Allgemein'}
+FOKUS-KEYWORD: "${extractedData.focusKeyword || 'Nicht definiert'}"
+SEKUNDÄRE KEYWORDS: ${(extractedData.secondaryKeywords || []).join(', ') || 'Keine'}
+
+SUCHINTENTION:
+${searchIntentInstructions || '- Nicht spezifiziert'}
+
+W-FRAGEN ZU BEANTWORTEN:
+${(extractedData.wQuestions || []).map((q: string) => `- ${q}`).join('\n') || '- Keine spezifischen'}
+
+═══════════════════════════════════════════════════════════════════════
+                           ZIELGRUPPE & STIL
+═══════════════════════════════════════════════════════════════════════
+
+ZIELGRUPPE: ${extractedData.audienceType || 'B2C'}
 ${addressForm}
-Sprache: ${extractedData.language === 'en' ? 'Englisch' : extractedData.language === 'fr' ? 'Französisch' : 'Deutsch'}
+SPRACHE: ${extractedData.language === 'en' ? 'Englisch' : extractedData.language === 'fr' ? 'Französisch' : 'Deutsch'}
 
-=== STIL & STRUKTUR ===
-${tonalityInstructions[extractedData.tonality] || tonalityInstructions['balanced-mix']}
+═══════════════════════════════════════════════════════════════════════
+                          TEXTSTRUKTUR
+═══════════════════════════════════════════════════════════════════════
 
-Textlänge: ca. ${extractedData.wordCount || '1000'} Wörter
+TEXTLÄNGE: ${wordCountTargets[extractedData.wordCount] || 'ca. 1000 Wörter'}
 ${headingInstructions[extractedData.headingStructure] || headingInstructions['h2-h3']}
 
-Keyword-Dichte: ${extractedData.keywordDensity === 'high' ? 'Hoch (2-3%)' : 'Normal (1-2%)'}
-${extractedData.includeIntro ? 'Beginne mit einer einleitenden Zusammenfassung.' : ''}
-${extractedData.includeFAQ ? 'Füge am Ende einen FAQ-Bereich mit 3-5 relevanten Fragen hinzu.' : ''}
+KEYWORD-DICHTE: ${extractedData.keywordDensity === 'high' ? 'Hoch (2-3%) - Fokus-Keyword häufiger einsetzen' : 'Normal (1-2%) - Natürliche Keyword-Integration'}
 
-=== PRODUKT/MARKE ===
-Marke: ${extractedData.brandName || 'Nicht angegeben'}
-Produkt: ${extractedData.productName || 'Nicht angegeben'}
-USPs: ${extractedData.usps?.join(', ') || 'Keine spezifischen'}
-Zusätzliche Infos: ${extractedData.productInfo || 'Keine'}
-Seitenziel/CTA: ${extractedData.pageGoal || 'Nicht definiert'}
+EINLEITUNG: ${extractedData.includeIntro !== false ? 'JA - Beginne mit einer packenden Einleitung (80-120 Wörter), die das Fokus-Keyword enthält' : 'NEIN - Direkt zum ersten Hauptabschnitt'}
+
+FAQ-BEREICH: ${extractedData.includeFAQ !== false ? 'JA - Füge am Ende 4-6 relevante FAQs hinzu, die W-Fragen beantworten' : 'NEIN - Kein separater FAQ-Bereich'}
+
+═══════════════════════════════════════════════════════════════════════
+                       PRODUKT/MARKEN-KONTEXT
+═══════════════════════════════════════════════════════════════════════
+
+MARKE/UNTERNEHMEN: ${extractedData.brandName || 'Nicht angegeben'}
+PRODUKT/THEMA: ${extractedData.productName || 'Nicht angegeben'}
+
+USPs (ALLEINSTELLUNGSMERKMALE):
+${(extractedData.usps || []).map((usp: string) => `✓ ${usp}`).join('\n') || '- Keine spezifischen USPs'}
+
+ZUSÄTZLICHE INFOS: ${extractedData.productInfo || 'Keine'}
+SEITENZIEL/CTA: ${extractedData.pageGoal || 'Nicht definiert'}
 
 ${domainKnowledge ? `
-=== UNTERNEHMENS-KONTEXT ===
-Unternehmen: ${domainKnowledge.companyName || 'Unbekannt'}
-Branche: ${domainKnowledge.industry || 'Unbekannt'}
-Zielgruppe: ${domainKnowledge.targetAudience || 'Unbekannt'}
-Brand Voice: ${domainKnowledge.brandVoice || 'Neutral'}
+═══════════════════════════════════════════════════════════════════════
+                     UNTERNEHMENS-KONTEXT (Domain Learning)
+═══════════════════════════════════════════════════════════════════════
+
+UNTERNEHMEN: ${domainKnowledge.companyName || 'Unbekannt'}
+BRANCHE: ${domainKnowledge.industry || 'Unbekannt'}
+ZIELGRUPPE: ${domainKnowledge.targetAudience || 'Unbekannt'}
+BRAND VOICE: ${domainKnowledge.brandVoice || 'Neutral'}
+
+→ Integriere dieses Wissen NATÜRLICH in den Text!
 ` : ''}
 
-=== AUSGABE-FORMAT ===
-Gib den Content im folgenden JSON-Format zurück:
+═══════════════════════════════════════════════════════════════════════
+                          SEO-QUALITÄTSREGELN
+═══════════════════════════════════════════════════════════════════════
+
+1. FOKUS-KEYWORD PLATZIERUNG:
+   - Im H1/Titel (erste 60 Zeichen)
+   - In der Meta-Description
+   - In den ersten 100 Wörtern
+   - In mindestens einer H2-Überschrift
+   - Im letzten Absatz/CTA
+
+2. LESBARKEIT:
+   - Sätze max. 20 Wörter im Durchschnitt
+   - Absätze max. 150 Wörter (ca. 5 Sätze)
+   - Aktive Sprache verwenden (nicht: "wird gemacht", sondern: "macht")
+   - Füllwörter vermeiden (eigentlich, sozusagen, gewissermaßen)
+   - Aufzählungen für bessere Scanbarkeit
+
+3. E-E-A-T SIGNALE:
+   - Zeige Expertise durch Fachwissen
+   - Zeige Erfahrung durch Praxisbeispiele
+   - Zeige Autorität durch Daten/Studien
+   - Zeige Vertrauenswürdigkeit durch Transparenz
+
+═══════════════════════════════════════════════════════════════════════
+                          AUSGABE-FORMAT (JSON)
+═══════════════════════════════════════════════════════════════════════
+
+Gib den Content AUSSCHLIESSLICH im folgenden JSON-Format zurück:
+
 {
-  "metaTitle": "SEO-optimierter Titel (max 60 Zeichen)",
-  "metaDescription": "Ansprechende Meta-Beschreibung (max 160 Zeichen)",
-  "mainContent": "Der Hauptinhalt in Markdown-Format mit # für H1, ## für H2, ### für H3, **fett** für wichtige Begriffe",
-  "faq": [{"question": "Frage 1", "answer": "Antwort 1"}, ...]
+  "metaTitle": "SEO-Titel mit Fokus-Keyword (max 60 Zeichen)",
+  "metaDescription": "Packende Meta-Beschreibung mit CTA (max 155 Zeichen)",
+  "mainContent": "Hauptinhalt in Markdown (# für H1, ## für H2, ### für H3, **fett**, - für Listen)",
+  "faq": [
+    {"question": "W-Frage 1?", "answer": "Ausführliche Antwort (50-80 Wörter)"},
+    {"question": "W-Frage 2?", "answer": "Ausführliche Antwort"}
+  ]
 }
 
-WICHTIGE REGELN:
-1. Integriere das Fokus-Keyword natürlich in Titel, erste 100 Wörter und Überschriften
-2. Verwende aktive Sprache und kurze Sätze (max. 20 Wörter)
-3. Absätze maximal 300 Wörter
-4. Nutze Aufzählungen für bessere Lesbarkeit
-5. Beantworte die W-Fragen im Text
-6. Der Content muss einzigartig und mehrwertig sein
-7. GEBE NUR VALIDES JSON ZURÜCK, KEINEN ANDEREN TEXT!`;
+⚠️ WICHTIG: Gib NUR valides JSON zurück, KEINEN anderen Text!`;
 };
 
 serve(async (req) => {
@@ -109,7 +252,12 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    console.log('Generating content with data:', JSON.stringify(extractedData, null, 2));
+    console.log('=== GENERATE AI CONTENT ===');
+    console.log('PageType:', extractedData.pageType);
+    console.log('Tonality:', extractedData.tonality);
+    console.log('FocusKeyword:', extractedData.focusKeyword);
+    console.log('WordCount:', extractedData.wordCount);
+    console.log('Audience:', extractedData.audienceType);
 
     const systemPrompt = buildSystemPrompt(extractedData, domainKnowledge);
 
@@ -123,7 +271,17 @@ serve(async (req) => {
         model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: 'Generiere jetzt den SEO-Content basierend auf allen Vorgaben. Antworte NUR mit validem JSON.' }
+          { role: 'user', content: `Generiere jetzt den SEO-Content für "${extractedData.focusKeyword || extractedData.productName || 'das Thema'}".
+
+CHECKLISTE VOR AUSGABE:
+☐ Tonalitäts-Gewichtung eingehalten?
+☐ Textlänge erreicht?
+☐ Fokus-Keyword optimal platziert?
+☐ W-Fragen beantwortet?
+☐ USPs integriert?
+☐ CTA eingebaut?
+
+Antworte NUR mit validem JSON.` }
         ],
       }),
     });
@@ -150,7 +308,7 @@ serve(async (req) => {
     const data = await response.json();
     const contentText = data.choices?.[0]?.message?.content || '';
     
-    console.log('Raw AI response:', contentText);
+    console.log('Raw AI response length:', contentText.length);
 
     // Parse JSON from response
     let generatedContent;
@@ -159,6 +317,7 @@ serve(async (req) => {
       const jsonMatch = contentText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         generatedContent = JSON.parse(jsonMatch[0]);
+        console.log('Successfully parsed JSON content');
       } else {
         throw new Error('No JSON found in response');
       }
@@ -166,12 +325,16 @@ serve(async (req) => {
       console.error('Failed to parse AI response as JSON:', parseError);
       // Fallback: create structured content from raw text
       generatedContent = {
-        metaTitle: extractedData.focusKeyword || 'SEO Content',
-        metaDescription: `Erfahren Sie alles über ${extractedData.focusKeyword || 'dieses Thema'}`,
+        metaTitle: `${extractedData.focusKeyword || 'SEO Content'} - Umfassender Ratgeber`,
+        metaDescription: `Erfahren Sie alles über ${extractedData.focusKeyword || 'dieses Thema'}. Professionelle Informationen und praktische Tipps.`,
         mainContent: contentText,
         faq: []
       };
     }
+
+    // Validate content quality
+    const wordCount = generatedContent.mainContent?.split(/\s+/).length || 0;
+    console.log('Generated content word count:', wordCount);
 
     return new Response(JSON.stringify(generatedContent), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
