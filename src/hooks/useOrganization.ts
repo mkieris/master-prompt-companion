@@ -47,15 +47,34 @@ export function useOrganization(session: Session | null) {
     try {
       setIsLoading(true);
 
-      // Get user profile
-      const { data: profileData, error: profileError } = await supabase
+      // Get user profile - use maybeSingle to handle missing profiles gracefully
+      let { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', session.user.id)
-        .single();
+        .maybeSingle();
 
-      if (profileError && profileError.code !== 'PGRST116') {
+      if (profileError) {
         console.error('Error loading profile:', profileError);
+      }
+
+      // If no profile exists, create one
+      if (!profileData && !profileError) {
+        const { data: newProfile, error: createError } = await supabase
+          .from('profiles')
+          .insert({
+            id: session.user.id,
+            email: session.user.email,
+            full_name: session.user.user_metadata?.full_name || session.user.email,
+          })
+          .select()
+          .single();
+        
+        if (createError) {
+          console.error('Error creating profile:', createError);
+        } else {
+          profileData = newProfile;
+        }
       }
 
       // Get user's organizations
