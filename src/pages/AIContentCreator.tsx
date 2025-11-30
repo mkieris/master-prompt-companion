@@ -1,26 +1,15 @@
 import { useState, useRef, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { 
-  Mic, 
-  MicOff, 
-  Send, 
-  Sparkles, 
-  Loader2,
-  Bot,
-  User,
-  Volume2,
-  VolumeX,
-  CheckCircle2,
-  ArrowRight
-} from "lucide-react";
+import { Sparkles, Loader2, Bot } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { useOrganization } from "@/hooks/useOrganization";
-import { cn } from "@/lib/utils";
+import ChatMessage from "@/components/ai-content/ChatMessage";
+import ChatInput from "@/components/ai-content/ChatInput";
+import StepIndicator from "@/components/ai-content/StepIndicator";
+import ExtractedDataSummary from "@/components/ai-content/ExtractedDataSummary";
 
 interface AIContentCreatorProps {
   session: Session | null;
@@ -75,19 +64,16 @@ const AIContentCreator = ({ session }: AIContentCreatorProps) => {
   const recognitionRef = useRef<any>(null);
   const synthRef = useRef<SpeechSynthesisUtterance | null>(null);
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Load domain knowledge
   useEffect(() => {
     if (currentOrg) {
       loadDomainKnowledge();
     }
   }, [currentOrg]);
 
-  // Initialize conversation
   useEffect(() => {
     if (currentOrg && messages.length === 0) {
       startConversation();
@@ -111,8 +97,8 @@ const AIContentCreator = ({ session }: AIContentCreatorProps) => {
 
   const startConversation = async () => {
     const welcomeMessage = domainKnowledge 
-      ? `Hallo! 👋 Ich bin dein KI-Assistent für SEO-Content. Ich habe bereits Wissen über **${domainKnowledge.company_name || currentOrg?.name}** geladen.\n\nIch werde dich interaktiv durch den Content-Erstellungsprozess führen. Du kannst mir jederzeit per Text oder Sprache antworten.\n\n**Lass uns starten:** Welche Art von Seite möchtest du erstellen?\n\n• Produktseite\n• Kategorieseite\n• Ratgeber / Blog\n• Landingpage`
-      : `Hallo! 👋 Ich bin dein KI-Assistent für SEO-Content.\n\nIch werde dich interaktiv durch den Content-Erstellungsprozess führen. Du kannst mir jederzeit per Text oder Sprache antworten.\n\n**Lass uns starten:** Welche Art von Seite möchtest du erstellen?\n\n• Produktseite\n• Kategorieseite\n• Ratgeber / Blog\n• Landingpage`;
+      ? `Hallo! 👋 Ich bin dein KI-Assistent für SEO-Content. Ich habe bereits Wissen über **${domainKnowledge.company_name || currentOrg?.name}** geladen.\n\nIch werde dich interaktiv durch den Content-Erstellungsprozess führen.\n\n**Welche Art von Seite möchtest du erstellen?**\n\n• Produktseite\n• Kategorieseite\n• Ratgeber / Blog\n• Landingpage`
+      : `Hallo! 👋 Ich bin dein KI-Assistent für SEO-Content.\n\nIch werde dich interaktiv durch den Content-Erstellungsprozess führen.\n\n**Welche Art von Seite möchtest du erstellen?**\n\n• Produktseite\n• Kategorieseite\n• Ratgeber / Blog\n• Landingpage`;
 
     addMessage("assistant", welcomeMessage, "pageType");
     setCurrentStep(1);
@@ -142,15 +128,19 @@ const AIContentCreator = ({ session }: AIContentCreatorProps) => {
     });
   };
 
-  const sendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return;
+  const handleOptionClick = (option: string) => {
+    if (isLoading) return;
+    sendMessageWithText(option);
+  };
 
-    const userMessage = inputValue.trim();
+  const sendMessageWithText = async (text: string) => {
+    if (!text.trim() || isLoading) return;
+
+    const userMessage = text.trim();
     setInputValue("");
     addMessage("user", userMessage);
     setIsLoading(true);
 
-    // Add streaming placeholder
     const streamingMsg = addMessage("assistant", "", undefined);
     setMessages(prev => prev.map(msg => 
       msg.id === streamingMsg.id ? { ...msg, isStreaming: true } : msg
@@ -187,7 +177,6 @@ const AIContentCreator = ({ session }: AIContentCreatorProps) => {
         throw new Error("Failed to get AI response");
       }
 
-      // Handle streaming response
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let fullContent = "";
@@ -208,23 +197,20 @@ const AIContentCreator = ({ session }: AIContentCreatorProps) => {
               try {
                 const parsed = JSON.parse(data);
                 
-                // Handle extracted data
                 if (parsed.extractedData) {
                   setExtractedData(prev => ({ ...prev, ...parsed.extractedData }));
                 }
                 
-                // Handle step change
                 if (parsed.nextStep !== undefined) {
                   setCurrentStep(parsed.nextStep);
                 }
                 
-                // Handle content
                 if (parsed.content) {
                   fullContent += parsed.content;
                   updateLastAssistantMessage(fullContent);
                 }
               } catch (e) {
-                // Ignore parse errors for partial chunks
+                // Ignore parse errors
               }
             }
           }
@@ -244,7 +230,10 @@ const AIContentCreator = ({ session }: AIContentCreatorProps) => {
     }
   };
 
-  // Voice input handling
+  const sendMessage = () => {
+    sendMessageWithText(inputValue);
+  };
+
   const toggleListening = () => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
       toast({
@@ -287,7 +276,6 @@ const AIContentCreator = ({ session }: AIContentCreatorProps) => {
     }
   };
 
-  // Text-to-speech
   const speakMessage = (text: string) => {
     if (isSpeaking) {
       window.speechSynthesis.cancel();
@@ -295,7 +283,7 @@ const AIContentCreator = ({ session }: AIContentCreatorProps) => {
       return;
     }
 
-    const utterance = new SpeechSynthesisUtterance(text.replace(/[*#]/g, ''));
+    const utterance = new SpeechSynthesisUtterance(text.replace(/[*#•]/g, ''));
     utterance.lang = 'de-DE';
     utterance.rate = 1.0;
     
@@ -307,18 +295,11 @@ const AIContentCreator = ({ session }: AIContentCreatorProps) => {
     setIsSpeaking(true);
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  };
-
   if (!session) return null;
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
-      {/* Header with Steps */}
+      {/* Header */}
       <div className="border-b bg-card/50 backdrop-blur-sm p-4">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -332,101 +313,22 @@ const AIContentCreator = ({ session }: AIContentCreatorProps) => {
           </div>
         </div>
 
-        {/* Step Indicator */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2">
-          {STEPS.map((step, index) => (
-            <div
-              key={step.id}
-              className={cn(
-                "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors",
-                index < currentStep
-                  ? "bg-primary/20 text-primary"
-                  : index === currentStep
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground"
-              )}
-            >
-              {index < currentStep ? (
-                <CheckCircle2 className="h-3 w-3" />
-              ) : (
-                <span className="w-4 text-center">{index + 1}</span>
-              )}
-              {step.label}
-            </div>
-          ))}
-        </div>
+        <StepIndicator steps={STEPS} currentStep={currentStep} />
       </div>
 
       {/* Chat Area */}
       <ScrollArea className="flex-1 p-4">
         <div className="max-w-3xl mx-auto space-y-4">
           {messages.map((message) => (
-            <div
+            <ChatMessage
               key={message.id}
-              className={cn(
-                "flex gap-3",
-                message.role === "user" ? "justify-end" : "justify-start"
-              )}
-            >
-              {message.role === "assistant" && (
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center flex-shrink-0">
-                  <Bot className="h-4 w-4 text-primary-foreground" />
-                </div>
-              )}
-              
-              <Card
-                className={cn(
-                  "max-w-[80%] p-4",
-                  message.role === "user"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-card"
-                )}
-              >
-                <div className="prose prose-sm dark:prose-invert max-w-none">
-                  {message.content.split('\n').map((line, i) => (
-                    <p key={i} className="mb-1 last:mb-0">
-                      {line.startsWith('•') ? (
-                        <span className="flex items-start gap-2">
-                          <ArrowRight className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                          {line.substring(1).trim()}
-                        </span>
-                      ) : (
-                        line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                          .split(/<strong>|<\/strong>/)
-                          .map((part, j) => 
-                            j % 2 === 1 ? <strong key={j}>{part}</strong> : part
-                          )
-                      )}
-                    </p>
-                  ))}
-                  {message.isStreaming && (
-                    <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1" />
-                  )}
-                </div>
-                
-                {message.role === "assistant" && !message.isStreaming && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="mt-2 h-7 text-xs"
-                    onClick={() => speakMessage(message.content)}
-                  >
-                    {isSpeaking ? (
-                      <VolumeX className="h-3 w-3 mr-1" />
-                    ) : (
-                      <Volume2 className="h-3 w-3 mr-1" />
-                    )}
-                    {isSpeaking ? "Stopp" : "Vorlesen"}
-                  </Button>
-                )}
-              </Card>
-
-              {message.role === "user" && (
-                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-                  <User className="h-4 w-4" />
-                </div>
-              )}
-            </div>
+              role={message.role}
+              content={message.content}
+              isStreaming={message.isStreaming}
+              isSpeaking={isSpeaking}
+              onSpeak={speakMessage}
+              onOptionClick={handleOptionClick}
+            />
           ))}
           
           {isLoading && messages[messages.length - 1]?.role === "user" && (
@@ -447,77 +349,16 @@ const AIContentCreator = ({ session }: AIContentCreatorProps) => {
         </div>
       </ScrollArea>
 
-      {/* Extracted Data Summary */}
-      {Object.keys(extractedData).length > 0 && (
-        <div className="border-t bg-muted/50 p-3">
-          <div className="max-w-3xl mx-auto">
-            <p className="text-xs text-muted-foreground mb-2">Erfasste Daten:</p>
-            <div className="flex flex-wrap gap-2">
-              {extractedData.pageType && (
-                <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
-                  {extractedData.pageType}
-                </span>
-              )}
-              {extractedData.focusKeyword && (
-                <span className="text-xs bg-accent/10 text-accent-foreground px-2 py-1 rounded-full">
-                  🎯 {extractedData.focusKeyword}
-                </span>
-              )}
-              {extractedData.audienceType && (
-                <span className="text-xs bg-secondary/50 text-secondary-foreground px-2 py-1 rounded-full">
-                  👥 {extractedData.audienceType}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <ExtractedDataSummary data={extractedData} />
 
-      {/* Input Area */}
-      <div className="border-t bg-card p-4">
-        <div className="max-w-3xl mx-auto flex gap-2">
-          <Button
-            variant={isListening ? "destructive" : "outline"}
-            size="icon"
-            onClick={toggleListening}
-            className="flex-shrink-0"
-          >
-            {isListening ? (
-              <MicOff className="h-4 w-4" />
-            ) : (
-              <Mic className="h-4 w-4" />
-            )}
-          </Button>
-          
-          <Input
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder={isListening ? "Ich höre zu..." : "Schreibe deine Antwort..."}
-            disabled={isLoading}
-            className={cn(
-              "flex-1",
-              isListening && "border-destructive animate-pulse"
-            )}
-          />
-          
-          <Button
-            onClick={sendMessage}
-            disabled={!inputValue.trim() || isLoading}
-            className="flex-shrink-0"
-          >
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
-        
-        <p className="text-xs text-muted-foreground text-center mt-2">
-          Drücke Enter zum Senden oder nutze das Mikrofon für Spracheingabe
-        </p>
-      </div>
+      <ChatInput
+        value={inputValue}
+        onChange={setInputValue}
+        onSend={sendMessage}
+        onToggleListening={toggleListening}
+        isListening={isListening}
+        isLoading={isLoading}
+      />
     </div>
   );
 };
