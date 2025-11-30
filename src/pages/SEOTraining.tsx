@@ -9,6 +9,9 @@ import { ModuleProgress } from "@/components/training/ModuleProgress";
 import { KeyTakeaway } from "@/components/training/KeyTakeaway";
 import { InteractiveExercise } from "@/components/training/InteractiveExercise";
 import { BeforeAfter } from "@/components/training/BeforeAfter";
+import { MemoryBox } from "@/components/training/MemoryBox";
+import { ModuleChecklist } from "@/components/training/ModuleChecklist";
+import { MasterChecklist } from "@/components/training/MasterChecklist";
 import { TechnicalSEOModule } from "@/components/training/modules/TechnicalSEOModule";
 import { OnPageModule } from "@/components/training/modules/OnPageModule";
 import { LinkbuildingModule } from "@/components/training/modules/LinkbuildingModule";
@@ -176,7 +179,7 @@ const SEOTraining = ({ session }: SEOTrainingProps) => {
             </div>
           )}
 
-          {/* Search Intent - Kurzversion */}
+          {/* Search Intent */}
           {activeModule === "search-intent" && (
             <div className="space-y-6">
               <Card>
@@ -203,25 +206,60 @@ const SEOTraining = ({ session }: SEOTrainingProps) => {
                         <CardContent className="p-4">
                           <Badge className={`bg-${item.color}-500 mb-2`}>{item.type}</Badge>
                           <p className="text-sm font-medium">{item.desc}</p>
-                          <p className="text-xs text-muted-foreground mt-1">Beispiel: "{item.example}"</p>
+                          <p className="text-xs text-muted-foreground mt-1">Beispiel: &quot;{item.example}&quot;</p>
                         </CardContent>
                       </Card>
                     ))}
                   </div>
 
-                  <KeyTakeaway points={["Search Intent ist der wichtigste SEO-Faktor", "4 Typen: KNOW, DO, BUY, GO", "Content-Typ muss zum Intent passen"]} />
+                  <MemoryBox
+                    title="Search Intent merken"
+                    mnemonic="KNOW-DO-BUY-GO"
+                    mnemonicExplanation="K=Wissen wollen, D=Tun wollen, B=Kaufen wollen, G=Gehen wollen (Navigation)"
+                    visualHook="🧠 📚 ✅ 🛒 🧭"
+                    keyPoints={[
+                      "KNOW: Nutzer will etwas WISSEN (Informationssuche)",
+                      "DO: Nutzer will etwas TUN (Handlung ausführen)",
+                      "BUY: Nutzer will etwas KAUFEN (Transaktionsabsicht)",
+                      "GO: Nutzer will irgendwo HIN (Navigation zu Seite/Marke)"
+                    ]}
+                  />
+
+                  <QuizQuestion
+                    question="Welcher Search Intent passt zu 'Nike Air Max 90 kaufen'?"
+                    options={[
+                      { id: "a", text: "KNOW - Informationssuche", isCorrect: false, explanation: "Nein, hier wird nicht nach Informationen gesucht." },
+                      { id: "b", text: "DO - Handlungsabsicht", isCorrect: false, explanation: "Nein, 'kaufen' zeigt klare Kaufabsicht." },
+                      { id: "c", text: "BUY - Kaufabsicht", isCorrect: true, explanation: "Richtig! Das Wort 'kaufen' zeigt eindeutige Transaktionsabsicht." },
+                      { id: "d", text: "GO - Navigation", isCorrect: false, explanation: "Nein, der Nutzer sucht nicht nach einer bestimmten Seite." }
+                    ]}
+                  />
                 </CardContent>
               </Card>
+
+              <ModuleChecklist
+                moduleId="search-intent"
+                title="Search Intent Checkliste"
+                description="Prüfen Sie diese Punkte bei jeder Content-Erstellung"
+                items={[
+                  { id: "si1", text: "Search Intent der Ziel-Keywords analysiert", tip: "Googlen Sie das Keyword und schauen Sie, welche Ergebnisse angezeigt werden" },
+                  { id: "si2", text: "Content-Typ passend zum Intent gewählt", tip: "KNOW = Ratgeber, BUY = Produktseite, DO = Anleitung" },
+                  { id: "si3", text: "SERP-Features analysiert (Featured Snippets, Videos, etc.)", tip: "Passen Sie Ihren Content an die SERP-Features an" },
+                  { id: "si4", text: "Nutzerabsicht vollständig beantwortet", tip: "Fragen Sie sich: Würde der Nutzer nach dem Lesen woanders weitersuchen?" }
+                ]}
+              />
+
               <NavigationButtons prevModule="intro" nextLabel="Weiter zu Keywords" />
             </div>
           )}
 
-          {/* Keywords - Kurzversion */}
+          {/* Keywords */}
           {activeModule === "keywords" && (
             <div className="space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2"><Search className="h-5 w-5 text-primary" />Keywords</CardTitle>
+                  <CardDescription>Die richtigen Keywords finden und optimal einsetzen</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <BestPracticeCard
@@ -229,9 +267,35 @@ const SEOTraining = ({ session }: SEOTrainingProps) => {
                     dos={["Hauptkeyword in H1 und erstem Absatz", "Keyword-Dichte 1-2%", "Synonyme und LSI-Keywords nutzen"]}
                     donts={["Keyword-Stuffing", "Unnatürliche Formulierungen", "Gleiche Phrase ständig wiederholen"]}
                   />
-                  <KeyTakeaway points={["Keyword in H1 und erstem Absatz ist Pflicht", "Keyword-Dichte: 1-2%", "Natürliche Variationen verwenden"]} />
+
+                  <MemoryBox
+                    title="Keyword-Platzierung"
+                    mnemonic="H1 → Intro → Überall natürlich"
+                    mnemonicExplanation="Keyword zuerst in H1, dann im ersten Absatz, dann natürlich im Text verteilen"
+                    visualHook="🔑 → 📋 → 📝"
+                    keyPoints={[
+                      "H1: Keyword MUSS enthalten sein",
+                      "Erster Absatz: Keyword in den ersten 100 Wörtern",
+                      "Keyword-Dichte: 1-2% (nicht mehr!)",
+                      "Variationen: Synonyme, LSI-Keywords, Wortstamm-Varianten"
+                    ]}
+                  />
                 </CardContent>
               </Card>
+
+              <ModuleChecklist
+                moduleId="keywords"
+                title="Keyword Checkliste"
+                items={[
+                  { id: "kw1", text: "Haupt-Keyword definiert", tip: "Ein primäres Keyword pro Seite" },
+                  { id: "kw2", text: "Keyword in H1 platziert", tip: "Möglichst am Anfang der H1" },
+                  { id: "kw3", text: "Keyword im ersten Absatz", tip: "Idealerweise in den ersten 100 Wörtern" },
+                  { id: "kw4", text: "Keyword-Dichte zwischen 1-2%", tip: "Tools wie Yoast können das prüfen" },
+                  { id: "kw5", text: "Synonyme und Variationen verwendet", tip: "Natürliche Sprache, keine Robotertexte" },
+                  { id: "kw6", text: "Kein Keyword-Stuffing", tip: "Wenn es unnatürlich klingt, ist es zu viel" }
+                ]}
+              />
+
               <NavigationButtons prevModule="search-intent" nextLabel="Weiter zu Textstruktur" />
             </div>
           )}
@@ -247,9 +311,34 @@ const SEOTraining = ({ session }: SEOTrainingProps) => {
                     dos={["Max. 300 Wörter pro Absatz", "Zwischenüberschriften alle 200-350 Wörter", "Das Wichtigste zuerst"]}
                     donts={["Textwüsten ohne Absätze", "Wichtiges am Ende verstecken"]}
                   />
-                  <KeyTakeaway points={["Max. 300 Wörter pro Absatz", "Umgekehrte Pyramide: Wichtigstes zuerst", "Inhaltsverzeichnis bei längeren Texten"]} />
+
+                  <MemoryBox
+                    title="Umgekehrte Pyramide"
+                    mnemonic="WICHTIG → DETAILS → HINTERGRUND"
+                    mnemonicExplanation="Wie bei Nachrichten: Die wichtigste Info zuerst!"
+                    visualHook="🔺 Wichtigstes oben, Details unten"
+                    keyPoints={[
+                      "Erster Absatz: Kernaussage + Keyword",
+                      "Absätze: Max. 300 Wörter",
+                      "Zwischenüberschriften: Alle 200-350 Wörter",
+                      "Inhaltsverzeichnis: Bei Texten über 1000 Wörter"
+                    ]}
+                  />
                 </CardContent>
               </Card>
+
+              <ModuleChecklist
+                moduleId="structure"
+                title="Textstruktur Checkliste"
+                items={[
+                  { id: "str1", text: "Kernaussage im ersten Absatz", tip: "Der Leser sollte sofort wissen, worum es geht" },
+                  { id: "str2", text: "Absätze max. 300 Wörter", tip: "Kürzere Absätze sind leichter zu lesen" },
+                  { id: "str3", text: "Zwischenüberschriften alle 200-350 Wörter", tip: "Hilft beim Scannen des Textes" },
+                  { id: "str4", text: "Inhaltsverzeichnis bei langen Texten", tip: "Ab ca. 1000 Wörtern sinnvoll" },
+                  { id: "str5", text: "Logischer Aufbau (Umgekehrte Pyramide)", tip: "Wichtigstes zuerst, dann Details" }
+                ]}
+              />
+
               <NavigationButtons prevModule="keywords" nextLabel="Weiter zu H1-H6" />
             </div>
           )}
@@ -265,9 +354,34 @@ const SEOTraining = ({ session }: SEOTrainingProps) => {
                     dos={["Nur eine H1 pro Seite mit Keyword", "Logische Hierarchie H1→H2→H3", "Sprechende Überschriften"]}
                     donts={["Mehrere H1s", "H3 vor H2 verwenden", "Überschriften nur für Formatierung"]}
                   />
-                  <KeyTakeaway points={["Nur eine H1 pro Seite", "Logische Hierarchie einhalten", "Überschriften allein sollten den Inhalt zusammenfassen"]} />
+
+                  <MemoryBox
+                    title="Überschriften-Hierarchie"
+                    mnemonic="1 König, viele Minister"
+                    mnemonicExplanation="Nur EINE H1 (König), beliebig viele H2-H6 (Minister)"
+                    visualHook="👑 H1 → 🎩 H2 → 🎩 H2 → 👔 H3"
+                    keyPoints={[
+                      "H1: Nur EINE pro Seite (mit Keyword!)",
+                      "H2: Hauptabschnitte (können mehrfach vorkommen)",
+                      "H3-H6: Unterabschnitte (hierarchisch einsetzen)",
+                      "Test: Überschriften allein = Zusammenfassung"
+                    ]}
+                  />
                 </CardContent>
               </Card>
+
+              <ModuleChecklist
+                moduleId="headings"
+                title="Überschriften Checkliste"
+                items={[
+                  { id: "head1", text: "Nur EINE H1 auf der Seite", tip: "Die wichtigste Regel für Überschriften" },
+                  { id: "head2", text: "H1 enthält das Hauptkeyword", tip: "Möglichst am Anfang der H1" },
+                  { id: "head3", text: "Logische Hierarchie eingehalten", tip: "H2 kommt vor H3, nie umgekehrt" },
+                  { id: "head4", text: "Überschriften sind aussagekräftig", tip: "Der Leser sollte wissen, was im Abschnitt kommt" },
+                  { id: "head5", text: "Überschriften-Scan-Test bestanden", tip: "Nur die Überschriften lesen = Inhalt verstehen" }
+                ]}
+              />
+
               <NavigationButtons prevModule="structure" nextLabel="Weiter zu Schreibstil" />
             </div>
           )}
@@ -283,9 +397,34 @@ const SEOTraining = ({ session }: SEOTrainingProps) => {
                     before={{ content: "Der Text wird vom Autor geschrieben.", issues: ["Passiv wirkt distanziert", "Umständlich"] }}
                     after={{ content: "Der Autor schreibt den Text.", improvements: ["Direkt und klar", "Lebendig"] }}
                   />
-                  <KeyTakeaway points={["Aktivsätze statt Passiv", "Kurze Sätze (max. 20 Wörter)", "Flesch-Index über 60 anstreben"]} />
+
+                  <MemoryBox
+                    title="Lesbarkeit optimieren"
+                    mnemonic="KISS - Keep It Short & Simple"
+                    mnemonicExplanation="Kurze Sätze, einfache Wörter, aktive Sprache"
+                    visualHook="📖 Flesch > 60 = 👍"
+                    keyPoints={[
+                      "Sätze: Max. 20 Wörter",
+                      "Aktiv statt Passiv schreiben",
+                      "Flesch-Index: Über 60 (leicht lesbar)",
+                      "Füllwörter eliminieren (eigentlich, irgendwie, etc.)"
+                    ]}
+                  />
                 </CardContent>
               </Card>
+
+              <ModuleChecklist
+                moduleId="writing"
+                title="Schreibstil Checkliste"
+                items={[
+                  { id: "wri1", text: "Aktivsätze verwendet (kein Passiv)", tip: "'Der Autor schreibt' statt 'wird geschrieben'" },
+                  { id: "wri2", text: "Sätze max. 20 Wörter", tip: "Lange Sätze in mehrere kurze aufteilen" },
+                  { id: "wri3", text: "Flesch-Index über 60", tip: "Tools wie textinspektor.de helfen beim Prüfen" },
+                  { id: "wri4", text: "Füllwörter entfernt", tip: "Eigentlich, irgendwie, sozusagen - streichen!" },
+                  { id: "wri5", text: "Fachbegriffe erklärt", tip: "Beim ersten Auftreten kurz erklären" }
+                ]}
+              />
+
               <NavigationButtons prevModule="headings" nextLabel="Weiter zu Formatierung" />
             </div>
           )}
@@ -301,9 +440,34 @@ const SEOTraining = ({ session }: SEOTrainingProps) => {
                     dos={["Fettdruck sparsam (1-2 pro Absatz)", "Aufzählungslisten für Punkte", "Tabellen für Vergleiche"]}
                     donts={["Zu viel Fettdruck", "Unterstreichungen (wirken wie Links)"]}
                   />
-                  <KeyTakeaway points={["79% der Online-Leser scannen", "Fettdruck sparsam einsetzen", "Listen für Aufzählungen nutzen"]} />
+
+                  <MemoryBox
+                    title="Scannable Content"
+                    mnemonic="79% scannen nur!"
+                    mnemonicExplanation="Die meisten Leser überfliegen Texte - formatieren Sie entsprechend"
+                    visualHook="👁️ Scan → 📋 Liste → ✅ Verstanden"
+                    keyPoints={[
+                      "Fettdruck: 1-2 Wörter pro Absatz hervorheben",
+                      "Listen: Aufzählungen für mehrere Punkte",
+                      "Tabellen: Für Vergleiche und Daten",
+                      "Keine Unterstreichungen (werden als Links verwechselt)"
+                    ]}
+                  />
                 </CardContent>
               </Card>
+
+              <ModuleChecklist
+                moduleId="formatting"
+                title="Formatierung Checkliste"
+                items={[
+                  { id: "fmt1", text: "Wichtige Begriffe fett markiert", tip: "Max. 1-2 pro Absatz, nicht ganze Sätze" },
+                  { id: "fmt2", text: "Aufzählungslisten für Punkte verwendet", tip: "Ab 3+ Punkten immer eine Liste nutzen" },
+                  { id: "fmt3", text: "Tabellen für Vergleiche eingesetzt", tip: "Ideal für Produktvergleiche, Vor-/Nachteile" },
+                  { id: "fmt4", text: "Keine Unterstreichungen verwendet", tip: "Werden als Links missverstanden" },
+                  { id: "fmt5", text: "Scan-Test bestanden", tip: "Kann man die Kernaussagen beim Überfliegen erfassen?" }
+                ]}
+              />
+
               <NavigationButtons prevModule="writing" nextLabel="Weiter zu Technische SEO" />
             </div>
           )}
@@ -340,9 +504,33 @@ const SEOTraining = ({ session }: SEOTrainingProps) => {
                       </Card>
                     ))}
                   </div>
-                  <KeyTakeaway points={["E-E-A-T: Experience, Expertise, Authoritativeness, Trustworthiness", "Besonders wichtig für YMYL-Themen", "Autoreninfo und Quellen zeigen"]} />
+                  <MemoryBox
+                    title="E-E-A-T merken"
+                    mnemonic="Erfahrung + Expertise + Autorität = Trust"
+                    mnemonicExplanation="Die ersten drei E-A bauen das T (Vertrauen) auf"
+                    visualHook="👤 🎓 🏆 → 🛡️"
+                    keyPoints={[
+                      "Experience: Echte Erfahrung mit dem Thema zeigen",
+                      "Expertise: Fachkenntnis durch Inhalte demonstrieren",
+                      "Authoritativeness: Als Autorität im Bereich anerkannt sein",
+                      "Trustworthiness: Vertrauenswürdigkeit durch alles oben"
+                    ]}
+                  />
                 </CardContent>
               </Card>
+
+              <ModuleChecklist
+                moduleId="eeat"
+                title="E-E-A-T Checkliste"
+                items={[
+                  { id: "eeat1", text: "Autoreninfo mit Qualifikationen vorhanden", tip: "Name, Titel, Erfahrung, Links zu Profilen" },
+                  { id: "eeat2", text: "Quellen und Referenzen angegeben", tip: "Verlinken Sie zu vertrauenswürdigen Quellen" },
+                  { id: "eeat3", text: "Datum der Veröffentlichung/Aktualisierung sichtbar", tip: "Zeigt, dass Content aktuell gehalten wird" },
+                  { id: "eeat4", text: "Impressum und Kontaktdaten vorhanden", tip: "Transparenz schafft Vertrauen" },
+                  { id: "eeat5", text: "Bei YMYL: Besondere Sorgfalt angewendet", tip: "Medizin, Finanzen, Recht erfordern Experten" }
+                ]}
+              />
+
               <NavigationButtons prevModule="tools" nextLabel="Weiter zu Helpful Content" />
             </div>
           )}
@@ -361,9 +549,34 @@ const SEOTraining = ({ session }: SEOTrainingProps) => {
                     dos={["Für Menschen schreiben", "Fragen vollständig beantworten", "Echten Mehrwert bieten"]}
                     donts={["Content nur für Keywords", "Oberflächliche Zusammenfassungen", "Clickbait ohne Substanz"]}
                   />
-                  <KeyTakeaway points={["People-First: Für Menschen schreiben", "Fragen vollständig beantworten", "Test: Würden Sie diesen Text einem Freund empfehlen?"]} />
+
+                  <MemoryBox
+                    title="Helpful Content Test"
+                    mnemonic="Würde ich das einem Freund empfehlen?"
+                    mnemonicExplanation="Der ultimative Test für jeden Content"
+                    visualHook="👥 ❤️ ✅"
+                    keyPoints={[
+                      "People-First: Schreiben Sie für Menschen, nicht für Suchmaschinen",
+                      "Vollständigkeit: Beantwortet der Text alle Fragen zum Thema?",
+                      "Mehrwert: Bieten Sie etwas, das andere nicht haben",
+                      "Zufriedenheit: Würde der Nutzer nach dem Lesen woanders suchen?"
+                    ]}
+                  />
                 </CardContent>
               </Card>
+
+              <ModuleChecklist
+                moduleId="helpful"
+                title="Helpful Content Checkliste"
+                items={[
+                  { id: "hc1", text: "Content ist für Menschen geschrieben", tip: "Lesen Sie den Text laut vor - klingt er natürlich?" },
+                  { id: "hc2", text: "Alle wichtigen Fragen zum Thema beantwortet", tip: "W-Fragen als Leitfaden nutzen" },
+                  { id: "hc3", text: "Einzigartiger Mehrwert vorhanden", tip: "Was bieten Sie, das andere nicht haben?" },
+                  { id: "hc4", text: "Kein Clickbait oder irreführende Überschriften", tip: "Halten Sie, was die Überschrift verspricht" },
+                  { id: "hc5", text: "Freund-Test bestanden", tip: "Würden Sie diesen Artikel einem Freund empfehlen?" }
+                ]}
+              />
+
               <NavigationButtons prevModule="eeat" nextLabel="Weiter zu Ranking-Faktoren" />
             </div>
           )}
@@ -376,43 +589,57 @@ const SEOTraining = ({ session }: SEOTrainingProps) => {
           {/* Checkliste */}
           {activeModule === "checklist" && (
             <div className="space-y-6">
-              <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><ListChecks className="h-5 w-5 text-primary" />Die ultimative SEO-Checkliste</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
-                  {[
-                    { cat: "Search Intent & Keyword", items: ["Search Intent analysiert", "Keyword in H1 und erstem Absatz", "Keyword-Dichte 1-2%"] },
-                    { cat: "Struktur", items: ["Nur eine H1", "Logische Hierarchie", "Absätze max. 300 Wörter"] },
-                    { cat: "Schreibstil", items: ["Aktivsätze", "Kurze Sätze (max. 20 Wörter)", "Flesch-Index > 60"] },
-                    { cat: "Technisch", items: ["Mobile-optimiert", "Core Web Vitals grün", "HTTPS aktiv"] },
-                    { cat: "OnPage", items: ["Meta-Title optimiert", "Meta-Description vorhanden", "Bilder mit Alt-Text"] },
-                    { cat: "E-E-A-T", items: ["Autoreninfo vorhanden", "Quellen zitiert", "Für Menschen geschrieben"] },
-                    { cat: "KI & Content", items: ["KI-Fakten verifiziert", "Einzigartige Perspektiven hinzugefügt", "Redaktionelle Prüfung durchgeführt"] },
-                  ].map((section) => (
-                    <Card key={section.cat} className="bg-muted/30">
-                      <CardHeader className="pb-2"><CardTitle className="text-base">{section.cat}</CardTitle></CardHeader>
-                      <CardContent className="space-y-2">
-                        {section.items.map((item, i) => (
-                          <label key={i} className="flex items-center gap-3 p-2 rounded hover:bg-muted/50 cursor-pointer">
-                            <input type="checkbox" className="h-4 w-4 rounded" />
-                            <span className="text-sm">{item}</span>
-                          </label>
-                        ))}
-                      </CardContent>
-                    </Card>
-                  ))}
-
-                  <div className="bg-green-500/10 border border-green-500/30 p-4 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2"><Trophy className="h-5 w-5 text-green-500" /><span className="font-semibold text-green-700">Geschafft!</span></div>
-                    <p className="text-sm text-muted-foreground">Sie haben die SEO-Schulung abgeschlossen!</p>
+              <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/30">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Trophy className="h-6 w-6 text-amber-500" />
+                    Herzlichen Glückwunsch!
+                  </CardTitle>
+                  <CardDescription>
+                    Sie haben alle Module der SEO-Schulung durchgearbeitet. Nutzen Sie die Master-Checkliste 
+                    bei jeder Content-Erstellung, um sicherzustellen, dass Sie nichts vergessen.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid sm:grid-cols-3 gap-4 text-center">
+                    <div className="p-4 bg-background/60 rounded-lg">
+                      <div className="text-3xl mb-1">📚</div>
+                      <div className="font-semibold">18 Module</div>
+                      <div className="text-xs text-muted-foreground">absolviert</div>
+                    </div>
+                    <div className="p-4 bg-background/60 rounded-lg">
+                      <div className="text-3xl mb-1">✅</div>
+                      <div className="font-semibold">60+ Punkte</div>
+                      <div className="text-xs text-muted-foreground">in der Checkliste</div>
+                    </div>
+                    <div className="p-4 bg-background/60 rounded-lg">
+                      <div className="text-3xl mb-1">🎯</div>
+                      <div className="font-semibold">Druckbar</div>
+                      <div className="text-xs text-muted-foreground">für jeden Content</div>
+                    </div>
                   </div>
+                </CardContent>
+              </Card>
 
+              <MasterChecklist />
+
+              <Card className="bg-green-500/10 border-green-500/30">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <Trophy className="h-8 w-8 text-amber-500" />
+                    <div>
+                      <h3 className="font-bold text-lg text-green-700">Schulung abschließen</h3>
+                      <p className="text-sm text-muted-foreground">Markieren Sie die Schulung als abgeschlossen</p>
+                    </div>
+                  </div>
                   <Button onClick={() => markModuleComplete("checklist")} className="w-full gap-2" size="lg">
-                    <Trophy className="h-5 w-5" />Schulung abschließen
+                    <CheckCircle2 className="h-5 w-5" />Schulung als abgeschlossen markieren
                   </Button>
                 </CardContent>
               </Card>
+
               <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setActiveModule("ranking")}>Zurück</Button>
+                <Button variant="outline" onClick={() => setActiveModule("ai-seo")}>Zurück</Button>
                 <Button variant="outline" onClick={() => setActiveModule("intro")}>Zurück zum Anfang</Button>
               </div>
             </div>
