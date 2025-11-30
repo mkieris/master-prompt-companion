@@ -40,7 +40,7 @@ interface GeneratedContent {
   qualityReport?: {
     status: string;
     flags: any[];
-    evidenceTable: any[];
+    evidenceTable?: any[];
   };
 }
 
