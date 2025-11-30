@@ -14,6 +14,357 @@ export type Database = {
   }
   public: {
     Tables: {
+      content_plans: {
+        Row: {
+          ai_suggestions: Json | null
+          assigned_to: string | null
+          created_at: string
+          description: string | null
+          id: string
+          notes: string | null
+          organization_id: string
+          page_type: string | null
+          planned_date: string | null
+          priority: string | null
+          published_date: string | null
+          status: string
+          target_keyword: string | null
+          title: string
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          ai_suggestions?: Json | null
+          assigned_to?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          notes?: string | null
+          organization_id: string
+          page_type?: string | null
+          planned_date?: string | null
+          priority?: string | null
+          published_date?: string | null
+          status?: string
+          target_keyword?: string | null
+          title: string
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          ai_suggestions?: Json | null
+          assigned_to?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          page_type?: string | null
+          planned_date?: string | null
+          priority?: string | null
+          published_date?: string | null
+          status?: string
+          target_keyword?: string | null
+          title?: string
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_plans_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_projects: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          focus_keyword: string
+          folder: string | null
+          form_data: Json
+          generated_content: Json | null
+          id: string
+          organization_id: string
+          page_type: string
+          seo_score: number | null
+          status: string
+          tags: Json | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          focus_keyword: string
+          folder?: string | null
+          form_data?: Json
+          generated_content?: Json | null
+          id?: string
+          organization_id: string
+          page_type: string
+          seo_score?: number | null
+          status?: string
+          tags?: Json | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          focus_keyword?: string
+          folder?: string | null
+          form_data?: Json
+          generated_content?: Json | null
+          id?: string
+          organization_id?: string
+          page_type?: string
+          seo_score?: number | null
+          status?: string
+          tags?: Json | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_projects_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_versions: {
+        Row: {
+          change_notes: string | null
+          created_at: string
+          created_by: string
+          form_data: Json
+          generated_content: Json
+          id: string
+          project_id: string
+          seo_score: number | null
+          version_number: number
+        }
+        Insert: {
+          change_notes?: string | null
+          created_at?: string
+          created_by: string
+          form_data: Json
+          generated_content: Json
+          id?: string
+          project_id: string
+          seo_score?: number | null
+          version_number?: number
+        }
+        Update: {
+          change_notes?: string | null
+          created_at?: string
+          created_by?: string
+          form_data?: Json
+          generated_content?: Json
+          id?: string
+          project_id?: string
+          seo_score?: number | null
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_versions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "content_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      domain_knowledge: {
+        Row: {
+          ai_summary: string | null
+          brand_voice: string | null
+          company_description: string | null
+          company_name: string | null
+          competitors: Json | null
+          crawl_data: Json | null
+          crawl_status: string
+          crawled_at: string | null
+          created_at: string
+          id: string
+          industry: string | null
+          keywords: Json | null
+          main_products_services: Json | null
+          organization_id: string
+          pages_crawled: number | null
+          target_audience: string | null
+          total_pages: number | null
+          unique_selling_points: Json | null
+          updated_at: string
+          website_url: string
+        }
+        Insert: {
+          ai_summary?: string | null
+          brand_voice?: string | null
+          company_description?: string | null
+          company_name?: string | null
+          competitors?: Json | null
+          crawl_data?: Json | null
+          crawl_status?: string
+          crawled_at?: string | null
+          created_at?: string
+          id?: string
+          industry?: string | null
+          keywords?: Json | null
+          main_products_services?: Json | null
+          organization_id: string
+          pages_crawled?: number | null
+          target_audience?: string | null
+          total_pages?: number | null
+          unique_selling_points?: Json | null
+          updated_at?: string
+          website_url: string
+        }
+        Update: {
+          ai_summary?: string | null
+          brand_voice?: string | null
+          company_description?: string | null
+          company_name?: string | null
+          competitors?: Json | null
+          crawl_data?: Json | null
+          crawl_status?: string
+          crawled_at?: string | null
+          created_at?: string
+          id?: string
+          industry?: string | null
+          keywords?: Json | null
+          main_products_services?: Json | null
+          organization_id?: string
+          pages_crawled?: number | null
+          target_audience?: string | null
+          total_pages?: number | null
+          unique_selling_points?: Json | null
+          updated_at?: string
+          website_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "domain_knowledge_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_members: {
+        Row: {
+          id: string
+          invited_by: string | null
+          joined_at: string
+          organization_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          invited_by?: string | null
+          joined_at?: string
+          organization_id: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          invited_by?: string | null
+          joined_at?: string
+          organization_id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_members_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          created_at: string
+          id: string
+          logo_url: string | null
+          name: string
+          slug: string
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          name: string
+          slug: string
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          name?: string
+          slug?: string
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          current_organization_id: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          current_organization_id?: string | null
+          email?: string | null
+          full_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          current_organization_id?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_current_organization_id_fkey"
+            columns: ["current_organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       seo_projects: {
         Row: {
           created_at: string
@@ -55,10 +406,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_org_ids: { Args: { _user_id: string }; Returns: string[] }
+      has_org_role: {
+        Args: {
+          _org_id: string
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_org_member: {
+        Args: { _org_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "owner" | "admin" | "editor" | "viewer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -185,6 +548,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["owner", "admin", "editor", "viewer"],
+    },
   },
 } as const
