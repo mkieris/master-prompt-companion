@@ -22,10 +22,13 @@ import {
   Loader2,
   Copy,
   Download,
-  Check
+  Check,
+  FileDown
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType, BorderStyle, AlignmentType } from "docx";
+import { saveAs } from "file-saver";
 
 interface GeneratedContent {
   seoText: string;
@@ -694,6 +697,229 @@ export const Step5AfterCheck = ({
     });
   };
 
+  // Export as DOCX
+  const handleExportDOCX = async () => {
+    if (!generatedContent) return;
+
+    try {
+      const pageTypeLabel = formData.pageType === 'product' 
+        ? 'Produktseite' 
+        : formData.pageType === 'category' 
+          ? 'Kategorieseite' 
+          : 'Ratgeber/Blog';
+
+      const sections: Paragraph[] = [];
+
+      // Title
+      sections.push(
+        new Paragraph({
+          text: "SEO Content Export",
+          heading: HeadingLevel.TITLE,
+          spacing: { after: 400 },
+        })
+      );
+
+      // Meta info
+      sections.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: "SEO-Qualitätsscore: ", bold: true }),
+            new TextRun({ text: `${stats.score}%`, bold: true, color: stats.score >= 70 ? "00AA00" : stats.score >= 50 ? "FFAA00" : "FF0000" }),
+          ],
+          spacing: { after: 200 },
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({ text: "Fokus-Keyword: ", bold: true }),
+            new TextRun({ text: formData.focusKeyword }),
+          ],
+          spacing: { after: 100 },
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({ text: "Seitentyp: ", bold: true }),
+            new TextRun({ text: pageTypeLabel }),
+          ],
+          spacing: { after: 100 },
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({ text: "Exportiert am: ", bold: true }),
+            new TextRun({ text: new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) }),
+          ],
+          spacing: { after: 400 },
+        })
+      );
+
+      // Title Tag Section
+      sections.push(
+        new Paragraph({
+          text: "Title Tag",
+          heading: HeadingLevel.HEADING_1,
+          spacing: { before: 400, after: 200 },
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({ text: generatedContent.title || '' }),
+          ],
+          spacing: { after: 100 },
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({ text: `(${(generatedContent.title || '').length} Zeichen)`, italics: true, size: 20, color: "666666" }),
+          ],
+          spacing: { after: 300 },
+        })
+      );
+
+      // Meta Description Section
+      sections.push(
+        new Paragraph({
+          text: "Meta Description",
+          heading: HeadingLevel.HEADING_1,
+          spacing: { before: 400, after: 200 },
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({ text: generatedContent.metaDescription || '' }),
+          ],
+          spacing: { after: 100 },
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({ text: `(${(generatedContent.metaDescription || '').length} Zeichen)`, italics: true, size: 20, color: "666666" }),
+          ],
+          spacing: { after: 300 },
+        })
+      );
+
+      // SEO Text Section
+      sections.push(
+        new Paragraph({
+          text: "SEO-Text",
+          heading: HeadingLevel.HEADING_1,
+          spacing: { before: 400, after: 200 },
+        })
+      );
+
+      // Parse HTML content to plain text paragraphs
+      const plainText = htmlToPlainText(generatedContent.seoText || '');
+      const textParagraphs = plainText.split('\n').filter(p => p.trim());
+      textParagraphs.forEach(text => {
+        sections.push(
+          new Paragraph({
+            text: text.trim(),
+            spacing: { after: 200 },
+          })
+        );
+      });
+
+      // FAQ Section
+      if (generatedContent.faq && generatedContent.faq.length > 0) {
+        sections.push(
+          new Paragraph({
+            text: "FAQ",
+            heading: HeadingLevel.HEADING_1,
+            spacing: { before: 400, after: 200 },
+          })
+        );
+
+        generatedContent.faq.forEach((item: any, index: number) => {
+          if (item?.question && item?.answer) {
+            sections.push(
+              new Paragraph({
+                children: [
+                  new TextRun({ text: `${index + 1}. ${item.question}`, bold: true }),
+                ],
+                spacing: { before: 200, after: 100 },
+              }),
+              new Paragraph({
+                text: item.answer,
+                spacing: { after: 200 },
+              })
+            );
+          }
+        });
+      }
+
+      // Internal Links Section
+      if (generatedContent.internalLinks && generatedContent.internalLinks.length > 0) {
+        sections.push(
+          new Paragraph({
+            text: "Interne Verlinkung",
+            heading: HeadingLevel.HEADING_1,
+            spacing: { before: 400, after: 200 },
+          })
+        );
+
+        generatedContent.internalLinks.forEach((link: any) => {
+          if (link?.anchorText && link?.url) {
+            sections.push(
+              new Paragraph({
+                children: [
+                  new TextRun({ text: `• ${link.anchorText}: `, bold: true }),
+                  new TextRun({ text: link.url, color: "0066CC" }),
+                ],
+                spacing: { after: 100 },
+              })
+            );
+          }
+        });
+      }
+
+      // Technical Hints
+      if (generatedContent.technicalHints) {
+        sections.push(
+          new Paragraph({
+            text: "Technische Hinweise",
+            heading: HeadingLevel.HEADING_1,
+            spacing: { before: 400, after: 200 },
+          }),
+          new Paragraph({
+            text: typeof generatedContent.technicalHints === 'string' 
+              ? generatedContent.technicalHints 
+              : JSON.stringify(generatedContent.technicalHints, null, 2),
+            spacing: { after: 200 },
+          })
+        );
+      }
+
+      // Footer
+      sections.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: "Erstellt mit SEO Content Generator Pro", italics: true, size: 20, color: "999999" }),
+          ],
+          spacing: { before: 600 },
+          alignment: AlignmentType.CENTER,
+        })
+      );
+
+      const doc = new Document({
+        sections: [{
+          properties: {},
+          children: sections,
+        }],
+      });
+
+      const blob = await Packer.toBlob(doc);
+      const filename = `seo-content-${formData.focusKeyword.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.docx`;
+      saveAs(blob, filename);
+
+      toast({
+        title: "Word-Export erfolgreich",
+        description: `Die Datei "${filename}" wurde heruntergeladen.`,
+      });
+    } catch (error) {
+      console.error('DOCX export error:', error);
+      toast({
+        title: "Export-Fehler",
+        description: "Der Word-Export ist fehlgeschlagen. Bitte versuchen Sie es erneut.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const toggleCategory = (category: string) => {
     setExpandedCategories(prev => 
       prev.includes(category) 
@@ -865,8 +1091,8 @@ export const Step5AfterCheck = ({
       {/* Actions */}
       <div className="flex flex-col gap-4 pt-4 border-t">
         {/* Export Actions */}
-        <div className="flex gap-2 justify-center">
-          <Button variant="outline" onClick={handleCopy} className="flex-1 max-w-[200px]">
+        <div className="flex gap-2 justify-center flex-wrap">
+          <Button variant="outline" onClick={handleCopy} className="flex-1 max-w-[180px]">
             {copied ? (
               <>
                 <Check className="mr-2 h-4 w-4 text-green-500" />
@@ -879,9 +1105,13 @@ export const Step5AfterCheck = ({
               </>
             )}
           </Button>
-          <Button variant="outline" onClick={handleExportPDF} className="flex-1 max-w-[200px]">
+          <Button variant="outline" onClick={handleExportPDF} className="flex-1 max-w-[180px]">
             <Download className="mr-2 h-4 w-4" />
-            Als PDF exportieren
+            PDF Export
+          </Button>
+          <Button variant="outline" onClick={handleExportDOCX} className="flex-1 max-w-[180px]">
+            <FileDown className="mr-2 h-4 w-4" />
+            Word Export
           </Button>
         </div>
         
