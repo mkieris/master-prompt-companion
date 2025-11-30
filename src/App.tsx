@@ -10,6 +10,7 @@ import Index from "./pages/Index";
 import ProVersion from "./pages/ProVersion";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import SEOCheck from "./pages/SEOCheck";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +43,7 @@ const App = () => {
             <Route path="/" element={<Index session={session} />} />
             <Route path="/pro" element={<ProVersion session={session} />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/seo-check" element={<SEOCheck session={session} />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
