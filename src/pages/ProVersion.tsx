@@ -34,6 +34,9 @@ export interface FormData {
   tonality: string;
   focusKeyword: string;
   secondaryKeywords: string[];
+  searchIntent: string[];
+  keywordDensity: string;
+  wQuestions: string[];
   contentStructure: string;
   contentLayout: string;
   imageTextBlocks: number;
@@ -89,6 +92,9 @@ const ProVersion = ({ session }: ProVersionProps) => {
     tonality: "",
     focusKeyword: "",
     secondaryKeywords: [],
+    searchIntent: [],
+    keywordDensity: "normal",
+    wQuestions: [],
     contentStructure: "",
     contentLayout: "",
     imageTextBlocks: 0,
@@ -353,6 +359,9 @@ const ProVersion = ({ session }: ProVersionProps) => {
                     data={{
                       focusKeyword: formData.focusKeyword,
                       secondaryKeywords: formData.secondaryKeywords,
+                      searchIntent: formData.searchIntent,
+                      keywordDensity: formData.keywordDensity,
+                      wQuestions: formData.wQuestions,
                       contentStructure: formData.contentStructure,
                       contentLayout: formData.contentLayout,
                       imageTextBlocks: formData.imageTextBlocks,
