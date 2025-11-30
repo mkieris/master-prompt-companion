@@ -79,16 +79,25 @@ export const SEOOutputTabsPro = ({ content }: SEOOutputTabsProps) => {
       <div className="flex-1 overflow-y-auto p-6">
         <TabsContent value="text" className="mt-0">
           <Card className="p-6">
-            <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: content.seoText }} />
+            <div 
+              className="prose prose-sm max-w-none" 
+              dangerouslySetInnerHTML={{ 
+                __html: typeof content.seoText === 'string' ? content.seoText : '' 
+              }} 
+            />
           </Card>
         </TabsContent>
 
         <TabsContent value="faq" className="mt-0">
           <Card className="p-6 space-y-4">
-            {content.faq.map((item, index) => (
+            {Array.isArray(content.faq) && content.faq.map((item, index) => (
               <div key={index} className="space-y-2">
-                <h3 className="font-semibold text-foreground">{item.question}</h3>
-                <p className="text-sm text-muted-foreground">{item.answer}</p>
+                <h3 className="font-semibold text-foreground">
+                  {typeof item?.question === 'string' ? item.question : ''}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {typeof item?.answer === 'string' ? item.answer : ''}
+                </p>
               </div>
             ))}
           </Card>
@@ -98,17 +107,21 @@ export const SEOOutputTabsPro = ({ content }: SEOOutputTabsProps) => {
           <div className="space-y-4">
             <Card className="p-6">
               <h3 className="font-semibold mb-2">Title Tag</h3>
-              <p className="text-sm text-foreground">{content.title}</p>
-              <p className="text-xs text-muted-foreground mt-1">Länge: {content.title.length} Zeichen</p>
+              <p className="text-sm text-foreground">{content.title || ''}</p>
+              <p className="text-xs text-muted-foreground mt-1">Länge: {(content.title || '').length} Zeichen</p>
             </Card>
             <Card className="p-6">
               <h3 className="font-semibold mb-2">Meta Description</h3>
-              <p className="text-sm text-foreground">{content.metaDescription}</p>
-              <p className="text-xs text-muted-foreground mt-1">Länge: {content.metaDescription.length} Zeichen</p>
+              <p className="text-sm text-foreground">{content.metaDescription || ''}</p>
+              <p className="text-xs text-muted-foreground mt-1">Länge: {(content.metaDescription || '').length} Zeichen</p>
             </Card>
             <Card className="p-6">
               <h3 className="font-semibold mb-2">Technik-Hinweise</h3>
-              <div className="text-sm text-muted-foreground whitespace-pre-wrap">{content.technicalHints}</div>
+              <div className="text-sm text-muted-foreground whitespace-pre-wrap">
+                {typeof content.technicalHints === 'string' 
+                  ? content.technicalHints 
+                  : JSON.stringify(content.technicalHints, null, 2)}
+              </div>
             </Card>
           </div>
         </TabsContent>
@@ -117,10 +130,14 @@ export const SEOOutputTabsPro = ({ content }: SEOOutputTabsProps) => {
           <Card className="p-6">
             <h3 className="font-semibold mb-4">Interne Links</h3>
             <div className="space-y-3">
-              {content.internalLinks.map((link, index) => (
+              {Array.isArray(content.internalLinks) && content.internalLinks.map((link, index) => (
                 <div key={index} className="border-l-4 border-primary pl-4">
-                  <p className="text-sm font-medium text-foreground">{link.anchorText}</p>
-                  <p className="text-xs text-muted-foreground">{link.url}</p>
+                  <p className="text-sm font-medium text-foreground">
+                    {typeof link?.anchorText === 'string' ? link.anchorText : ''}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {typeof link?.url === 'string' ? link.url : ''}
+                  </p>
                 </div>
               ))}
             </div>
