@@ -14,3 +14,6 @@ verify_jwt = true
 
 [functions.ai-content-chat]
 verify_jwt = false
+
+[functions.generate-ai-content]
+verify_jwt = false

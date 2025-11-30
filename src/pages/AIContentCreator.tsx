@@ -1,15 +1,17 @@
 import { useState, useRef, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Sparkles, Loader2, Bot } from "lucide-react";
+import { Sparkles, Loader2, Bot, Wand2 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { useOrganization } from "@/hooks/useOrganization";
 import ChatMessage from "@/components/ai-content/ChatMessage";
 import ChatInput from "@/components/ai-content/ChatInput";
 import StepIndicator from "@/components/ai-content/StepIndicator";
 import ExtractedDataSummary from "@/components/ai-content/ExtractedDataSummary";
+import GeneratedContent from "@/components/ai-content/GeneratedContent";
 
 interface AIContentCreatorProps {
   session: Session | null;
@@ -49,6 +51,13 @@ interface ExtractedData {
   [key: string]: any;
 }
 
+interface GeneratedContentData {
+  metaTitle?: string;
+  metaDescription?: string;
+  mainContent?: string;
+  faq?: { question: string; answer: string }[];
+}
+
 const STEPS = [
   { id: "intro", label: "Begrüßung" },
   { id: "pageType", label: "Seitentyp" },
@@ -70,6 +79,8 @@ const AIContentCreator = ({ session }: AIContentCreatorProps) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [extractedData, setExtractedData] = useState<ExtractedData>({});
   const [domainKnowledge, setDomainKnowledge] = useState<any>(null);
+  const [generatedContent, setGeneratedContent] = useState<GeneratedContentData | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const synthRef = useRef<SpeechSynthesisUtterance | null>(null);
@@ -89,6 +100,13 @@ const AIContentCreator = ({ session }: AIContentCreatorProps) => {
       startConversation();
     }
   }, [currentOrg, domainKnowledge]);
+
+  // Auto-generate when reaching step 6
+  useEffect(() => {
+    if (currentStep === 6 && !generatedContent && !isGenerating) {
+      generateContent();
+    }
+  }, [currentStep]);
 
   const loadDomainKnowledge = async () => {
     if (!currentOrg) return;
@@ -137,6 +155,61 @@ const AIContentCreator = ({ session }: AIContentCreatorProps) => {
       }
       return prev;
     });
+  };
+
+  const generateContent = async () => {
+    if (isGenerating) return;
+    
+    setIsGenerating(true);
+    addMessage("assistant", "🎨 **Perfekt!** Alle Informationen sind erfasst. Ich generiere jetzt deinen SEO-optimierten Content...\n\nDies kann einen Moment dauern.", "generate");
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-ai-content`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            extractedData,
+            domainKnowledge: domainKnowledge ? {
+              companyName: domainKnowledge.company_name,
+              industry: domainKnowledge.industry,
+              targetAudience: domainKnowledge.target_audience,
+              brandVoice: domainKnowledge.brand_voice,
+            } : null,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Fehler bei der Content-Generierung");
+      }
+
+      const content = await response.json();
+      setGeneratedContent(content);
+      
+      updateLastAssistantMessage("✅ **Content erfolgreich generiert!**\n\nDein SEO-optimierter Text ist fertig. Du findest ihn unten mit:\n• Meta-Title & Meta-Description\n• Hauptinhalt mit optimierter Struktur\n" + (content.faq?.length ? "• FAQ-Bereich\n" : "") + "\nDu kannst den Content kopieren, herunterladen oder bei Bedarf neu generieren.");
+
+      toast({
+        title: "Content generiert!",
+        description: "Dein SEO-Content wurde erfolgreich erstellt.",
+      });
+
+    } catch (error) {
+      console.error("Error generating content:", error);
+      updateLastAssistantMessage("❌ **Fehler bei der Generierung**\n\nLeider ist ein Fehler aufgetreten. Bitte versuche es erneut.");
+      toast({
+        title: "Fehler",
+        description: error instanceof Error ? error.message : "Content konnte nicht generiert werden.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleOptionClick = (option: string) => {
@@ -306,6 +379,8 @@ const AIContentCreator = ({ session }: AIContentCreatorProps) => {
     setIsSpeaking(true);
   };
 
+  const canGenerateManually = currentStep >= 5 && Object.keys(extractedData).length >= 3;
+
   if (!session) return null;
 
   return (
@@ -322,6 +397,21 @@ const AIContentCreator = ({ session }: AIContentCreatorProps) => {
               <p className="text-sm text-muted-foreground">Interaktive SEO-Content Erstellung</p>
             </div>
           </div>
+          
+          {canGenerateManually && !generatedContent && (
+            <Button 
+              onClick={generateContent} 
+              disabled={isGenerating}
+              className="gap-2"
+            >
+              {isGenerating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Wand2 className="h-4 w-4" />
+              )}
+              Content generieren
+            </Button>
+          )}
         </div>
 
         <StepIndicator steps={STEPS} currentStep={currentStep} />
@@ -355,6 +445,35 @@ const AIContentCreator = ({ session }: AIContentCreatorProps) => {
               </Card>
             </div>
           )}
+
+          {isGenerating && (
+            <div className="flex gap-3">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                <Wand2 className="h-4 w-4 text-primary-foreground animate-pulse" />
+              </div>
+              <Card className="p-4 flex-1">
+                <div className="flex items-center gap-3">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  <div>
+                    <p className="font-medium">Content wird generiert...</p>
+                    <p className="text-sm text-muted-foreground">
+                      Erstelle SEO-optimierten Text basierend auf deinen Angaben
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {generatedContent && (
+            <div className="mt-6">
+              <GeneratedContent 
+                content={generatedContent} 
+                onRegenerate={generateContent}
+                isRegenerating={isGenerating}
+              />
+            </div>
+          )}
           
           <div ref={messagesEndRef} />
         </div>
@@ -368,7 +487,7 @@ const AIContentCreator = ({ session }: AIContentCreatorProps) => {
         onSend={sendMessage}
         onToggleListening={toggleListening}
         isListening={isListening}
-        isLoading={isLoading}
+        isLoading={isLoading || isGenerating}
       />
     </div>
   );
