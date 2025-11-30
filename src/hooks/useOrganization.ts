@@ -133,16 +133,25 @@ export function useOrganization(session: Session | null) {
 
     const slug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 
-    const { data, error } = await supabase
+    // Insert without .select() to avoid RLS SELECT policy blocking the return
+    // The AFTER INSERT trigger will add the user as owner
+    const { error: insertError } = await supabase
       .from('organizations')
-      .insert({ name, slug, website })
-      .select()
-      .single();
+      .insert({ name, slug, website });
 
-    if (error) return { error: error.message };
+    if (insertError) return { error: insertError.message };
 
+    // Refresh user data to get the new organization
     await loadUserData();
-    return { data };
+    
+    // Query for the organization by slug to return it
+    const { data: orgData } = await supabase
+      .from('organizations')
+      .select('*')
+      .eq('slug', slug)
+      .maybeSingle();
+    
+    return { data: orgData };
   };
 
   const switchOrganization = async (orgId: string) => {
