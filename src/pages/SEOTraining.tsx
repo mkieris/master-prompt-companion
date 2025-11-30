@@ -1,11 +1,6 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Button } from "@/components/ui/button";
-import { Sidebar } from "@/components/dashboard/Sidebar";
-import { useOrganization } from "@/hooks/useOrganization";
 import { Progress } from "@/components/ui/progress";
 import { 
   BookOpen, 
@@ -60,7 +55,6 @@ interface SEOTrainingProps {
 
 const SEOTraining = ({ session }: SEOTrainingProps) => {
   const [activeModule, setActiveModule] = useState("intro");
-  const { currentOrg, organizations, userRole, switchOrganization } = useOrganization(session);
 
   const modules = [
     { id: "intro", label: "Einführung", icon: BookOpen, progress: 100 },
@@ -77,15 +71,7 @@ const SEOTraining = ({ session }: SEOTrainingProps) => {
   ];
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar 
-        currentOrg={currentOrg}
-        organizations={organizations}
-        onSwitchOrg={switchOrganization}
-        userRole={userRole}
-      />
-      <main className="flex-1 overflow-auto">
-        <div className="container mx-auto py-8 px-4 max-w-7xl">
+    <div className="space-y-6">
           {/* Header */}
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-4">
@@ -1869,8 +1855,6 @@ const SEOTraining = ({ session }: SEOTrainingProps) => {
             </div>
           </div>
         </div>
-      </main>
-    </div>
   );
 };
 
