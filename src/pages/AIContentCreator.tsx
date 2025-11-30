@@ -449,6 +449,52 @@ const AIContentCreator = ({ session }: AIContentCreatorProps) => {
 
   const canGenerateManually = currentStep >= 5 && Object.keys(extractedData).length >= 3;
 
+  const handleQuickChange = async (changes: any) => {
+    if (!generatedContent) return;
+    
+    setIsGenerating(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-seo-content`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            ...extractedData,
+            quickChange: true,
+            existingContent: generatedContent,
+            targetAudience: extractedData.audienceType?.toLowerCase(),
+            ...changes,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Quick change failed");
+      }
+
+      const updatedContent = await response.json();
+      setGeneratedContent(updatedContent);
+      
+      toast({
+        title: "Änderungen angewendet",
+        description: "Der Content wurde erfolgreich angepasst.",
+      });
+    } catch (error) {
+      console.error("Quick change error:", error);
+      toast({
+        title: "Fehler",
+        description: "Die Änderungen konnten nicht angewendet werden.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   if (!session) return null;
 
   return (
@@ -582,8 +628,10 @@ const AIContentCreator = ({ session }: AIContentCreatorProps) => {
             <div className="mt-6">
               <GeneratedContent 
                 content={generatedContent} 
+                focusKeyword={extractedData.focusKeyword}
                 onRegenerate={generateContent}
                 isRegenerating={isGenerating}
+                onQuickChange={handleQuickChange}
               />
             </div>
           )}
