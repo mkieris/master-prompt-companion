@@ -109,6 +109,43 @@ interface KeywordAnalysis {
   occurrences: number;
 }
 
+interface ReadabilityIssue {
+  type: string;
+  severity: 'info' | 'warning' | 'error';
+  message: string;
+  recommendation: string;
+}
+
+interface ReadabilityAnalysis {
+  fleschScore: number;
+  fleschLevel: string;
+  fleschGrade: string;
+  wstfScore: number;
+  wstfLevel: string;
+  lixScore: number;
+  lixLevel: string;
+  sentences: number;
+  words: number;
+  syllables: number;
+  characters: number;
+  paragraphs: number;
+  avgSentenceLength: number;
+  avgWordLength: number;
+  avgSyllablesPerWord: number;
+  longWordsCount: number;
+  longWordsPercent: number;
+  complexWordsCount: number;
+  complexWordsPercent: number;
+  shortSentences: number;
+  mediumSentences: number;
+  longSentences: number;
+  veryLongSentences: number;
+  passiveVoiceCount: number;
+  fillWordsCount: number;
+  issues: ReadabilityIssue[];
+  overallRating: 'excellent' | 'good' | 'moderate' | 'difficult' | 'very-difficult';
+}
+
 interface SEOCheckResult {
   url: string;
   timestamp: string;
@@ -127,10 +164,7 @@ interface SEOCheckResult {
     markdown: string;
     wordCount: number;
     headings: HeadingInfo[];
-    readabilityScore: number;
-    readabilityLevel: string;
-    avgSentenceLength: number;
-    avgWordLength: number;
+    readability: ReadabilityAnalysis;
   };
   linkData: {
     internal: LinkInfo[];
@@ -361,43 +395,238 @@ const SEOCheck = ({ session }: IndexProps) => {
   const renderContentTab = () => {
     if (!result?.contentData) return renderCategoryCard('content', result!.categories.content);
 
-    const { headings, markdown, wordCount, readabilityScore, readabilityLevel, avgSentenceLength } = result.contentData;
+    const { headings, markdown, wordCount, readability } = result.contentData;
     const hasHeadingIssues = headings.some(h => h.hasIssue);
+    
+    const getRatingColor = (rating: string) => {
+      switch (rating) {
+        case 'excellent': return 'text-success';
+        case 'good': return 'text-success/80';
+        case 'moderate': return 'text-warning';
+        case 'difficult': return 'text-destructive/80';
+        case 'very-difficult': return 'text-destructive';
+        default: return 'text-muted-foreground';
+      }
+    };
+    
+    const getRatingLabel = (rating: string) => {
+      switch (rating) {
+        case 'excellent': return 'Ausgezeichnet';
+        case 'good': return 'Gut';
+        case 'moderate': return 'Mittel';
+        case 'difficult': return 'Schwierig';
+        case 'very-difficult': return 'Sehr schwierig';
+        default: return rating;
+      }
+    };
 
     return (
       <div className="space-y-4">
         {renderCategoryCard('content', result.categories.content)}
         
-        {/* Readability Card */}
+        {/* Overall Readability Rating */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <BookOpen className="h-5 w-5" />
-              Lesbarkeits-Analyse (Flesch DE)
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <BookOpen className="h-5 w-5" />
+                Lesbarkeits-Analyse
+              </CardTitle>
+              <Badge className={`${getRatingColor(readability.overallRating)} border-current`} variant="outline">
+                {getRatingLabel(readability.overallRating)}
+              </Badge>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="text-center p-3 bg-muted/50 rounded-lg">
-                <p className={`text-3xl font-bold ${readabilityScore >= 60 ? 'text-success' : readabilityScore >= 40 ? 'text-warning' : 'text-destructive'}`}>
-                  {readabilityScore}
+          <CardContent className="space-y-4">
+            {/* Three Main Scores */}
+            <div className="grid grid-cols-3 gap-3">
+              {/* Flesch DE */}
+              <div className="text-center p-3 bg-muted/50 rounded-lg border">
+                <p className={`text-2xl font-bold ${readability.fleschScore >= 60 ? 'text-success' : readability.fleschScore >= 40 ? 'text-warning' : 'text-destructive'}`}>
+                  {readability.fleschScore}
                 </p>
-                <p className="text-xs text-muted-foreground">Flesch Score</p>
-                <Badge variant="outline" className="mt-1">{readabilityLevel}</Badge>
+                <p className="text-xs font-medium text-foreground">Flesch DE</p>
+                <p className="text-xs text-muted-foreground">{readability.fleschLevel}</p>
+                <Badge variant="outline" className="mt-1 text-xs">{readability.fleschGrade}</Badge>
               </div>
-              <div className="text-center p-3 bg-muted/50 rounded-lg">
-                <p className={`text-3xl font-bold ${avgSentenceLength <= 20 ? 'text-success' : 'text-warning'}`}>
-                  {avgSentenceLength}
+              {/* Wiener Sachtextformel */}
+              <div className="text-center p-3 bg-muted/50 rounded-lg border">
+                <p className={`text-2xl font-bold ${readability.wstfScore <= 7 ? 'text-success' : readability.wstfScore <= 10 ? 'text-warning' : 'text-destructive'}`}>
+                  {readability.wstfScore}
                 </p>
-                <p className="text-xs text-muted-foreground">Ø Satzlänge</p>
-                <p className="text-xs text-muted-foreground">Wörter/Satz</p>
+                <p className="text-xs font-medium text-foreground">WSTF</p>
+                <p className="text-xs text-muted-foreground">{readability.wstfLevel}</p>
               </div>
-              <div className="text-center p-3 bg-muted/50 rounded-lg">
-                <p className="text-3xl font-bold text-foreground">{wordCount}</p>
-                <p className="text-xs text-muted-foreground">Wörter</p>
-                <p className="text-xs text-muted-foreground">gesamt</p>
+              {/* LIX Score */}
+              <div className="text-center p-3 bg-muted/50 rounded-lg border">
+                <p className={`text-2xl font-bold ${readability.lixScore < 40 ? 'text-success' : readability.lixScore < 50 ? 'text-warning' : 'text-destructive'}`}>
+                  {readability.lixScore}
+                </p>
+                <p className="text-xs font-medium text-foreground">LIX</p>
+                <p className="text-xs text-muted-foreground">{readability.lixLevel}</p>
               </div>
             </div>
+            
+            {/* Text Statistics */}
+            <div className="grid grid-cols-4 gap-2 text-center">
+              <div className="p-2 bg-muted/30 rounded">
+                <p className="text-lg font-bold">{readability.words}</p>
+                <p className="text-xs text-muted-foreground">Wörter</p>
+              </div>
+              <div className="p-2 bg-muted/30 rounded">
+                <p className="text-lg font-bold">{readability.sentences}</p>
+                <p className="text-xs text-muted-foreground">Sätze</p>
+              </div>
+              <div className="p-2 bg-muted/30 rounded">
+                <p className="text-lg font-bold">{readability.syllables}</p>
+                <p className="text-xs text-muted-foreground">Silben</p>
+              </div>
+              <div className="p-2 bg-muted/30 rounded">
+                <p className="text-lg font-bold">{readability.paragraphs}</p>
+                <p className="text-xs text-muted-foreground">Absätze</p>
+              </div>
+            </div>
+            
+            {/* Averages */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="p-2 rounded border">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs">Ø Satzlänge</span>
+                  <span className={`text-sm font-bold ${readability.avgSentenceLength <= 20 ? 'text-success' : readability.avgSentenceLength <= 25 ? 'text-warning' : 'text-destructive'}`}>
+                    {readability.avgSentenceLength}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">Wörter/Satz</p>
+              </div>
+              <div className="p-2 rounded border">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs">Ø Wortlänge</span>
+                  <span className="text-sm font-bold">{readability.avgWordLength}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">Zeichen</p>
+              </div>
+              <div className="p-2 rounded border">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs">Ø Silben/Wort</span>
+                  <span className="text-sm font-bold">{readability.avgSyllablesPerWord}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">Silben</p>
+              </div>
+            </div>
+            
+            {/* Sentence Distribution */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Satzlängen-Verteilung</p>
+              <div className="flex gap-1 h-6 rounded overflow-hidden">
+                {readability.shortSentences > 0 && (
+                  <div 
+                    className="bg-success flex items-center justify-center text-xs text-success-foreground"
+                    style={{ width: `${(readability.shortSentences / readability.sentences) * 100}%` }}
+                    title={`${readability.shortSentences} kurze Sätze (≤10 Wörter)`}
+                  >
+                    {readability.shortSentences > 0 && readability.shortSentences}
+                  </div>
+                )}
+                {readability.mediumSentences > 0 && (
+                  <div 
+                    className="bg-success/60 flex items-center justify-center text-xs"
+                    style={{ width: `${(readability.mediumSentences / readability.sentences) * 100}%` }}
+                    title={`${readability.mediumSentences} mittlere Sätze (11-20 Wörter)`}
+                  >
+                    {readability.mediumSentences > 0 && readability.mediumSentences}
+                  </div>
+                )}
+                {readability.longSentences > 0 && (
+                  <div 
+                    className="bg-warning flex items-center justify-center text-xs text-warning-foreground"
+                    style={{ width: `${(readability.longSentences / readability.sentences) * 100}%` }}
+                    title={`${readability.longSentences} lange Sätze (21-30 Wörter)`}
+                  >
+                    {readability.longSentences > 0 && readability.longSentences}
+                  </div>
+                )}
+                {readability.veryLongSentences > 0 && (
+                  <div 
+                    className="bg-destructive flex items-center justify-center text-xs text-destructive-foreground"
+                    style={{ width: `${(readability.veryLongSentences / readability.sentences) * 100}%` }}
+                    title={`${readability.veryLongSentences} sehr lange Sätze (>30 Wörter)`}
+                  >
+                    {readability.veryLongSentences > 0 && readability.veryLongSentences}
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-3 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1"><span className="w-2 h-2 bg-success rounded"></span> Kurz (≤10)</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 bg-success/60 rounded"></span> Mittel (11-20)</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 bg-warning rounded"></span> Lang (21-30)</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 bg-destructive rounded"></span> Sehr lang (&gt;30)</span>
+              </div>
+            </div>
+            
+            {/* Word Complexity */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 rounded border">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm">Lange Wörter (&gt;6 Zeichen)</span>
+                  <span className={`font-bold ${readability.longWordsPercent <= 30 ? 'text-success' : 'text-warning'}`}>
+                    {readability.longWordsPercent}%
+                  </span>
+                </div>
+                <Progress value={readability.longWordsPercent} className="h-2" />
+                <p className="text-xs text-muted-foreground mt-1">{readability.longWordsCount} von {readability.words} Wörtern</p>
+              </div>
+              <div className="p-3 rounded border">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm">Komplexe Wörter (3+ Silben)</span>
+                  <span className={`font-bold ${readability.complexWordsPercent <= 30 ? 'text-success' : 'text-warning'}`}>
+                    {readability.complexWordsPercent}%
+                  </span>
+                </div>
+                <Progress value={readability.complexWordsPercent} className="h-2" />
+                <p className="text-xs text-muted-foreground mt-1">{readability.complexWordsCount} von {readability.words} Wörtern</p>
+              </div>
+            </div>
+            
+            {/* Style Indicators */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 rounded border flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Passivkonstruktionen</p>
+                  <p className="text-xs text-muted-foreground">Erkannte Passivformen</p>
+                </div>
+                <span className={`text-xl font-bold ${readability.passiveVoiceCount <= readability.sentences * 0.2 ? 'text-success' : 'text-warning'}`}>
+                  {readability.passiveVoiceCount}
+                </span>
+              </div>
+              <div className="p-3 rounded border flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Füllwörter</p>
+                  <p className="text-xs text-muted-foreground">z.B. "eigentlich", "halt"</p>
+                </div>
+                <span className={`text-xl font-bold ${readability.fillWordsCount <= readability.words * 0.03 ? 'text-success' : 'text-warning'}`}>
+                  {readability.fillWordsCount}
+                </span>
+              </div>
+            </div>
+            
+            {/* Issues & Recommendations */}
+            {readability.issues.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Verbesserungsvorschläge</p>
+                <div className="space-y-2">
+                  {readability.issues.map((issue, idx) => (
+                    <div key={idx} className={`p-3 rounded border-l-4 ${
+                      issue.severity === 'error' ? 'border-destructive bg-destructive/10' :
+                      issue.severity === 'warning' ? 'border-warning bg-warning/10' :
+                      'border-primary bg-primary/10'
+                    }`}>
+                      <p className="text-sm font-medium">{issue.message}</p>
+                      <p className="text-xs text-muted-foreground mt-1">→ {issue.recommendation}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
