@@ -12,6 +12,11 @@ import ProVersion from "./pages/ProVersion";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import SEOCheck from "./pages/SEOCheck";
+import Dashboard from "./pages/Dashboard";
+import Onboarding from "./pages/Onboarding";
+import DomainLearning from "./pages/DomainLearning";
+import Projects from "./pages/Projects";
+import ContentPlanner from "./pages/ContentPlanner";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +51,12 @@ const App = () => {
             <Route path="/pro" element={<ProVersion session={session} />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/seo-check" element={<SEOCheck session={session} />} />
+            <Route path="/onboarding" element={<Onboarding session={session} />} />
+            <Route path="/dashboard" element={<Dashboard session={session} />}>
+              <Route path="domain" element={<DomainLearning session={session} />} />
+              <Route path="projects" element={<Projects session={session} />} />
+              <Route path="planner" element={<ContentPlanner session={session} />} />
+            </Route>
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
