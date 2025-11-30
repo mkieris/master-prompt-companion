@@ -211,9 +211,12 @@ const Index = ({ session }: IndexProps) => {
       </section>
 
       {/* Footer */}
-      <footer className="py-6 px-4 border-t border-border/50 text-center">
+      <footer className="py-6 px-4 border-t border-border/50 text-center space-y-2">
         <p className="text-sm text-muted-foreground">
           SEO Toolbox — Professionelle SEO-Optimierung für bessere Rankings
+        </p>
+        <p className="text-xs text-muted-foreground/60">
+          Entwickelt von Martin Kieris
         </p>
       </footer>
     </div>
