@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { 
   CheckCircle2, 
   XCircle, 
@@ -26,7 +28,8 @@ import {
   Check,
   FileDown,
   Send,
-  MessageSquare
+  MessageSquare,
+  Scissors
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
@@ -47,6 +50,21 @@ interface GeneratedContent {
   };
 }
 
+export type RefinementSection = 
+  | 'full' 
+  | 'intro' 
+  | 'meta-title' 
+  | 'meta-description' 
+  | 'faq' 
+  | 'conclusion'
+  | string; // For H2 sections by index
+
+interface RefinementOptions {
+  prompt: string;
+  section: RefinementSection;
+  sectionLabel?: string;
+}
+
 interface Step5Props {
   generatedContent: GeneratedContent | null;
   formData: {
@@ -59,7 +77,7 @@ interface Step5Props {
   onBack: () => void;
   onFinish: () => void;
   onRegenerate: () => void;
-  onRefine?: (prompt: string) => Promise<void>;
+  onRefine?: (options: RefinementOptions) => Promise<void>;
   isRegenerating?: boolean;
   isRefining?: boolean;
 }
@@ -454,11 +472,50 @@ export const Step5AfterCheck = ({
   const [expandedCategories, setExpandedCategories] = useState<string[]>(['E-E-A-T', 'Keyword-Optimierung']);
   const [copied, setCopied] = useState(false);
   const [refinementPrompt, setRefinementPrompt] = useState("");
+  const [selectedSection, setSelectedSection] = useState<RefinementSection>('full');
   const { toast } = useToast();
+
+  // Extract sections from generated content for the dropdown
+  const availableSections = useMemo(() => {
+    const sections: { value: RefinementSection; label: string }[] = [
+      { value: 'full', label: 'Gesamter Text' },
+      { value: 'intro', label: 'Einleitung' },
+      { value: 'meta-title', label: 'Meta-Titel' },
+      { value: 'meta-description', label: 'Meta-Description' },
+    ];
+
+    // Extract H2 headings from seoText
+    if (generatedContent?.seoText) {
+      const h2Regex = /<h2[^>]*>([^<]*)<\/h2>/gi;
+      let match;
+      let index = 0;
+      while ((match = h2Regex.exec(generatedContent.seoText)) !== null) {
+        sections.push({
+          value: `h2-${index}`,
+          label: `H2: ${match[1].substring(0, 40)}${match[1].length > 40 ? '...' : ''}`
+        });
+        index++;
+      }
+    }
+
+    // Add FAQ if present
+    if (generatedContent?.faq && generatedContent.faq.length > 0) {
+      sections.push({ value: 'faq', label: 'FAQ-Bereich' });
+    }
+
+    sections.push({ value: 'conclusion', label: 'Fazit/Schluss' });
+
+    return sections;
+  }, [generatedContent]);
 
   const handleRefine = async () => {
     if (!refinementPrompt.trim() || !onRefine) return;
-    await onRefine(refinementPrompt);
+    const sectionLabel = availableSections.find(s => s.value === selectedSection)?.label || 'Gesamter Text';
+    await onRefine({ 
+      prompt: refinementPrompt, 
+      section: selectedSection,
+      sectionLabel 
+    });
     setRefinementPrompt("");
   };
 
@@ -1107,25 +1164,82 @@ export const Step5AfterCheck = ({
         <Card className="border-dashed border-2 border-primary/30 bg-primary/5">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <MessageSquare className="h-4 w-4 text-primary" />
-              Text mit Prompt überarbeiten
+              <Scissors className="h-4 w-4 text-primary" />
+              Gezielt Textabschnitte überarbeiten
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <Textarea
-              placeholder="Beschreibe, wie der Text überarbeitet werden soll...
+          <CardContent className="space-y-4">
+            {/* Section Selector */}
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Welchen Bereich möchtest du überarbeiten?</Label>
+              <Select 
+                value={selectedSection} 
+                onValueChange={(value) => setSelectedSection(value as RefinementSection)}
+                disabled={isRefining}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Bereich auswählen..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableSections.map((section) => (
+                    <SelectItem key={section.value} value={section.value}>
+                      {section.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Prompt Input */}
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">
+                {selectedSection === 'full' 
+                  ? 'Wie soll der gesamte Text überarbeitet werden?' 
+                  : `Wie soll "${availableSections.find(s => s.value === selectedSection)?.label}" überarbeitet werden?`
+                }
+              </Label>
+              <Textarea
+                placeholder={selectedSection === 'full' 
+                  ? `Beschreibe, wie der gesamte Text überarbeitet werden soll...
 
 Beispiele:
 • Mache den Text emotionaler und füge mehr Storytelling hinzu
 • Kürze den Text auf die Kernaussagen
-• Füge mehr konkrete Zahlen und Studienergebnisse hinzu
-• Verbessere die E-E-A-T Signale
-• Schreibe den Intro-Absatz komplett neu"
-              value={refinementPrompt}
-              onChange={(e) => setRefinementPrompt(e.target.value)}
-              className="min-h-[100px] resize-none"
-              disabled={isRefining}
-            />
+• Füge mehr konkrete Zahlen und Studienergebnisse hinzu`
+                  : selectedSection === 'intro'
+                  ? `Beispiele für Einleitung:
+• Starte mit einer provokanten Frage
+• Füge eine Statistik am Anfang hinzu
+• Mache die Einleitung kürzer und prägnanter`
+                  : selectedSection === 'meta-title'
+                  ? `Beispiele für Meta-Titel:
+• Füge eine Zahl hinzu (z.B. "5 Vorteile...")
+• Mache ihn emotionaler
+• Fokussiere stärker auf das Hauptkeyword`
+                  : selectedSection === 'meta-description'
+                  ? `Beispiele für Meta-Description:
+• Füge einen Call-to-Action hinzu
+• Mache sie verkaufsstärker
+• Integriere einen USP`
+                  : selectedSection === 'faq'
+                  ? `Beispiele für FAQ:
+• Füge 2 weitere relevante Fragen hinzu
+• Mache die Antworten ausführlicher
+• Füge Schema.org optimierte Antworten hinzu`
+                  : selectedSection.startsWith('h2-')
+                  ? `Beispiele für H2-Abschnitt:
+• Füge mehr Praxisbeispiele hinzu
+• Mache den Abschnitt kürzer
+• Ergänze Bullet Points für bessere Übersicht`
+                  : `Beschreibe die gewünschte Änderung...`
+                }
+                value={refinementPrompt}
+                onChange={(e) => setRefinementPrompt(e.target.value)}
+                className="min-h-[100px] resize-none"
+                disabled={isRefining}
+              />
+            </div>
+
             <Button 
               onClick={handleRefine} 
               disabled={!refinementPrompt.trim() || isRefining}
@@ -1134,12 +1248,12 @@ Beispiele:
               {isRefining ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Überarbeite Text...
+                  Überarbeite {selectedSection === 'full' ? 'Text' : 'Abschnitt'}...
                 </>
               ) : (
                 <>
                   <Send className="mr-2 h-4 w-4" />
-                  Text überarbeiten
+                  {selectedSection === 'full' ? 'Gesamten Text überarbeiten' : 'Abschnitt überarbeiten'}
                 </>
               )}
             </Button>

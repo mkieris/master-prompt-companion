@@ -192,6 +192,42 @@ const ProVersion = ({ session }: ProVersionProps) => {
     }
   };
 
+  const handleSectionRefine = async (options: { prompt: string; section: string; sectionLabel?: string }) => {
+    setIsRefining(true);
+    try {
+      let refinementPrompt = options.prompt;
+      
+      // Add section-specific context to the prompt
+      if (options.section !== 'full') {
+        const sectionContext = options.sectionLabel || options.section;
+        refinementPrompt = `WICHTIG: Überarbeite NUR den folgenden Abschnitt: "${sectionContext}". Lasse alle anderen Teile des Textes UNVERÄNDERT.\n\nAnweisung für den Abschnitt: ${options.prompt}`;
+      }
+
+      const { data, error } = await supabase.functions.invoke("generate-seo-content", {
+        body: {
+          ...formData,
+          refinementPrompt: refinementPrompt,
+          refinementSection: options.section,
+          existingContent: generatedContent,
+        },
+      });
+
+      if (error) throw error;
+      setGeneratedContent(data);
+      toast({ 
+        title: "Erfolgreich", 
+        description: options.section === 'full' 
+          ? "Text wurde überarbeitet" 
+          : `"${options.sectionLabel}" wurde überarbeitet`
+      });
+    } catch (error) {
+      console.error("Refinement error:", error);
+      toast({ title: "Fehler", description: "Fehler beim Überarbeiten", variant: "destructive" });
+    } finally {
+      setIsRefining(false);
+    }
+  };
+
   const handleQuickChange = async (changes: any) => {
     setIsRefining(true);
     try {
@@ -410,7 +446,7 @@ const ProVersion = ({ session }: ProVersionProps) => {
                     onBack={() => setCurrentStep(4)}
                     onFinish={handleFinish}
                     onRegenerate={handleRegenerateWithImprovements}
-                    onRefine={handleRefineContent}
+                    onRefine={handleSectionRefine}
                     isRegenerating={isRegenerating}
                     isRefining={isRefining}
                   />
