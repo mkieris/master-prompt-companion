@@ -2,7 +2,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Loader2, Link as LinkIcon, X, Globe, CheckCircle2, Plus, Target, Search } from "lucide-react";
+import { Loader2, Link as LinkIcon, X, Globe, CheckCircle2, Plus, Target, Search, Package, FolderTree, BookOpen } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -10,12 +10,14 @@ import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
+import type { PageType } from "@/components/SEOGeneratorFormPro";
 
 interface Step1Data {
-  manufacturerName: string;
-  manufacturerWebsite: string;
-  productName: string;
-  productUrls: string[];
+  pageType: PageType;
+  brandName: string;
+  websiteUrl: string;
+  mainTopic: string;
+  referenceUrls: string[];
   additionalInfo: string;
   briefingFiles: string[];
   competitorUrls: string[];
@@ -27,6 +29,49 @@ interface Step1Props {
   onUpdate: (data: Partial<Step1Data>) => void;
   onNext: () => void;
 }
+
+// Labels und Placeholder je nach Seitentyp
+const pageTypeConfig = {
+  product: {
+    icon: Package,
+    title: "Produktseite",
+    description: "Einzelnes Produkt mit Hersteller, Spezifikationen und Anwendungen",
+    brandLabel: "Hersteller / Marke *",
+    brandPlaceholder: "z.B. Medtronic, Bosch, Apple",
+    brandRequired: true,
+    topicLabel: "Produktname *",
+    topicPlaceholder: "z.B. Smart Home Beleuchtungssystem",
+    topicRequired: true,
+    urlsLabel: "Produkt-URLs / Datenblätter",
+    urlsPlaceholder: "https://produktseite.de/...",
+  },
+  category: {
+    icon: FolderTree,
+    title: "Kategorieseite",
+    description: "Shop-Kategorie oder Produktübersicht, auch Multi-Brand",
+    brandLabel: "Shop / Marke (optional)",
+    brandPlaceholder: "z.B. MediaMarkt, eigener Shop-Name (bei Multi-Brand leer lassen)",
+    brandRequired: false,
+    topicLabel: "Kategoriename *",
+    topicPlaceholder: "z.B. LED-Leuchten, Medizinprodukte Klasse II",
+    topicRequired: true,
+    urlsLabel: "Beispiel-Produkte / Unterseiten",
+    urlsPlaceholder: "https://shop.de/kategorie/produkt...",
+  },
+  guide: {
+    icon: BookOpen,
+    title: "Ratgeber / Blog",
+    description: "Informativer Artikel zu einem Thema ohne spezifisches Produkt",
+    brandLabel: "Autor / Unternehmen (optional)",
+    brandPlaceholder: "z.B. Dr. Müller, Firmenname",
+    brandRequired: false,
+    topicLabel: "Thema / Artikel-Titel *",
+    topicPlaceholder: "z.B. Die richtige Beleuchtung für Ihr Büro",
+    topicRequired: true,
+    urlsLabel: "Quellen / Referenzen",
+    urlsPlaceholder: "https://studie.de/..., https://fachmagazin.de/...",
+  },
+};
 
 export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
   const [isScraping, setIsScraping] = useState(false);
@@ -40,8 +85,11 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
   const [competitorCrawlStatus, setCompetitorCrawlStatus] = useState("");
   const { toast } = useToast();
 
+  const config = pageTypeConfig[data.pageType];
+  const IconComponent = config.icon;
+
   const handleScrapeWebsite = async () => {
-    if (!data.manufacturerWebsite) {
+    if (!data.websiteUrl) {
       toast({
         title: "Fehler",
         description: "Bitte geben Sie eine Website-URL ein",
@@ -56,10 +104,9 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
     setCrawledUrls([]);
     
     try {
-      // Start the crawl/scrape
       const { data: startData, error: startError } = await supabase.functions.invoke("scrape-website", {
         body: { 
-          url: data.manufacturerWebsite, 
+          url: data.websiteUrl, 
           mode: scrapeMode,
           action: 'scrape'
         },
@@ -67,16 +114,13 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
 
       if (startError) throw startError;
 
-      // For single page, we get immediate results
       if (scrapeMode === 'single') {
         setCrawlStatus("Analyse abgeschlossen");
         setCrawlProgress(100);
-        
         processScrapedData(startData);
         return;
       }
 
-      // For multi-page, we need to poll for status
       if (!startData.jobId) {
         throw new Error('Keine Job-ID erhalten');
       }
@@ -85,11 +129,11 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
       setCrawlStatus("Crawle Website...");
       
       let attempts = 0;
-      const maxAttempts = 120; // 4 minutes max (120 * 2s)
+      const maxAttempts = 120;
       let noProgressCount = 0;
       let lastCompleted = 0;
       let stuckWithDataCount = 0;
-      let highCompletionStuckCount = 0; // Track stuck at high completion (>70%)
+      let highCompletionStuckCount = 0;
 
       const pollStatus = async () => {
         attempts++;
@@ -106,17 +150,14 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
 
           console.log('Crawl status:', statusData);
 
-          // Update progress
           const completed = statusData.completed || 0;
           const total = statusData.total || 0;
           const hasPartialData = statusData.hasPartialData || false;
           const partialDataCount = statusData.partialDataCount || 0;
           const completionRate = total > 0 ? (completed / total) * 100 : 0;
           
-          // Track progress and stuckness
           if (completed === lastCompleted && completed > 0) {
             noProgressCount++;
-            // Special tracking for high completion rates
             if (completionRate > 70 && partialDataCount >= 7) {
               highCompletionStuckCount++;
             }
@@ -126,25 +167,21 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
             lastCompleted = completed;
           }
 
-          // Track being stuck with partial data
           if (hasPartialData && partialDataCount > 0 && noProgressCount > 0) {
             stuckWithDataCount++;
           } else {
             stuckWithDataCount = 0;
           }
           
-          // Calculate progress (avoid division by zero)
-          let progressPercent = 10; // Start with 10% minimum
+          let progressPercent = 10;
           if (total > 0 && completed > 0) {
             progressPercent = Math.min(90, (completed / total) * 100);
           } else if (partialDataCount > 0) {
-            // Show some progress even if total is unknown
             progressPercent = Math.min(50, partialDataCount * 10);
           }
           
           setCrawlProgress(progressPercent);
           
-          // Improved status messages with stuckness indicators
           if (statusData.status === 'started') {
             setCrawlStatus('🔍 Website wird analysiert...');
           } else if (total === 0 && partialDataCount === 0) {
@@ -154,7 +191,6 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
               ? Math.ceil(((total - completed) * 8)) 
               : 0;
             
-            // Show status with smart detection of stuck crawls
             if (completionRate > 85 && noProgressCount > 3) {
               setCrawlStatus(`⏳ ${completed}/${total} Seiten • Schließe ab (${Math.round(completionRate)}%)...`);
             } else if (highCompletionStuckCount > 7 && completionRate > 70) {
@@ -170,12 +206,10 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
             setCrawlStatus(`📋 ${partialDataCount} Seiten gefunden...`);
           }
           
-          // Update crawled URLs live
           if (statusData.crawledUrls && Array.isArray(statusData.crawledUrls)) {
             setCrawledUrls(statusData.crawledUrls);
           }
 
-          // Check if completed
           if (statusData.status === 'completed' && statusData.data) {
             setCrawlProgress(100);
             setCrawlStatus("Crawl abgeschlossen");
@@ -183,28 +217,21 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
             return;
           }
 
-          // Check if failed
           if (statusData.status === 'failed') {
             throw new Error('Crawl fehlgeschlagen');
           }
 
-          // CRITICAL: Use partial results in these scenarios:
-          // 1. Very high completion (>85%) stuck for just 6 seconds = use immediately 
-          // 2. High completion (>70%) stuck for 15 seconds
-          // 3. Medium completion with good data stuck for 30 seconds
-          
           const shouldUsePartial = 
-            (completionRate > 85 && noProgressCount > 3 && partialDataCount >= 8) || // 85%+ stuck 6s
-            (completionRate > 70 && highCompletionStuckCount > 7 && partialDataCount >= 7) || // 70%+ stuck 14s
-            (stuckWithDataCount > 15 && partialDataCount >= 5) || // Any data stuck 30s with 5+ pages
-            (noProgressCount > 20 && partialDataCount >= 3); // Stuck 40s with 3+ pages
+            (completionRate > 85 && noProgressCount > 3 && partialDataCount >= 8) ||
+            (completionRate > 70 && highCompletionStuckCount > 7 && partialDataCount >= 7) ||
+            (stuckWithDataCount > 15 && partialDataCount >= 5) ||
+            (noProgressCount > 20 && partialDataCount >= 3);
           
           if (shouldUsePartial) {
             console.log(`✅ Using partial results: ${partialDataCount} pages (completion: ${Math.round(completionRate)}%)`);
             setCrawlProgress(100);
             setCrawlStatus(`✓ ${partialDataCount} Seiten erfolgreich geladen`);
             
-            // Call backend to combine and return partial data
             const { data: partialData, error: partialError } = await supabase.functions.invoke("scrape-website", {
               body: { 
                 action: 'use-partial',
@@ -226,17 +253,14 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
             return;
           }
 
-          // Check if stuck without any useful data
           if (noProgressCount > 25 && partialDataCount < 3) {
             throw new Error('❌ Crawl macht keinen Fortschritt. Bitte versuchen Sie Single-Page-Modus.');
           }
 
-          // Continue polling for all active statuses
           const activeStatuses = ['started', 'scraping'];
           if (attempts < maxAttempts && activeStatuses.includes(statusData.status)) {
-            setTimeout(pollStatus, 2000); // Poll every 2 seconds
+            setTimeout(pollStatus, 2000);
           } else if (attempts >= maxAttempts) {
-            // Try to use partial results if available
             if (partialDataCount >= 3) {
               console.log(`⏱️ Timeout reached, using partial results: ${partialDataCount} pages`);
               
@@ -266,7 +290,6 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
         }
       };
 
-      // Start polling after 5 seconds to give Firecrawl time to initialize
       setTimeout(pollStatus, 5000);
 
     } catch (error) {
@@ -286,20 +309,20 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
 
   const processScrapedData = (scrapedData: any) => {
     try {
-      // Auto-fill product information if detected
       const updates: Partial<Step1Data> = {
         additionalInfo: data.additionalInfo + "\n\n=== Gescrapte Informationen ===\n" + (scrapedData.content || scrapedData.summary || '')
       };
 
-      // Auto-fill product name if detected and not already set
       if (scrapedData.detectedProducts) {
         const { isCategoryPage, category, detectedProducts } = scrapedData.detectedProducts;
         
-        if (isCategoryPage && !data.productName) {
-          updates.productName = category;
+        // Auto-detect page type based on scraped content
+        if (isCategoryPage && !data.mainTopic) {
+          updates.mainTopic = category;
+          updates.pageType = 'category'; // Auto-switch to category
           updates.additionalInfo += `\n\n=== Automatisch erkannt ===\nSeitentyp: Kategorie/Shop-Seite\nKategorie: ${category}`;
-        } else if (detectedProducts?.length > 0 && !data.productName) {
-          updates.productName = detectedProducts[0].name;
+        } else if (detectedProducts?.length > 0 && !data.mainTopic) {
+          updates.mainTopic = detectedProducts[0].name;
           updates.additionalInfo += `\n\n=== Automatisch erkannte Produkte ===\n${detectedProducts.map((p: any, i: number) => `${i + 1}. ${p.name}`).join('\n')}`;
         }
       }
@@ -397,7 +420,6 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
 
     setIsUploading(true);
     try {
-      // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         toast({
@@ -411,7 +433,6 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
       const uploadedPaths: string[] = [];
 
       for (const file of Array.from(files)) {
-        // Include user_id in path for RLS policies
         const fileName = `${user.id}/${Date.now()}_${file.name}`;
         const { error: uploadError } = await supabase.storage
           .from("briefings")
@@ -450,48 +471,89 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
     }
   };
 
-  const addProductUrl = () => {
-    onUpdate({ productUrls: [...data.productUrls, ""] });
+  const addReferenceUrl = () => {
+    onUpdate({ referenceUrls: [...data.referenceUrls, ""] });
   };
 
-  const updateProductUrl = (index: number, value: string) => {
-    const newUrls = [...data.productUrls];
+  const updateReferenceUrl = (index: number, value: string) => {
+    const newUrls = [...data.referenceUrls];
     newUrls[index] = value;
-    onUpdate({ productUrls: newUrls });
+    onUpdate({ referenceUrls: newUrls });
   };
 
-  const removeProductUrl = (index: number) => {
-    onUpdate({ productUrls: data.productUrls.filter((_, i) => i !== index) });
+  const removeReferenceUrl = (index: number) => {
+    onUpdate({ referenceUrls: data.referenceUrls.filter((_, i) => i !== index) });
   };
 
-  const canProceed = data.manufacturerName; // Product name is now optional
+  // Validation based on page type
+  const canProceed = config.topicRequired 
+    ? data.mainTopic.trim() !== '' 
+    : true;
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold mb-4">Schritt 1: Informationssammlung</h2>
         <p className="text-sm text-muted-foreground mb-6">
-          Sammeln Sie alle relevanten Informationen über Hersteller und Produkt
+          Wählen Sie den Seitentyp und sammeln Sie alle relevanten Informationen
         </p>
       </div>
 
-      <div className="space-y-4">
+      {/* Page Type Selection */}
+      <div className="space-y-3">
+        <Label className="text-base font-semibold">Seitentyp auswählen *</Label>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {(Object.keys(pageTypeConfig) as PageType[]).map((type) => {
+            const typeConfig = pageTypeConfig[type];
+            const TypeIcon = typeConfig.icon;
+            const isSelected = data.pageType === type;
+            
+            return (
+              <Card
+                key={type}
+                className={`p-4 cursor-pointer transition-all hover:border-primary/50 ${
+                  isSelected 
+                    ? 'border-primary bg-primary/5 ring-1 ring-primary' 
+                    : 'hover:bg-muted/30'
+                }`}
+                onClick={() => onUpdate({ pageType: type })}
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`p-2 rounded-lg ${isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                    <TypeIcon className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-medium text-sm">{typeConfig.title}</h4>
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                      {typeConfig.description}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="border-t pt-6 space-y-4">
+        {/* Brand/Author Name - conditional based on page type */}
         <div>
-          <Label htmlFor="manufacturerName">Hersteller Name *</Label>
+          <Label htmlFor="brandName">{config.brandLabel}</Label>
           <Input
-            id="manufacturerName"
-            value={data.manufacturerName}
-            onChange={(e) => onUpdate({ manufacturerName: e.target.value })}
-            placeholder="z.B. Medtronic"
+            id="brandName"
+            value={data.brandName}
+            onChange={(e) => onUpdate({ brandName: e.target.value })}
+            placeholder={config.brandPlaceholder}
           />
         </div>
 
+        {/* Website URL with Scraping */}
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Scraping-Modus *</Label>
+            <Label>Scraping-Modus</Label>
             <p className="text-xs text-muted-foreground">
-              <strong>Single-Page:</strong> Schnell & zuverlässig (empfohlen für Start) • 
-              <strong>Multi-Page:</strong> Gründlich, crawlt bis zu 10 Seiten (~2-3 Minuten)
+              <strong>Single-Page:</strong> Schnell & zuverlässig • 
+              <strong> Multi-Page:</strong> Gründlich, crawlt bis zu 10 Seiten (~2-3 Minuten)
             </p>
             <RadioGroup 
               value={scrapeMode} 
@@ -549,18 +611,18 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
         </div>
 
         <div>
-          <Label htmlFor="manufacturerWebsite">Hersteller Website</Label>
+          <Label htmlFor="websiteUrl">Website URL</Label>
           <div className="flex gap-2">
             <Input
-              id="manufacturerWebsite"
-              value={data.manufacturerWebsite}
-              onChange={(e) => onUpdate({ manufacturerWebsite: e.target.value })}
+              id="websiteUrl"
+              value={data.websiteUrl}
+              onChange={(e) => onUpdate({ websiteUrl: e.target.value })}
               placeholder="https://..."
             />
             <Button
               type="button"
               onClick={handleScrapeWebsite}
-              disabled={isScraping || !data.manufacturerWebsite}
+              disabled={isScraping || !data.websiteUrl}
               variant="outline"
             >
               {isScraping ? (
@@ -572,40 +634,42 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
           </div>
         </div>
 
+        {/* Main Topic - dynamic label based on page type */}
         <div>
-          <Label htmlFor="productName">Produktname / Kategorie (optional)</Label>
+          <Label htmlFor="mainTopic">{config.topicLabel}</Label>
           <Input
-            id="productName"
-            value={data.productName}
-            onChange={(e) => onUpdate({ productName: e.target.value })}
-            placeholder="z.B. Smart Home Beleuchtungssystem oder Shop-Kategorie (wird automatisch erkannt)"
+            id="mainTopic"
+            value={data.mainTopic}
+            onChange={(e) => onUpdate({ mainTopic: e.target.value })}
+            placeholder={config.topicPlaceholder}
           />
           <p className="text-sm text-muted-foreground mt-1">
-            Wird automatisch beim Scrapen der Website erkannt. Kann auch leer bleiben für Kategorie-Seiten.
+            Wird automatisch beim Scrapen der Website erkannt, falls vorhanden.
           </p>
         </div>
 
+        {/* Reference URLs - dynamic label */}
         <div>
-          <Label>Produkt URLs</Label>
+          <Label>{config.urlsLabel}</Label>
           <div className="space-y-2">
-            {data.productUrls.map((url, index) => (
+            {data.referenceUrls.map((url, index) => (
               <div key={index} className="flex gap-2">
                 <Input
                   value={url}
-                  onChange={(e) => updateProductUrl(index, e.target.value)}
-                  placeholder="https://..."
+                  onChange={(e) => updateReferenceUrl(index, e.target.value)}
+                  placeholder={config.urlsPlaceholder}
                 />
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  onClick={() => removeProductUrl(index)}
+                  onClick={() => removeReferenceUrl(index)}
                 >
                   <X className="h-4 w-4" />
                 </Button>
               </div>
             ))}
-            <Button type="button" variant="outline" onClick={addProductUrl}>
+            <Button type="button" variant="outline" onClick={addReferenceUrl}>
               + URL hinzufügen
             </Button>
           </div>
@@ -617,7 +681,13 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
             id="additionalInfo"
             value={data.additionalInfo}
             onChange={(e) => onUpdate({ additionalInfo: e.target.value })}
-            placeholder="Weitere relevante Informationen zum Produkt..."
+            placeholder={
+              data.pageType === 'product' 
+                ? "Weitere relevante Informationen zum Produkt..." 
+                : data.pageType === 'category'
+                ? "Informationen zur Kategorie, Sortiment, Zielgruppe..."
+                : "Kontext zum Thema, wichtige Punkte, Quellen..."
+            }
             rows={6}
           />
         </div>
