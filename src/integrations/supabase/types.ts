@@ -14,6 +14,95 @@ export type Database = {
   }
   public: {
     Tables: {
+      competitor_analyses: {
+        Row: {
+          best_practices: Json | null
+          call_to_actions: string[] | null
+          content_length: number | null
+          content_strategy: string | null
+          crawl_status: string
+          crawled_at: string | null
+          created_at: string
+          domain: string
+          faq_patterns: Json | null
+          heading_structure: Json | null
+          id: string
+          main_keywords: string[] | null
+          meta_description: string | null
+          organization_id: string
+          page_title: string | null
+          raw_content: string | null
+          secondary_keywords: string[] | null
+          strengths: string[] | null
+          tonality_analysis: string | null
+          updated_at: string
+          url: string
+          usp_patterns: string[] | null
+          weaknesses: string[] | null
+          word_count: number | null
+        }
+        Insert: {
+          best_practices?: Json | null
+          call_to_actions?: string[] | null
+          content_length?: number | null
+          content_strategy?: string | null
+          crawl_status?: string
+          crawled_at?: string | null
+          created_at?: string
+          domain: string
+          faq_patterns?: Json | null
+          heading_structure?: Json | null
+          id?: string
+          main_keywords?: string[] | null
+          meta_description?: string | null
+          organization_id: string
+          page_title?: string | null
+          raw_content?: string | null
+          secondary_keywords?: string[] | null
+          strengths?: string[] | null
+          tonality_analysis?: string | null
+          updated_at?: string
+          url: string
+          usp_patterns?: string[] | null
+          weaknesses?: string[] | null
+          word_count?: number | null
+        }
+        Update: {
+          best_practices?: Json | null
+          call_to_actions?: string[] | null
+          content_length?: number | null
+          content_strategy?: string | null
+          crawl_status?: string
+          crawled_at?: string | null
+          created_at?: string
+          domain?: string
+          faq_patterns?: Json | null
+          heading_structure?: Json | null
+          id?: string
+          main_keywords?: string[] | null
+          meta_description?: string | null
+          organization_id?: string
+          page_title?: string | null
+          raw_content?: string | null
+          secondary_keywords?: string[] | null
+          strengths?: string[] | null
+          tonality_analysis?: string | null
+          updated_at?: string
+          url?: string
+          usp_patterns?: string[] | null
+          weaknesses?: string[] | null
+          word_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitor_analyses_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_plans: {
         Row: {
           ai_suggestions: Json | null
