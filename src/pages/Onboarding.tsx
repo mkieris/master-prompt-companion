@@ -5,9 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Globe, ArrowRight, Sparkles } from "lucide-react";
+import { Building2, Globe, ArrowRight, Sparkles, Loader2 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { useOrganization } from "@/hooks/useOrganization";
+import { supabase } from "@/integrations/supabase/client";
 
 interface OnboardingProps {
   session: Session | null;
@@ -47,6 +48,49 @@ const Onboarding = ({ session }: OnboardingProps) => {
       });
       setIsLoading(false);
       return;
+    }
+
+    // If website is provided, start automatic domain crawling
+    if (formData.website && formData.website.trim() && result.data) {
+      try {
+        // Create domain_knowledge entry
+        const { data: domainData, error: domainError } = await supabase
+          .from('domain_knowledge')
+          .insert({
+            organization_id: result.data.id,
+            website_url: formData.website,
+            crawl_status: 'crawling',
+          })
+          .select()
+          .single();
+
+        if (domainError) {
+          console.error('Error creating domain knowledge:', domainError);
+        } else {
+          // Start crawl in background (don't await)
+          supabase.functions.invoke('crawl-domain', {
+            body: {
+              url: formData.website,
+              domainId: domainData.id,
+              organizationId: result.data.id,
+            }
+          }).then(({ error }) => {
+            if (error) {
+              console.error('Crawl error:', error);
+            }
+          });
+
+          toast({
+            title: "Willkommen!",
+            description: `${formData.companyName} wurde erstellt. Website-Analyse läuft im Hintergrund.`,
+          });
+
+          navigate("/domain-learning");
+          return;
+        }
+      } catch (error) {
+        console.error('Error starting crawl:', error);
+      }
     }
 
     toast({

@@ -58,17 +58,30 @@ const DomainLearning = ({ session }: DomainLearningProps) => {
     }
   }, [currentOrg]);
 
+  // Poll for updates when crawling is in progress
+  useEffect(() => {
+    if (!domainData || domainData.crawl_status !== 'crawling') return;
+
+    const pollInterval = setInterval(async () => {
+      await fetchDomainKnowledge();
+    }, 3000);
+
+    return () => clearInterval(pollInterval);
+  }, [domainData?.crawl_status, currentOrg]);
+
   const fetchDomainKnowledge = async () => {
     if (!currentOrg) return;
 
-    setIsFetching(true);
+    const wasInitialFetch = isFetching;
+    if (wasInitialFetch) setIsFetching(true);
+    
     const { data, error } = await supabase
       .from('domain_knowledge')
       .select('*')
       .eq('organization_id', currentOrg.id)
       .order('created_at', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     if (data) {
       setDomainData({
@@ -84,6 +97,19 @@ const DomainLearning = ({ session }: DomainLearningProps) => {
           : [],
       });
       setUrl(data.website_url);
+      
+      // Update progress based on crawl status
+      if (data.crawl_status === 'crawling' && data.total_pages > 0) {
+        setProgress(Math.round((data.pages_crawled / data.total_pages) * 90));
+        setIsLoading(true);
+      } else if (data.crawl_status === 'completed') {
+        setProgress(100);
+        setIsLoading(false);
+      } else if (data.crawl_status === 'crawling') {
+        // Still starting
+        setProgress(5);
+        setIsLoading(true);
+      }
     }
     setIsFetching(false);
   };
@@ -242,9 +268,17 @@ const DomainLearning = ({ session }: DomainLearningProps) => {
           {isLoading && (
             <div className="space-y-2">
               <Progress value={progress} />
-              <p className="text-sm text-muted-foreground text-center">
-                {progress < 30 ? "Crawle Website..." : progress < 60 ? "Analysiere Inhalte..." : "Extrahiere Wissen..."}
-              </p>
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>
+                  {domainData?.crawl_status === 'crawling' 
+                    ? domainData.pages_crawled > 0 
+                      ? `${domainData.pages_crawled} von ${domainData.total_pages || '~50'} Seiten gecrawlt`
+                      : "Crawle Website..."
+                    : progress < 30 ? "Starte Crawl..." : progress < 60 ? "Analysiere Inhalte..." : "Extrahiere Wissen..."
+                  }
+                </span>
+                <span>{progress}%</span>
+              </div>
             </div>
           )}
         </CardContent>
