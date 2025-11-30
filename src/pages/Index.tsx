@@ -83,6 +83,11 @@ const Index = ({ session }: IndexProps) => {
               </div>
             </div>
             <div className="flex gap-2">
+              <Link to="/seo-check">
+                <Button variant="outline">
+                  SEO-Check
+                </Button>
+              </Link>
               <Link to="/pro">
                 <Button variant="default">
                   PRO Version
