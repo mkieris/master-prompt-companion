@@ -33,11 +33,13 @@ import {
   Shield,
   BookOpen,
   Hash,
-  Languages
+  Languages,
+  Type
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { TextAnalysisEditor } from "@/components/TextAnalysisEditor";
 
 interface IndexProps {
   session: Session | null;
@@ -1271,7 +1273,7 @@ const SEOCheck = ({ session }: IndexProps) => {
             )}
 
             <Tabs defaultValue="meta">
-              <TabsList className="grid grid-cols-6 w-full">
+              <TabsList className="grid grid-cols-7 w-full">
                 <TabsTrigger value="meta" className="flex items-center gap-1">
                   <FileText className="h-4 w-4" />
                   <span className="hidden sm:inline">Meta</span>
@@ -1279,6 +1281,10 @@ const SEOCheck = ({ session }: IndexProps) => {
                 <TabsTrigger value="content" className="flex items-center gap-1">
                   <Target className="h-4 w-4" />
                   <span className="hidden sm:inline">Content</span>
+                </TabsTrigger>
+                <TabsTrigger value="textanalyse" className="flex items-center gap-1">
+                  <Type className="h-4 w-4" />
+                  <span className="hidden sm:inline">Textanalyse</span>
                 </TabsTrigger>
                 <TabsTrigger value="technical" className="flex items-center gap-1">
                   <Code className="h-4 w-4" />
@@ -1303,6 +1309,9 @@ const SEOCheck = ({ session }: IndexProps) => {
               </TabsContent>
               <TabsContent value="content" className="mt-4">
                 {renderContentTab()}
+              </TabsContent>
+              <TabsContent value="textanalyse" className="mt-4">
+                <TextAnalysisEditor initialText={result.contentData?.markdown?.replace(/[#*\[\]()_`]/g, '').substring(0, 5000) || ''} />
               </TabsContent>
               <TabsContent value="technical" className="mt-4">
                 {renderCategoryCard('technical', result.categories.technical)}
