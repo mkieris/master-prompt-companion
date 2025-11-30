@@ -94,9 +94,16 @@ export const Step4Preview = ({
         <div className="space-y-4">
           <Card className="p-4 max-h-[500px] overflow-y-auto">
             <div className="prose max-w-none">
-              <h3 className="text-lg font-semibold mb-2">{generatedContent.title}</h3>
-              <p className="text-sm text-muted-foreground mb-4">{generatedContent.metaDescription}</p>
-              <div className="whitespace-pre-wrap">{generatedContent.text}</div>
+              <h3 className="text-lg font-semibold mb-2">{generatedContent.title || ''}</h3>
+              <p className="text-sm text-muted-foreground mb-4">{generatedContent.metaDescription || ''}</p>
+              <div 
+                className="whitespace-pre-wrap" 
+                dangerouslySetInnerHTML={{ 
+                  __html: typeof generatedContent.seoText === 'string' 
+                    ? generatedContent.seoText 
+                    : (typeof generatedContent.text === 'string' ? generatedContent.text : '') 
+                }} 
+              />
             </div>
           </Card>
 
