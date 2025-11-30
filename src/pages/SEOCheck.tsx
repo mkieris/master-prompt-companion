@@ -438,6 +438,102 @@ const SEOCheck = ({ session }: IndexProps) => {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Explanation Collapsible */}
+            <Collapsible>
+              <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full justify-between p-2 rounded bg-muted/30 hover:bg-muted/50">
+                <div className="flex items-center gap-2">
+                  <Info className="h-4 w-4" />
+                  <span>Wie wird die Lesbarkeit gemessen?</span>
+                </div>
+                <ChevronDown className="h-4 w-4" />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-3 space-y-4 text-sm">
+                <div className="p-4 bg-muted/30 rounded-lg space-y-4">
+                  {/* Flesch DE Explanation */}
+                  <div>
+                    <h4 className="font-semibold text-foreground flex items-center gap-2">
+                      <span className="w-2 h-2 bg-primary rounded-full"></span>
+                      Flesch-Reading-Ease (Deutsch)
+                    </h4>
+                    <p className="text-muted-foreground mt-1 ml-4">
+                      <strong>Formel:</strong> 180 - (Wörter/Sätze) - (58,5 × Silben/Wörter)
+                    </p>
+                    <p className="text-muted-foreground ml-4 mt-1">
+                      Misst die Lesbarkeit anhand von Satzlänge und Silbenanzahl. Je höher der Score (0-100), desto leichter lesbar. 
+                      Ein Score von 60+ ist für die breite Öffentlichkeit gut verständlich.
+                    </p>
+                    <div className="ml-4 mt-2 grid grid-cols-2 gap-2 text-xs">
+                      <div className="p-2 bg-success/10 rounded"><strong>80-100:</strong> Sehr leicht (5. Klasse)</div>
+                      <div className="p-2 bg-success/10 rounded"><strong>70-80:</strong> Leicht (6. Klasse)</div>
+                      <div className="p-2 bg-warning/10 rounded"><strong>60-70:</strong> Mittel (7.-8. Klasse)</div>
+                      <div className="p-2 bg-warning/10 rounded"><strong>50-60:</strong> Mittelschwer (9.-10. Klasse)</div>
+                      <div className="p-2 bg-destructive/10 rounded"><strong>30-50:</strong> Schwer (Oberstufe)</div>
+                      <div className="p-2 bg-destructive/10 rounded"><strong>0-30:</strong> Sehr schwer (Akademisch)</div>
+                    </div>
+                  </div>
+                  
+                  {/* WSTF Explanation */}
+                  <div>
+                    <h4 className="font-semibold text-foreground flex items-center gap-2">
+                      <span className="w-2 h-2 bg-primary rounded-full"></span>
+                      Wiener Sachtextformel (WSTF)
+                    </h4>
+                    <p className="text-muted-foreground mt-1 ml-4">
+                      <strong>Speziell für deutsche Texte entwickelt.</strong> Berücksichtigt den Anteil von Sätzen mit mehrsilbigen Wörtern, 
+                      Wortlängen und einsilbige Wörter.
+                    </p>
+                    <p className="text-muted-foreground ml-4 mt-1">
+                      Der Score entspricht ungefähr der Schulstufe, die zum Verständnis nötig ist. Ein niedriger Score bedeutet einfachere Texte.
+                    </p>
+                    <div className="ml-4 mt-2 grid grid-cols-3 gap-2 text-xs">
+                      <div className="p-2 bg-success/10 rounded"><strong>1-4:</strong> Grundschule</div>
+                      <div className="p-2 bg-success/10 rounded"><strong>5-7:</strong> Mittelstufe</div>
+                      <div className="p-2 bg-warning/10 rounded"><strong>8-10:</strong> Oberstufe</div>
+                      <div className="p-2 bg-destructive/10 rounded"><strong>11-13:</strong> Studium</div>
+                      <div className="p-2 bg-destructive/10 rounded"><strong>14+:</strong> Akademisch</div>
+                    </div>
+                  </div>
+                  
+                  {/* LIX Explanation */}
+                  <div>
+                    <h4 className="font-semibold text-foreground flex items-center gap-2">
+                      <span className="w-2 h-2 bg-primary rounded-full"></span>
+                      LIX (Läsbarhetsindex)
+                    </h4>
+                    <p className="text-muted-foreground mt-1 ml-4">
+                      <strong>Formel:</strong> (Wörter/Sätze) + (Lange Wörter × 100 / Wörter)
+                    </p>
+                    <p className="text-muted-foreground ml-4 mt-1">
+                      International vergleichbarer Index aus Skandinavien. Lange Wörter sind solche mit mehr als 6 Buchstaben. 
+                      Ein niedriger LIX-Wert bedeutet leichtere Lesbarkeit.
+                    </p>
+                    <div className="ml-4 mt-2 grid grid-cols-3 gap-2 text-xs">
+                      <div className="p-2 bg-success/10 rounded"><strong>&lt;30:</strong> Kinderbuch</div>
+                      <div className="p-2 bg-success/10 rounded"><strong>30-40:</strong> Belletristik</div>
+                      <div className="p-2 bg-warning/10 rounded"><strong>40-50:</strong> Sachliteratur</div>
+                      <div className="p-2 bg-destructive/10 rounded"><strong>50-60:</strong> Fachliteratur</div>
+                      <div className="p-2 bg-destructive/10 rounded"><strong>&gt;60:</strong> Wissenschaft</div>
+                    </div>
+                  </div>
+                  
+                  {/* Additional Metrics */}
+                  <div>
+                    <h4 className="font-semibold text-foreground flex items-center gap-2">
+                      <span className="w-2 h-2 bg-primary rounded-full"></span>
+                      Weitere Metriken
+                    </h4>
+                    <ul className="text-muted-foreground mt-1 ml-4 space-y-1">
+                      <li><strong>Ø Satzlänge:</strong> Optimal sind 15-20 Wörter pro Satz. Längere Sätze erschweren das Verständnis.</li>
+                      <li><strong>Silben pro Wort:</strong> Ein niedriger Wert (1,5-2,0) deutet auf einfachere Wörter hin.</li>
+                      <li><strong>Komplexe Wörter:</strong> Wörter mit 3+ Silben. Ein hoher Anteil (&gt;30%) erschwert die Lesbarkeit.</li>
+                      <li><strong>Füllwörter:</strong> Wörter wie &quot;eigentlich&quot;, &quot;halt&quot;, &quot;irgendwie&quot; sollten sparsam verwendet werden.</li>
+                      <li><strong>Passivkonstruktionen:</strong> Aktive Formulierungen sind direkter und leichter verständlich.</li>
+                    </ul>
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+            
             {/* Three Main Scores */}
             <div className="grid grid-cols-3 gap-3">
               {/* Flesch DE */}
