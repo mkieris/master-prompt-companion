@@ -16,6 +16,7 @@ import { ContentStrategyModule } from "@/components/training/modules/ContentStra
 import { LocalSEOModule } from "@/components/training/modules/LocalSEOModule";
 import { SEOToolsModule } from "@/components/training/modules/SEOToolsModule";
 import { RankingFactorsModule } from "@/components/training/modules/RankingFactorsModule";
+import { AISEOModule } from "@/components/training/modules/AISEOModule";
 import {
   Accordion, AccordionContent, AccordionItem, AccordionTrigger,
 } from "@/components/ui/accordion";
@@ -23,7 +24,7 @@ import {
   BookOpen, Search, Layout, CheckCircle2, AlertTriangle, Star, Lightbulb, 
   GraduationCap, ListChecks, Shield, Zap, Users, Type, HelpCircle, Compass, 
   ShoppingCart, MapPin, Brain, PenTool, Bold, ArrowRight, Trophy, Server, 
-  FileText, Link2, Layers, Wrench, TrendingUp, Globe
+  FileText, Link2, Layers, Wrench, TrendingUp, Globe, Bot
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 
@@ -76,6 +77,7 @@ const SEOTraining = ({ session }: SEOTrainingProps) => {
     { id: "eeat", label: "E-E-A-T", icon: Shield },
     { id: "helpful", label: "Helpful Content", icon: Users },
     { id: "ranking", label: "Ranking-Faktoren", icon: TrendingUp },
+    { id: "ai-seo", label: "KI & SEO", icon: Bot },
     { id: "checklist", label: "Checkliste", icon: ListChecks },
   ];
 
@@ -102,7 +104,7 @@ const SEOTraining = ({ session }: SEOTrainingProps) => {
           </div>
           <div className="flex-1">
             <h1 className="text-3xl font-bold">SEO-Content Schulung</h1>
-            <p className="text-muted-foreground">17 Module • ~3 Stunden • Vom Anfänger zum SEO-Profi</p>
+            <p className="text-muted-foreground">18 Module • ~3 Stunden • Vom Anfänger zum SEO-Profi</p>
           </div>
           {overallProgress === 100 && (
             <Badge className="bg-amber-500 text-white gap-1"><Trophy className="h-3 w-3" />Abgeschlossen!</Badge>
@@ -133,7 +135,7 @@ const SEOTraining = ({ session }: SEOTrainingProps) => {
                     <h3 className="text-lg font-semibold mb-4">🎯 Das erwartet Sie:</h3>
                     <div className="grid sm:grid-cols-3 gap-4 mb-4">
                       <div className="bg-background/80 p-4 rounded-lg text-center">
-                        <div className="text-3xl font-bold text-primary">17</div>
+                        <div className="text-3xl font-bold text-primary">18</div>
                         <div className="text-sm text-muted-foreground">Module</div>
                       </div>
                       <div className="bg-background/80 p-4 rounded-lg text-center">
@@ -148,9 +150,9 @@ const SEOTraining = ({ session }: SEOTrainingProps) => {
                   </div>
 
                   <div className="grid sm:grid-cols-2 gap-3">
-                    {["Search Intent (Know/Do/Buy/Go)", "Keyword-Recherche & -Integration", "Textstruktur & Lesbarkeit", "Technische SEO & Core Web Vitals", 
+                  {["Search Intent (Know/Do/Buy/Go)", "Keyword-Recherche & -Integration", "Textstruktur & Lesbarkeit", "Technische SEO & Core Web Vitals", 
                       "OnPage-Optimierung", "Content-Strategie & Themencluster", "Linkbuilding-Strategien", "Local SEO", 
-                      "SEO-Tools (GSC, Screaming Frog)", "E-E-A-T Framework", "Helpful Content Guidelines", "Google Updates verstehen"
+                      "SEO-Tools (GSC, Screaming Frog)", "E-E-A-T Framework", "Helpful Content Guidelines", "KI & SEO (AI Overviews, ChatGPT)"
                     ].map((item, i) => (
                       <div key={i} className="flex items-start gap-2 p-3 bg-muted/50 rounded-lg">
                         <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
@@ -366,7 +368,10 @@ const SEOTraining = ({ session }: SEOTrainingProps) => {
             </div>
           )}
 
-          {activeModule === "ranking" && (<><RankingFactorsModule /><NavigationButtons prevModule="helpful" nextLabel="Weiter zur Checkliste" /></>)}
+          {activeModule === "ranking" && (<><RankingFactorsModule /><NavigationButtons prevModule="helpful" nextLabel="Weiter zu KI & SEO" /></>)}
+
+          {/* KI & SEO Module */}
+          {activeModule === "ai-seo" && (<><AISEOModule /><NavigationButtons prevModule="ranking" nextLabel="Weiter zur Checkliste" /></>)}
 
           {/* Checkliste */}
           {activeModule === "checklist" && (
@@ -381,6 +386,7 @@ const SEOTraining = ({ session }: SEOTrainingProps) => {
                     { cat: "Technisch", items: ["Mobile-optimiert", "Core Web Vitals grün", "HTTPS aktiv"] },
                     { cat: "OnPage", items: ["Meta-Title optimiert", "Meta-Description vorhanden", "Bilder mit Alt-Text"] },
                     { cat: "E-E-A-T", items: ["Autoreninfo vorhanden", "Quellen zitiert", "Für Menschen geschrieben"] },
+                    { cat: "KI & Content", items: ["KI-Fakten verifiziert", "Einzigartige Perspektiven hinzugefügt", "Redaktionelle Prüfung durchgeführt"] },
                   ].map((section) => (
                     <Card key={section.cat} className="bg-muted/30">
                       <CardHeader className="pb-2"><CardTitle className="text-base">{section.cat}</CardTitle></CardHeader>
