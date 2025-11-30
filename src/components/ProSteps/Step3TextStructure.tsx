@@ -12,6 +12,9 @@ import { X, Info } from "lucide-react";
 interface Step3Data {
   focusKeyword: string;
   secondaryKeywords: string[];
+  searchIntent: string[];
+  keywordDensity: string;
+  wQuestions: string[];
   contentStructure: string;
   contentLayout: string;
   imageTextBlocks: number;
@@ -37,7 +40,28 @@ interface Step3Props {
 
 export const Step3TextStructure = ({ data, onUpdate, onNext, onBack }: Step3Props) => {
   const [keywordInput, setKeywordInput] = useState("");
+  const [wQuestionInput, setWQuestionInput] = useState("");
   const [showLayoutPreview, setShowLayoutPreview] = useState(false);
+
+  const addWQuestion = () => {
+    if (wQuestionInput.trim() && !data.wQuestions?.includes(wQuestionInput.trim())) {
+      onUpdate({ wQuestions: [...(data.wQuestions || []), wQuestionInput.trim()] });
+      setWQuestionInput("");
+    }
+  };
+
+  const removeWQuestion = (question: string) => {
+    onUpdate({ wQuestions: (data.wQuestions || []).filter(q => q !== question) });
+  };
+
+  const toggleSearchIntent = (intent: string) => {
+    const current = data.searchIntent || [];
+    if (current.includes(intent)) {
+      onUpdate({ searchIntent: current.filter((i) => i !== intent) });
+    } else {
+      onUpdate({ searchIntent: [...current, intent] });
+    }
+  };
 
   const addKeyword = () => {
     if (keywordInput.trim() && !data.secondaryKeywords.includes(keywordInput.trim())) {
@@ -92,6 +116,82 @@ export const Step3TextStructure = ({ data, onUpdate, onNext, onBack }: Step3Prop
               <Badge key={keyword} variant="secondary">
                 {keyword}
                 <button onClick={() => removeKeyword(keyword)} className="ml-2">
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            ))}
+          </div>
+        </div>
+
+        {/* Suchintention */}
+        <div>
+          <Label className="text-base font-semibold">Suchintention</Label>
+          <p className="text-xs text-muted-foreground mb-2">Welche Absicht hat der Nutzer bei der Suche? (mehrfach möglich)</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {[
+              { value: "know", label: "Know", desc: "Information suchen" },
+              { value: "do", label: "Do", desc: "Aktion ausführen" },
+              { value: "buy", label: "Buy", desc: "Kaufen/vergleichen" },
+              { value: "go", label: "Go", desc: "Zu Seite navigieren" },
+              { value: "visit", label: "Visit", desc: "Vor Ort besuchen" },
+            ].map((intent) => (
+              <label
+                key={intent.value}
+                className={`flex items-center gap-2 p-3 border rounded-lg cursor-pointer transition-colors ${
+                  (data.searchIntent || []).includes(intent.value)
+                    ? "border-primary bg-primary/10"
+                    : "hover:bg-muted/50"
+                }`}
+              >
+                <Checkbox
+                  checked={(data.searchIntent || []).includes(intent.value)}
+                  onCheckedChange={() => toggleSearchIntent(intent.value)}
+                />
+                <div className="flex-1">
+                  <span className="font-medium text-sm">{intent.label}</span>
+                  <p className="text-xs text-muted-foreground">{intent.desc}</p>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Keyword-Dichte */}
+        <div>
+          <Label htmlFor="keywordDensity">Keyword-Dichte</Label>
+          <p className="text-xs text-muted-foreground mb-2">Wie oft soll das Fokus-Keyword im Text vorkommen?</p>
+          <Select value={data.keywordDensity || "normal"} onValueChange={(value) => onUpdate({ keywordDensity: value })}>
+            <SelectTrigger id="keywordDensity">
+              <SelectValue placeholder="Keyword-Dichte wählen" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="minimal">Minimal (0.5-1%) - Sehr natürlich</SelectItem>
+              <SelectItem value="normal">Normal (1-2%) - Empfohlen</SelectItem>
+              <SelectItem value="high">Hoch (2-3%) - Stärker optimiert</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* W-Fragen */}
+        <div>
+          <Label>W-Fragen (SEO-relevant)</Label>
+          <p className="text-xs text-muted-foreground mb-2">Fragen, die im Text beantwortet werden sollen (Was, Wie, Warum...)</p>
+          <div className="flex gap-2 mb-2">
+            <Input
+              value={wQuestionInput}
+              onChange={(e) => setWQuestionInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addWQuestion())}
+              placeholder="z.B. Was ist...? Wie funktioniert...?"
+            />
+            <Button type="button" onClick={addWQuestion} variant="outline">
+              Hinzufügen
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {(data.wQuestions || []).map((question) => (
+              <Badge key={question} variant="outline" className="bg-blue-500/10 border-blue-500/30">
+                {question}
+                <button onClick={() => removeWQuestion(question)} className="ml-2">
                   <X className="h-3 w-3" />
                 </button>
               </Badge>

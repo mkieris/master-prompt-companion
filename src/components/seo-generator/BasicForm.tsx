@@ -20,6 +20,9 @@ export interface BasicFormData {
   formOfAddress: "du" | "sie" | "neutral";
   focusKeyword: string;
   secondaryKeywords: string[];
+  searchIntent: string[];
+  keywordDensity: "minimal" | "normal" | "high";
+  wQuestions: string[];
   manufacturerName: string;
   manufacturerWebsite: string;
   manufacturerInfo: string;
@@ -44,12 +47,16 @@ export const BasicForm = ({ onGenerate, isLoading }: BasicFormProps) => {
   const { toast } = useToast();
   const [isScraping, setIsScraping] = useState(false);
   const [keywordInput, setKeywordInput] = useState("");
+  const [wQuestionInput, setWQuestionInput] = useState("");
   const [formData, setFormData] = useState<BasicFormData>({
     pageType: "product",
     targetAudience: "endCustomers",
     formOfAddress: "du",
     focusKeyword: "",
     secondaryKeywords: [],
+    searchIntent: [],
+    keywordDensity: "normal",
+    wQuestions: [],
     manufacturerName: "",
     manufacturerWebsite: "",
     manufacturerInfo: "",
@@ -80,6 +87,32 @@ export const BasicForm = ({ onGenerate, isLoading }: BasicFormProps) => {
       ...formData,
       secondaryKeywords: formData.secondaryKeywords.filter((k) => k !== keyword),
     });
+  };
+
+  const handleAddWQuestion = () => {
+    if (wQuestionInput.trim() && !formData.wQuestions.includes(wQuestionInput.trim())) {
+      setFormData({
+        ...formData,
+        wQuestions: [...formData.wQuestions, wQuestionInput.trim()],
+      });
+      setWQuestionInput("");
+    }
+  };
+
+  const handleRemoveWQuestion = (question: string) => {
+    setFormData({
+      ...formData,
+      wQuestions: formData.wQuestions.filter((q) => q !== question),
+    });
+  };
+
+  const toggleSearchIntent = (intent: string) => {
+    const current = formData.searchIntent;
+    if (current.includes(intent)) {
+      setFormData({ ...formData, searchIntent: current.filter((i) => i !== intent) });
+    } else {
+      setFormData({ ...formData, searchIntent: [...current, intent] });
+    }
   };
 
   const handleScrapeWebsite = async () => {
@@ -186,6 +219,107 @@ export const BasicForm = ({ onGenerate, isLoading }: BasicFormProps) => {
                         <button
                           type="button"
                           onClick={() => handleRemoveKeyword(keyword)}
+                          className="ml-1 hover:text-destructive rounded-full"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Suchintention */}
+              <div>
+                <Label className="text-sm font-medium">Suchintention</Label>
+                <p className="text-xs text-muted-foreground mb-2">Welche Absicht hat der Nutzer? (mehrfach möglich)</p>
+                <div className="grid grid-cols-2 gap-2 mt-1.5">
+                  {[
+                    { value: "know", label: "Know", desc: "Infos suchen" },
+                    { value: "do", label: "Do", desc: "Aktion ausführen" },
+                    { value: "buy", label: "Buy", desc: "Kaufen/vergleichen" },
+                    { value: "go", label: "Go", desc: "Zur Seite navigieren" },
+                    { value: "visit", label: "Visit", desc: "Vor Ort besuchen" },
+                  ].map((intent) => (
+                    <label
+                      key={intent.value}
+                      className={`flex items-center gap-2 p-2.5 border rounded-lg cursor-pointer transition-colors ${
+                        formData.searchIntent.includes(intent.value)
+                          ? "border-primary bg-primary/10"
+                          : "hover:bg-muted/50"
+                      }`}
+                    >
+                      <Checkbox
+                        checked={formData.searchIntent.includes(intent.value)}
+                        onCheckedChange={() => toggleSearchIntent(intent.value)}
+                      />
+                      <div className="flex-1">
+                        <span className="font-medium text-sm">{intent.label}</span>
+                        <p className="text-xs text-muted-foreground">{intent.desc}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Keyword-Dichte */}
+              <div>
+                <Label className="text-sm font-medium">Keyword-Dichte</Label>
+                <Select
+                  value={formData.keywordDensity}
+                  onValueChange={(value: "minimal" | "normal" | "high") =>
+                    setFormData({ ...formData, keywordDensity: value })
+                  }
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="minimal">
+                      <div className="flex flex-col">
+                        <span>Minimal (0.5-1%)</span>
+                        <span className="text-xs text-muted-foreground">Sehr natürlich, wenige Keywords</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="normal">
+                      <div className="flex flex-col">
+                        <span>Normal (1-2%)</span>
+                        <span className="text-xs text-muted-foreground">Empfohlen, gute Balance</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="high">
+                      <div className="flex flex-col">
+                        <span>Hoch (2-3%)</span>
+                        <span className="text-xs text-muted-foreground">Stärker optimiert</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* W-Fragen */}
+              <div>
+                <Label className="text-sm font-medium">W-Fragen (SEO-relevant)</Label>
+                <p className="text-xs text-muted-foreground mb-1.5">Fragen, die im Text beantwortet werden sollen</p>
+                <div className="flex gap-2">
+                  <Input
+                    value={wQuestionInput}
+                    onChange={(e) => setWQuestionInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddWQuestion())}
+                    placeholder="z.B. Was ist...? Wie funktioniert...?"
+                  />
+                  <Button type="button" onClick={handleAddWQuestion} variant="outline" size="sm">
+                    +
+                  </Button>
+                </div>
+                {formData.wQuestions.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {formData.wQuestions.map((question) => (
+                      <Badge key={question} variant="outline" className="gap-1 pr-1 bg-blue-500/10 border-blue-500/30">
+                        {question}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveWQuestion(question)}
                           className="ml-1 hover:text-destructive rounded-full"
                         >
                           <X className="h-3 w-3" />

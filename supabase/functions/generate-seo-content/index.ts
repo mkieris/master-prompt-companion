@@ -747,7 +747,27 @@ Tonalität: ${tonalityLabels[formData.tonality] || formData.tonality || 'Beraten
 
 === SCHRITT 3: TEXTSTRUKTUR & SEO ===
 Fokus-Keyword: ${formData.focusKeyword}
-${formData.secondaryKeywords && formData.secondaryKeywords.length > 0 ? `Sekundär-Keywords: ${formData.secondaryKeywords.join(', ')}` : ''}${layoutStructure}
+${formData.secondaryKeywords && formData.secondaryKeywords.length > 0 ? `Sekundär-Keywords: ${formData.secondaryKeywords.join(', ')}` : ''}
+
+${formData.searchIntent && formData.searchIntent.length > 0 ? `SUCHINTENTION: ${formData.searchIntent.map((i: string) => {
+  const intentLabels: Record<string, string> = {
+    'know': 'Know (Information suchen)',
+    'do': 'Do (Aktion ausführen)',
+    'buy': 'Buy (Kaufen/vergleichen)',
+    'go': 'Go (Navigation)',
+    'visit': 'Visit (Vor Ort besuchen)'
+  };
+  return intentLabels[i] || i;
+}).join(', ')}\nRichte den Text an dieser Suchintention aus!` : ''}
+
+${formData.keywordDensity ? `KEYWORD-DICHTE: ${
+  formData.keywordDensity === 'minimal' ? 'Minimal (0.5-1%) - Sehr natürliche Integration, wenig Wiederholungen' :
+  formData.keywordDensity === 'normal' ? 'Normal (1-2%) - Ausgewogene, empfohlene Keyword-Dichte' :
+  'Hoch (2-3%) - Stärker optimiert, aber kein Keyword-Stuffing!'
+}` : ''}
+
+${formData.wQuestions && formData.wQuestions.length > 0 ? `W-FRAGEN (MÜSSEN IM TEXT BEANTWORTET WERDEN):\n${formData.wQuestions.map((q: string) => `- ${q}`).join('\n')}\nDiese Fragen müssen im Text explizit behandelt und beantwortet werden!` : ''}
+${layoutStructure}
 Wortanzahl: ${formData.wordCount || '800-1200'} Wörter
 Überschriftenstruktur: ${formData.headingStructure || 'H1 > H2 > H3'}
 Ziel der Seite: ${goalMap[formData.pageGoal as keyof typeof goalMap] || 'Informieren'}

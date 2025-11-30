@@ -31,6 +31,9 @@ export interface FormData {
   // Step 3
   focusKeyword: string;
   secondaryKeywords: string[];
+  searchIntent: string[];
+  keywordDensity: string;
+  wQuestions: string[];
   contentStructure: string;
   contentLayout: string;
   imageTextBlocks: number;
@@ -70,6 +73,9 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
     tonality: "",
     focusKeyword: "",
     secondaryKeywords: [],
+    searchIntent: [],
+    keywordDensity: "normal",
+    wQuestions: [],
     contentStructure: "",
     contentLayout: "",
     imageTextBlocks: 0,
@@ -345,6 +351,9 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
             data={{
               focusKeyword: formData.focusKeyword,
               secondaryKeywords: formData.secondaryKeywords,
+              searchIntent: formData.searchIntent,
+              keywordDensity: formData.keywordDensity,
+              wQuestions: formData.wQuestions,
               contentStructure: formData.contentStructure,
               contentLayout: formData.contentLayout,
               imageTextBlocks: formData.imageTextBlocks,
