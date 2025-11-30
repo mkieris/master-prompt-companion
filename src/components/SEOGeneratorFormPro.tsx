@@ -3,6 +3,7 @@ import { Step1InfoGathering } from "./ProSteps/Step1InfoGathering";
 import { Step2TargetAudience } from "./ProSteps/Step2TargetAudience";
 import { Step3TextStructure } from "./ProSteps/Step3TextStructure";
 import { Step4Preview } from "./ProSteps/Step4Preview";
+import { Step5AfterCheck } from "./ProSteps/Step5AfterCheck";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -87,6 +88,7 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
   const [generatedContent, setGeneratedContent] = useState<any>(null);
   const [isRefining, setIsRefining] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
   const { toast } = useToast();
 
@@ -213,9 +215,46 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
     onGenerate(formData);
   };
 
+  const handleRegenerateWithImprovements = async () => {
+    setIsRegenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-seo-content", {
+        body: {
+          ...formData,
+          refinementPrompt: `Bitte überarbeite den Text basierend auf folgenden SEO Best Practices:
+            - Stärkere E-E-A-T Signale (Experience, Expertise, Authoritativeness, Trustworthiness)
+            - Mehr nutzerorientierte Sprache (People-First Content nach John Mueller)
+            - Optimale Keyword-Platzierung (H1, erste 100 Wörter)
+            - Kürzere Sätze (max. 20 Wörter im Durchschnitt)
+            - Weniger Passiv-Konstruktionen
+            - Mehr konkrete Beispiele und Mehrwert`,
+          existingContent: generatedContent,
+        },
+      });
+
+      if (error) throw error;
+
+      setGeneratedContent(data);
+      
+      toast({
+        title: "Erfolgreich",
+        description: "Text wurde mit SEO-Verbesserungen regeneriert",
+      });
+    } catch (error) {
+      console.error("Regeneration error:", error);
+      toast({
+        title: "Fehler",
+        description: "Fehler beim Regenerieren",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
   const renderStepIndicator = () => (
     <div className="flex items-center justify-center gap-2 mb-6">
-      {[1, 2, 3, 4].map((step) => (
+      {[1, 2, 3, 4, 5].map((step) => (
         <div key={step} className="flex items-center">
           <div
             className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
@@ -228,9 +267,9 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
           >
             {step}
           </div>
-          {step < 4 && (
+          {step < 5 && (
             <div
-              className={`w-12 h-0.5 ${
+              className={`w-8 h-0.5 ${
                 step < currentStep ? "bg-primary" : "bg-muted"
               }`}
             />
@@ -329,7 +368,7 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
             onRefine={handleRefineContent}
             onQuickChange={handleQuickChange}
             onBack={() => setCurrentStep(3)}
-            onFinish={handleFinish}
+            onNext={() => setCurrentStep(5)}
             isRefining={isRefining}
             currentFormData={{
               tonality: formData.tonality,
@@ -338,6 +377,23 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
               includeFAQ: formData.includeFAQ,
               targetAudience: formData.targetAudience,
             }}
+          />
+        )}
+
+        {currentStep === 5 && (
+          <Step5AfterCheck
+            generatedContent={generatedContent}
+            formData={{
+              focusKeyword: formData.focusKeyword,
+              secondaryKeywords: formData.secondaryKeywords,
+              pageType: formData.pageType,
+              targetAudience: formData.targetAudience,
+              wordCount: formData.wordCount,
+            }}
+            onBack={() => setCurrentStep(4)}
+            onFinish={handleFinish}
+            onRegenerate={handleRegenerateWithImprovements}
+            isRegenerating={isRegenerating}
           />
         )}
       </Card>

@@ -13,7 +13,7 @@ interface Step4Props {
   onRefine: (prompt: string) => Promise<void>;
   onQuickChange: (changes: QuickChangeParams) => Promise<void>;
   onBack: () => void;
-  onFinish: () => void;
+  onNext: () => void;
   isRefining: boolean;
   currentFormData: {
     tonality: string;
@@ -38,7 +38,7 @@ export const Step4Preview = ({
   onRefine, 
   onQuickChange, 
   onBack, 
-  onFinish, 
+  onNext, 
   isRefining,
   currentFormData 
 }: Step4Props) => {
@@ -282,8 +282,8 @@ export const Step4Preview = ({
         <Button variant="outline" onClick={onBack}>
           Zurück
         </Button>
-        <Button onClick={onFinish}>
-          Fertigstellen
+        <Button onClick={onNext}>
+          Weiter zum SEO-Check
         </Button>
       </div>
     </div>
