@@ -4,7 +4,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Sparkles, Loader2, Bot, Wand2 } from "lucide-react";
+import { Sparkles, Loader2, Bot, Wand2, RotateCcw, Save, FileDown } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { useOrganization } from "@/hooks/useOrganization";
 import ChatMessage from "@/components/ai-content/ChatMessage";
@@ -12,6 +12,17 @@ import ChatInput from "@/components/ai-content/ChatInput";
 import StepIndicator from "@/components/ai-content/StepIndicator";
 import ExtractedDataSummary from "@/components/ai-content/ExtractedDataSummary";
 import GeneratedContent from "@/components/ai-content/GeneratedContent";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface AIContentCreatorProps {
   session: Session | null;
@@ -81,6 +92,7 @@ const AIContentCreator = ({ session }: AIContentCreatorProps) => {
   const [domainKnowledge, setDomainKnowledge] = useState<any>(null);
   const [generatedContent, setGeneratedContent] = useState<GeneratedContentData | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const synthRef = useRef<SpeechSynthesisUtterance | null>(null);
@@ -123,6 +135,59 @@ const AIContentCreator = ({ session }: AIContentCreatorProps) => {
     }
   };
 
+  const resetConversation = () => {
+    setMessages([]);
+    setCurrentStep(0);
+    setExtractedData({});
+    setGeneratedContent(null);
+    setInputValue("");
+    
+    // Restart after a brief delay
+    setTimeout(() => {
+      startConversation();
+    }, 100);
+    
+    toast({
+      title: "Neustart",
+      description: "Die Konversation wurde zurückgesetzt.",
+    });
+  };
+
+  const saveAsProject = async () => {
+    if (!currentOrg || !session?.user || !generatedContent) return;
+    
+    setIsSaving(true);
+    
+    try {
+      const { error } = await supabase.from('content_projects').insert([{
+        organization_id: currentOrg.id,
+        created_by: session.user.id,
+        title: extractedData.productName || extractedData.focusKeyword || "KI Content Projekt",
+        page_type: extractedData.pageType || "general",
+        focus_keyword: extractedData.focusKeyword || "",
+        form_data: extractedData as any,
+        generated_content: generatedContent as any,
+        status: "draft",
+      }]);
+
+      if (error) throw error;
+
+      toast({
+        title: "Projekt gespeichert!",
+        description: "Der Content wurde in deinen Projekten gespeichert.",
+      });
+    } catch (error) {
+      console.error("Error saving project:", error);
+      toast({
+        title: "Fehler",
+        description: "Das Projekt konnte nicht gespeichert werden.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const startConversation = async () => {
     const companyName = domainKnowledge?.company_name || currentOrg?.name;
     const welcomeMessage = domainKnowledge 
@@ -161,7 +226,7 @@ const AIContentCreator = ({ session }: AIContentCreatorProps) => {
     if (isGenerating) return;
     
     setIsGenerating(true);
-    addMessage("assistant", "🎨 **Perfekt!** Alle Informationen sind erfasst. Ich generiere jetzt deinen SEO-optimierten Content...\n\nDies kann einen Moment dauern.", "generate");
+    addMessage("assistant", "🎨 **Perfekt!** Alle Informationen sind erfasst. Ich generiere jetzt deinen SEO-optimierten Content...\n\n⏳ **Tonalitäts-Mix wird angewendet:** " + (extractedData.tonality || "balanced-mix") + "\n📝 **Textlänge:** ca. " + (extractedData.wordCount || "1000") + " Wörter", "generate");
 
     try {
       const response = await fetch(
@@ -192,11 +257,14 @@ const AIContentCreator = ({ session }: AIContentCreatorProps) => {
       const content = await response.json();
       setGeneratedContent(content);
       
-      updateLastAssistantMessage("✅ **Content erfolgreich generiert!**\n\nDein SEO-optimierter Text ist fertig. Du findest ihn unten mit:\n• Meta-Title & Meta-Description\n• Hauptinhalt mit optimierter Struktur\n" + (content.faq?.length ? "• FAQ-Bereich\n" : "") + "\nDu kannst den Content kopieren, herunterladen oder bei Bedarf neu generieren.");
+      // Calculate word count
+      const wordCount = content.mainContent?.split(/\s+/).length || 0;
+      
+      updateLastAssistantMessage(`✅ **Content erfolgreich generiert!**\n\n📊 **Statistiken:**\n• ${wordCount} Wörter\n• Meta-Title: ${content.metaTitle?.length || 0}/60 Zeichen\n• Meta-Description: ${content.metaDescription?.length || 0}/155 Zeichen\n${content.faq?.length ? `• ${content.faq.length} FAQ-Einträge\n` : ""}\n💡 Du kannst den Content kopieren, herunterladen oder als Projekt speichern.`);
 
       toast({
         title: "Content generiert!",
-        description: "Dein SEO-Content wurde erfolgreich erstellt.",
+        description: `${wordCount} Wörter SEO-Content erstellt.`,
       });
 
     } catch (error) {
@@ -398,20 +466,65 @@ const AIContentCreator = ({ session }: AIContentCreatorProps) => {
             </div>
           </div>
           
-          {canGenerateManually && !generatedContent && (
-            <Button 
-              onClick={generateContent} 
-              disabled={isGenerating}
-              className="gap-2"
-            >
-              {isGenerating ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Wand2 className="h-4 w-4" />
-              )}
-              Content generieren
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {/* Reset Button */}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <RotateCcw className="h-4 w-4" />
+                  <span className="hidden sm:inline">Neustart</span>
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Konversation zurücksetzen?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Alle bisherigen Eingaben und der generierte Content werden gelöscht. 
+                    Diese Aktion kann nicht rückgängig gemacht werden.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                  <AlertDialogAction onClick={resetConversation}>Zurücksetzen</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Save Button */}
+            {generatedContent && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-2"
+                onClick={saveAsProject}
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                <span className="hidden sm:inline">Speichern</span>
+              </Button>
+            )}
+
+            {/* Generate Button */}
+            {canGenerateManually && !generatedContent && (
+              <Button 
+                onClick={generateContent} 
+                disabled={isGenerating}
+                size="sm"
+                className="gap-2"
+              >
+                {isGenerating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Wand2 className="h-4 w-4" />
+                )}
+                <span className="hidden sm:inline">Generieren</span>
+              </Button>
+            )}
+          </div>
         </div>
 
         <StepIndicator steps={STEPS} currentStep={currentStep} />
@@ -457,7 +570,7 @@ const AIContentCreator = ({ session }: AIContentCreatorProps) => {
                   <div>
                     <p className="font-medium">Content wird generiert...</p>
                     <p className="text-sm text-muted-foreground">
-                      Erstelle SEO-optimierten Text basierend auf deinen Angaben
+                      Wende Tonalitäts-Mix an und optimiere für SEO
                     </p>
                   </div>
                 </div>
