@@ -203,10 +203,15 @@ function analyzeText(text: string): TextAnalysisResult {
     }
   });
   
-  // Calculate Flesch score
+  // Calculate Flesch score (German formula: 180 - ASL - (58.5 * ASW))
+  // Note: German Flesch can be negative for very complex texts
   const avgSentenceLength = words.length / Math.max(sentences.length, 1);
   const avgSyllablesPerWord = totalSyllables / Math.max(words.length, 1);
-  const fleschScore = Math.round(Math.max(0, Math.min(100, 180 - avgSentenceLength - (58.5 * avgSyllablesPerWord))));
+  
+  // Only calculate if we have actual content
+  const fleschScore = words.length > 0 
+    ? Math.round(180 - avgSentenceLength - (58.5 * avgSyllablesPerWord))
+    : 0;
   
   let fleschLevel: string;
   if (fleschScore >= 80) fleschLevel = 'Sehr leicht';
@@ -215,7 +220,8 @@ function analyzeText(text: string): TextAnalysisResult {
   else if (fleschScore >= 50) fleschLevel = 'Mittelschwer';
   else if (fleschScore >= 40) fleschLevel = 'Schwer';
   else if (fleschScore >= 30) fleschLevel = 'Sehr schwer';
-  else fleschLevel = 'Extrem schwer';
+  else if (fleschScore >= 0) fleschLevel = 'Extrem schwer';
+  else fleschLevel = 'Wissenschaftlich';
   
   return {
     fleschScore,
@@ -366,7 +372,8 @@ export const TextAnalysisEditor = ({ initialText = '' }: TextAnalysisEditorProps
   const getFleschColor = (score: number) => {
     if (score >= 60) return 'text-success';
     if (score >= 40) return 'text-warning';
-    return 'text-destructive';
+    if (score >= 0) return 'text-destructive';
+    return 'text-destructive'; // Negative scores
   };
   
   const totalIssues = 
