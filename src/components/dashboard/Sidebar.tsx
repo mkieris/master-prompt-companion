@@ -15,7 +15,8 @@ import {
   Settings,
   Building2,
   ChevronDown,
-  Bot
+  Bot,
+  GraduationCap
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -40,6 +41,7 @@ const navigation = [
   { name: "Projekte", href: "/dashboard/projects", icon: FolderOpen },
   { name: "Content Planner", href: "/dashboard/planner", icon: Calendar },
   { name: "Domain Learning", href: "/dashboard/domain", icon: Globe },
+  { name: "SEO-Schulung", href: "/dashboard/seo-training", icon: GraduationCap },
 ];
 
 const adminNavigation = [
