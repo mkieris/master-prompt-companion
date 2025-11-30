@@ -30,12 +30,22 @@ interface ExtractedData {
   secondaryKeywords?: string[];
   targetAudience?: string;
   audienceType?: string;
+  formOfAddress?: string;
+  language?: string;
   tonality?: string;
   companyInfo?: string;
   productInfo?: string;
+  productName?: string;
+  brandName?: string;
   usps?: string[];
   searchIntent?: string[];
   wQuestions?: string[];
+  wordCount?: string;
+  headingStructure?: string;
+  includeIntro?: boolean;
+  includeFAQ?: boolean;
+  keywordDensity?: string;
+  pageGoal?: string;
   [key: string]: any;
 }
 
@@ -96,9 +106,10 @@ const AIContentCreator = ({ session }: AIContentCreatorProps) => {
   };
 
   const startConversation = async () => {
+    const companyName = domainKnowledge?.company_name || currentOrg?.name;
     const welcomeMessage = domainKnowledge 
-      ? `Hallo! 👋 Ich bin dein KI-Assistent für SEO-Content. Ich habe bereits Wissen über **${domainKnowledge.company_name || currentOrg?.name}** geladen.\n\nIch werde dich interaktiv durch den Content-Erstellungsprozess führen.\n\n**Welche Art von Seite möchtest du erstellen?**\n\n• Produktseite\n• Kategorieseite\n• Ratgeber / Blog\n• Landingpage`
-      : `Hallo! 👋 Ich bin dein KI-Assistent für SEO-Content.\n\nIch werde dich interaktiv durch den Content-Erstellungsprozess führen.\n\n**Welche Art von Seite möchtest du erstellen?**\n\n• Produktseite\n• Kategorieseite\n• Ratgeber / Blog\n• Landingpage`;
+      ? `Hallo! 👋 Ich bin dein **KI-Content-Assistent** und führe dich durch die professionelle SEO-Content-Erstellung.\n\nIch habe bereits Wissen über **${companyName}** geladen und werde dieses nutzen, um personalisierte Vorschläge zu machen.\n\n**Was wir gemeinsam definieren werden:**\n• Seitentyp & Keywords\n• Zielgruppe & Ansprache\n• Tonalität & Textstruktur\n• USPs & Call-to-Actions\n\n**Welche Art von Seite möchtest du erstellen?**\n\n• Produktseite\n• Kategorieseite\n• Ratgeber / Blog\n• Landingpage`
+      : `Hallo! 👋 Ich bin dein **KI-Content-Assistent** und führe dich durch die professionelle SEO-Content-Erstellung.\n\n**Was wir gemeinsam definieren werden:**\n• Seitentyp & Keywords\n• Zielgruppe & Ansprache (Du/Sie, B2B/B2C)\n• Tonalität (Experten-Mix, Storytelling-Mix, etc.)\n• Textstruktur & Länge\n• USPs & Call-to-Actions\n\n**Welche Art von Seite möchtest du erstellen?**\n\n• Produktseite\n• Kategorieseite\n• Ratgeber / Blog\n• Landingpage`;
 
     addMessage("assistant", welcomeMessage, "pageType");
     setCurrentStep(1);
