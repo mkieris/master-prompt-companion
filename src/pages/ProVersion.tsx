@@ -410,7 +410,9 @@ const ProVersion = ({ session }: ProVersionProps) => {
                     onBack={() => setCurrentStep(4)}
                     onFinish={handleFinish}
                     onRegenerate={handleRegenerateWithImprovements}
+                    onRefine={handleRefineContent}
                     isRegenerating={isRegenerating}
+                    isRefining={isRefining}
                   />
                 )}
               </div>

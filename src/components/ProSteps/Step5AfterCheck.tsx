@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
 import { 
   CheckCircle2, 
   XCircle, 
@@ -23,7 +24,9 @@ import {
   Copy,
   Download,
   Check,
-  FileDown
+  FileDown,
+  Send,
+  MessageSquare
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
@@ -56,7 +59,9 @@ interface Step5Props {
   onBack: () => void;
   onFinish: () => void;
   onRegenerate: () => void;
+  onRefine?: (prompt: string) => Promise<void>;
   isRegenerating?: boolean;
+  isRefining?: boolean;
 }
 
 interface CheckResult {
@@ -442,11 +447,20 @@ export const Step5AfterCheck = ({
   onBack, 
   onFinish,
   onRegenerate,
-  isRegenerating 
+  onRefine,
+  isRegenerating,
+  isRefining 
 }: Step5Props) => {
   const [expandedCategories, setExpandedCategories] = useState<string[]>(['E-E-A-T', 'Keyword-Optimierung']);
   const [copied, setCopied] = useState(false);
+  const [refinementPrompt, setRefinementPrompt] = useState("");
   const { toast } = useToast();
+
+  const handleRefine = async () => {
+    if (!refinementPrompt.trim() || !onRefine) return;
+    await onRefine(refinementPrompt);
+    setRefinementPrompt("");
+  };
 
   const checks = useMemo(() => {
     if (!generatedContent) return [];
@@ -1088,6 +1102,51 @@ export const Step5AfterCheck = ({
         </div>
       </ScrollArea>
 
+      {/* Text Refinement Section */}
+      {onRefine && (
+        <Card className="border-dashed border-2 border-primary/30 bg-primary/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-primary" />
+              Text mit Prompt überarbeiten
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Textarea
+              placeholder="Beschreibe, wie der Text überarbeitet werden soll...
+
+Beispiele:
+• Mache den Text emotionaler und füge mehr Storytelling hinzu
+• Kürze den Text auf die Kernaussagen
+• Füge mehr konkrete Zahlen und Studienergebnisse hinzu
+• Verbessere die E-E-A-T Signale
+• Schreibe den Intro-Absatz komplett neu"
+              value={refinementPrompt}
+              onChange={(e) => setRefinementPrompt(e.target.value)}
+              className="min-h-[100px] resize-none"
+              disabled={isRefining}
+            />
+            <Button 
+              onClick={handleRefine} 
+              disabled={!refinementPrompt.trim() || isRefining}
+              className="w-full"
+            >
+              {isRefining ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Überarbeite Text...
+                </>
+              ) : (
+                <>
+                  <Send className="mr-2 h-4 w-4" />
+                  Text überarbeiten
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Actions */}
       <div className="flex flex-col gap-4 pt-4 border-t">
         {/* Export Actions */}
@@ -1124,7 +1183,7 @@ export const Step5AfterCheck = ({
             <Button 
               variant="secondary" 
               onClick={onRegenerate}
-              disabled={isRegenerating}
+              disabled={isRegenerating || isRefining}
             >
               {isRegenerating ? (
                 <>
@@ -1138,7 +1197,7 @@ export const Step5AfterCheck = ({
                 </>
               )}
             </Button>
-            <Button onClick={onFinish}>
+            <Button onClick={onFinish} disabled={isRefining}>
               Abschließen
             </Button>
           </div>
