@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 import { 
   LayoutDashboard, 
   Search, 
@@ -13,7 +14,8 @@ import {
   Users,
   Settings,
   Building2,
-  ChevronDown
+  ChevronDown,
+  Bot
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -32,6 +34,7 @@ interface SidebarProps {
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "SEO-Check", href: "/seo-check", icon: Search },
+  { name: "KI Content Creator", href: "/dashboard/ai-content", icon: Bot, isNew: true },
   { name: "Content Basic", href: "/basic", icon: FileText },
   { name: "Content Pro", href: "/pro", icon: Sparkles },
   { name: "Projekte", href: "/dashboard/projects", icon: FolderOpen },
@@ -100,6 +103,11 @@ export function Sidebar({ currentOrg, organizations, onSwitchOrg, userRole }: Si
                 >
                   <item.icon className="h-4 w-4" />
                   {item.name}
+                  {(item as any).isNew && (
+                    <Badge variant="default" className="ml-auto text-[10px] px-1.5 py-0 h-5 bg-gradient-to-r from-primary to-accent">
+                      NEU
+                    </Badge>
+                  )}
                 </Button>
               </Link>
             );

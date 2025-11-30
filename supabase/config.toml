@@ -11,3 +11,6 @@ verify_jwt = true
 
 [functions.crawl-domain]
 verify_jwt = true
+
+[functions.ai-content-chat]
+verify_jwt = false

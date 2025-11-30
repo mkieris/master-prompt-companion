@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { 
@@ -16,7 +17,8 @@ import {
   Target,
   Users,
   Sparkles,
-  RefreshCw
+  RefreshCw,
+  AlertTriangle
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { useOrganization } from "@/hooks/useOrganization";
@@ -220,6 +222,19 @@ const DomainLearning = ({ session }: DomainLearningProps) => {
           Lass die KI dein Unternehmen verstehen, um bessere Inhalte zu generieren
         </p>
       </div>
+
+      {/* Firecrawl Credits Warning */}
+      <Alert variant="default" className="border-amber-500/50 bg-amber-500/10">
+        <AlertTriangle className="h-4 w-4 text-amber-500" />
+        <AlertTitle className="text-amber-600 dark:text-amber-400">Hinweis: Firecrawl-Guthaben begrenzt</AlertTitle>
+        <AlertDescription className="text-amber-600/80 dark:text-amber-400/80">
+          Das Domain-Crawling verwendet Firecrawl-Credits. Bei erschöpftem Guthaben kann das Crawling fehlschlagen. 
+          Für mehr Credits besuche{" "}
+          <a href="https://firecrawl.dev/pricing" target="_blank" rel="noopener noreferrer" className="underline font-medium">
+            firecrawl.dev/pricing
+          </a>
+        </AlertDescription>
+      </Alert>
 
       {/* Crawl Input */}
       <Card>

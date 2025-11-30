@@ -17,6 +17,7 @@ import Onboarding from "./pages/Onboarding";
 import DomainLearning from "./pages/DomainLearning";
 import Projects from "./pages/Projects";
 import ContentPlanner from "./pages/ContentPlanner";
+import AIContentCreator from "./pages/AIContentCreator";
 
 const queryClient = new QueryClient();
 
@@ -56,6 +57,7 @@ const App = () => {
               <Route path="domain" element={<DomainLearning session={session} />} />
               <Route path="projects" element={<Projects session={session} />} />
               <Route path="planner" element={<ContentPlanner session={session} />} />
+              <Route path="ai-content" element={<AIContentCreator session={session} />} />
             </Route>
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
