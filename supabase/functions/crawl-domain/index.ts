@@ -31,7 +31,11 @@ serve(async (req) => {
 
     console.log('Starting domain crawl for:', url);
 
-    // Start the crawl with Firecrawl
+    // Parse the URL to get the base path for focused crawling
+    const parsedUrl = new URL(url);
+    const basePath = parsedUrl.pathname !== '/' ? parsedUrl.pathname : undefined;
+
+    // Start the crawl with Firecrawl - like Screaming Frog, crawl all subpages
     const crawlResponse = await fetch('https://api.firecrawl.dev/v1/crawl', {
       method: 'POST',
       headers: {
@@ -40,9 +44,12 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         url,
-        limit: 30,
+        limit: 50, // Crawl up to 50 pages like Screaming Frog
+        maxDepth: 5, // Allow deeper crawling for comprehensive coverage
+        includePaths: basePath ? [`${basePath}*`] : undefined, // If subpage URL, only crawl that path and children
         scrapeOptions: {
           formats: ['markdown'],
+          onlyMainContent: true, // Focus on main content, ignore navigation/footer
         }
       }),
     });
