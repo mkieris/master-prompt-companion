@@ -92,7 +92,7 @@ Von 100 Sätzen im Text müssen sein:
   }
 };
 
-const buildSystemPrompt = (extractedData: any, domainKnowledge: any) => {
+const buildSystemPrompt = (extractedData: any, domainKnowledge: any, competitorInsights: any) => {
   const addressForm = extractedData.formOfAddress === 'du' 
     ? 'Verwende die Du-Anrede (du, dich, dein) - locker, modern, direkt'
     : 'Verwende die Sie-Anrede (Sie, Ihnen, Ihr) - formell, professionell, respektvoll';
@@ -123,6 +123,45 @@ const buildSystemPrompt = (extractedData: any, domainKnowledge: any) => {
       default: return '';
     }
   }).filter(Boolean).join('\n');
+
+  // Build competitor insights section
+  let competitorSection = '';
+  if (competitorInsights && (competitorInsights.topKeywords?.length > 0 || competitorInsights.bestPractices?.length > 0)) {
+    competitorSection = `
+═══════════════════════════════════════════════════════════════════════
+                     WETTBEWERBER-ANALYSE INSIGHTS
+═══════════════════════════════════════════════════════════════════════
+
+Diese Erkenntnisse stammen aus der Analyse von ${competitorInsights.competitorCount || 'mehreren'} Wettbewerbern.
+NUTZE diese Insights, um BESSEREN Content als die Konkurrenz zu erstellen!
+
+${competitorInsights.topKeywords?.length > 0 ? `
+WICHTIGE KEYWORDS DER KONKURRENZ (integriere wo sinnvoll):
+${competitorInsights.topKeywords.slice(0, 10).map((kw: string) => `• ${kw}`).join('\n')}
+` : ''}
+
+${competitorInsights.avgWordCount ? `
+Ø TEXTLÄNGE DER KONKURRENZ: ${competitorInsights.avgWordCount} Wörter
+→ Erstelle mindestens gleichwertig umfangreichen Content!
+` : ''}
+
+${competitorInsights.uspPatterns?.length > 0 ? `
+USP-MUSTER DER KONKURRENZ (differenziere dich davon):
+${competitorInsights.uspPatterns.slice(0, 5).map((usp: string) => `• ${usp}`).join('\n')}
+→ Finde EIGENE, BESSERE Argumente!
+` : ''}
+
+${competitorInsights.bestPractices?.length > 0 ? `
+BEST PRACTICES ZUM ÜBERNEHMEN:
+${competitorInsights.bestPractices.slice(0, 5).map((bp: string) => `✓ ${bp}`).join('\n')}
+` : ''}
+
+${competitorInsights.contentStrategies?.length > 0 ? `
+CONTENT-STRATEGIEN DER KONKURRENZ:
+${competitorInsights.contentStrategies.slice(0, 3).map((cs: string) => `• ${cs}`).join('\n')}
+` : ''}
+`;
+  }
 
   return `Du bist ein ELITE SEO-Content-Stratege mit 15+ Jahren Erfahrung. Du erstellst Content, der auf Seite 1 rankt.
 
@@ -196,6 +235,8 @@ BRAND VOICE: ${domainKnowledge.brandVoice || 'Neutral'}
 → Integriere dieses Wissen NATÜRLICH in den Text!
 ` : ''}
 
+${competitorSection}
+
 ═══════════════════════════════════════════════════════════════════════
                           SEO-QUALITÄTSREGELN
 ═══════════════════════════════════════════════════════════════════════
@@ -245,7 +286,7 @@ serve(async (req) => {
   }
 
   try {
-    const { extractedData, domainKnowledge } = await req.json();
+    const { extractedData, domainKnowledge, competitorInsights } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -258,8 +299,9 @@ serve(async (req) => {
     console.log('FocusKeyword:', extractedData.focusKeyword);
     console.log('WordCount:', extractedData.wordCount);
     console.log('Audience:', extractedData.audienceType);
+    console.log('Has competitor insights:', !!competitorInsights);
 
-    const systemPrompt = buildSystemPrompt(extractedData, domainKnowledge);
+    const systemPrompt = buildSystemPrompt(extractedData, domainKnowledge, competitorInsights || null);
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
