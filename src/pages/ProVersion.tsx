@@ -9,11 +9,12 @@ import { Step3TextStructure } from "@/components/ProSteps/Step3TextStructure";
 import { Step4Preview } from "@/components/ProSteps/Step4Preview";
 import { Step5AfterCheck } from "@/components/ProSteps/Step5AfterCheck";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, PanelLeftClose, PanelLeft } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 
 export type PageType = 'product' | 'category' | 'guide';
@@ -75,6 +76,7 @@ const ProVersion = ({ session }: ProVersionProps) => {
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
+  const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
   
   const [formData, setFormData] = useState<FormData>({
     pageType: 'product',
@@ -353,113 +355,160 @@ const ProVersion = ({ session }: ProVersionProps) => {
 
       {/* Main Content */}
       <main className="flex-1 container mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-220px)]">
-          {/* Form Panel */}
-          <Card className="overflow-hidden flex flex-col">
-            <ScrollArea className="flex-1">
-              <div className="p-6">
-                {currentStep === 1 && (
-                  <Step1InfoGathering
-                    data={{
-                      pageType: formData.pageType,
-                      brandName: formData.brandName,
-                      websiteUrl: formData.websiteUrl,
-                      mainTopic: formData.mainTopic,
-                      referenceUrls: formData.referenceUrls,
-                      additionalInfo: formData.additionalInfo,
-                      briefingFiles: formData.briefingFiles,
-                      competitorUrls: formData.competitorUrls,
-                      competitorData: formData.competitorData,
-                    }}
-                    onUpdate={updateFormData}
-                    onNext={() => setCurrentStep(2)}
-                  />
-                )}
+        <div className="flex gap-6 h-[calc(100vh-220px)]">
+          {/* Collapse Toggle Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
+            className="absolute left-4 top-1/2 z-10 h-8 w-8 rounded-full bg-background border shadow-sm hover:bg-muted lg:hidden"
+          >
+            {isPanelCollapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          </Button>
 
-                {currentStep === 2 && (
-                  <Step2TargetAudience
-                    data={{
-                      targetAudience: formData.targetAudience,
-                      formOfAddress: formData.formOfAddress,
-                      language: formData.language,
-                      tonality: formData.tonality,
-                    }}
-                    onUpdate={updateFormData}
-                    onNext={() => setCurrentStep(3)}
-                    onBack={() => setCurrentStep(1)}
-                  />
-                )}
+          {/* Form Panel - Collapsible */}
+          <Card 
+            className={`overflow-hidden flex flex-col transition-all duration-300 ease-in-out ${
+              isPanelCollapsed 
+                ? 'w-0 min-w-0 opacity-0 p-0 border-0' 
+                : 'w-full lg:w-1/2 lg:min-w-[400px] lg:max-w-[600px]'
+            }`}
+          >
+            {!isPanelCollapsed && (
+              <>
+                <div className="flex items-center justify-between p-3 border-b">
+                  <span className="text-sm font-medium text-muted-foreground">Formular</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsPanelCollapsed(true)}
+                    className="h-8 px-2"
+                  >
+                    <PanelLeftClose className="h-4 w-4 mr-2" />
+                    Einklappen
+                  </Button>
+                </div>
+                <ScrollArea className="flex-1">
+                  <div className="p-6">
+                    {currentStep === 1 && (
+                      <Step1InfoGathering
+                        data={{
+                          pageType: formData.pageType,
+                          brandName: formData.brandName,
+                          websiteUrl: formData.websiteUrl,
+                          mainTopic: formData.mainTopic,
+                          referenceUrls: formData.referenceUrls,
+                          additionalInfo: formData.additionalInfo,
+                          briefingFiles: formData.briefingFiles,
+                          competitorUrls: formData.competitorUrls,
+                          competitorData: formData.competitorData,
+                        }}
+                        onUpdate={updateFormData}
+                        onNext={() => setCurrentStep(2)}
+                      />
+                    )}
 
-                {currentStep === 3 && (
-                  <Step3TextStructure
-                    data={{
-                      focusKeyword: formData.focusKeyword,
-                      secondaryKeywords: formData.secondaryKeywords,
-                      searchIntent: formData.searchIntent,
-                      keywordDensity: formData.keywordDensity,
-                      wQuestions: formData.wQuestions,
-                      contentStructure: formData.contentStructure,
-                      contentLayout: formData.contentLayout,
-                      imageTextBlocks: formData.imageTextBlocks,
-                      includeTabs: formData.includeTabs,
-                      wordCount: formData.wordCount,
-                      headingStructure: formData.headingStructure,
-                      includeIntro: formData.includeIntro,
-                      includeFAQ: formData.includeFAQ,
-                      pageGoal: formData.pageGoal,
-                      complianceChecks: formData.complianceChecks,
-                    }}
-                    onUpdate={updateFormData}
-                    onNext={handleGenerateContent}
-                    onBack={() => setCurrentStep(2)}
-                  />
-                )}
+                    {currentStep === 2 && (
+                      <Step2TargetAudience
+                        data={{
+                          targetAudience: formData.targetAudience,
+                          formOfAddress: formData.formOfAddress,
+                          language: formData.language,
+                          tonality: formData.tonality,
+                        }}
+                        onUpdate={updateFormData}
+                        onNext={() => setCurrentStep(3)}
+                        onBack={() => setCurrentStep(1)}
+                      />
+                    )}
 
-                {currentStep === 4 && (
-                  <Step4Preview
-                    generatedContent={generatedContent}
-                    onRefine={handleRefineContent}
-                    onQuickChange={handleQuickChange}
-                    onBack={() => setCurrentStep(3)}
-                    onNext={() => setCurrentStep(5)}
-                    isRefining={isRefining}
-                    currentFormData={{
-                      tonality: formData.tonality,
-                      formOfAddress: formData.formOfAddress,
-                      wordCount: formData.wordCount,
-                      includeFAQ: formData.includeFAQ,
-                      targetAudience: formData.targetAudience,
-                    }}
-                  />
-                )}
+                    {currentStep === 3 && (
+                      <Step3TextStructure
+                        data={{
+                          focusKeyword: formData.focusKeyword,
+                          secondaryKeywords: formData.secondaryKeywords,
+                          searchIntent: formData.searchIntent,
+                          keywordDensity: formData.keywordDensity,
+                          wQuestions: formData.wQuestions,
+                          contentStructure: formData.contentStructure,
+                          contentLayout: formData.contentLayout,
+                          imageTextBlocks: formData.imageTextBlocks,
+                          includeTabs: formData.includeTabs,
+                          wordCount: formData.wordCount,
+                          headingStructure: formData.headingStructure,
+                          includeIntro: formData.includeIntro,
+                          includeFAQ: formData.includeFAQ,
+                          pageGoal: formData.pageGoal,
+                          complianceChecks: formData.complianceChecks,
+                        }}
+                        onUpdate={updateFormData}
+                        onNext={handleGenerateContent}
+                        onBack={() => setCurrentStep(2)}
+                      />
+                    )}
 
-                {currentStep === 5 && (
-                  <Step5AfterCheck
-                    generatedContent={generatedContent}
-                    formData={{
-                      focusKeyword: formData.focusKeyword,
-                      secondaryKeywords: formData.secondaryKeywords,
-                      pageType: formData.pageType,
-                      targetAudience: formData.targetAudience,
-                      wordCount: formData.wordCount,
-                    }}
-                    onBack={() => setCurrentStep(4)}
-                    onFinish={handleFinish}
-                    onRegenerate={handleRegenerateWithImprovements}
-                    onRefine={handleSectionRefine}
-                    isRegenerating={isRegenerating}
-                    isRefining={isRefining}
-                  />
-                )}
-              </div>
-            </ScrollArea>
+                    {currentStep === 4 && (
+                      <Step4Preview
+                        generatedContent={generatedContent}
+                        onRefine={handleRefineContent}
+                        onQuickChange={handleQuickChange}
+                        onBack={() => setCurrentStep(3)}
+                        onNext={() => setCurrentStep(5)}
+                        isRefining={isRefining}
+                        currentFormData={{
+                          tonality: formData.tonality,
+                          formOfAddress: formData.formOfAddress,
+                          wordCount: formData.wordCount,
+                          includeFAQ: formData.includeFAQ,
+                          targetAudience: formData.targetAudience,
+                        }}
+                      />
+                    )}
+
+                    {currentStep === 5 && (
+                      <Step5AfterCheck
+                        generatedContent={generatedContent}
+                        formData={{
+                          focusKeyword: formData.focusKeyword,
+                          secondaryKeywords: formData.secondaryKeywords,
+                          pageType: formData.pageType,
+                          targetAudience: formData.targetAudience,
+                          wordCount: formData.wordCount,
+                        }}
+                        onBack={() => setCurrentStep(4)}
+                        onFinish={handleFinish}
+                        onRegenerate={handleRegenerateWithImprovements}
+                        onRefine={handleSectionRefine}
+                        isRegenerating={isRegenerating}
+                        isRefining={isRefining}
+                      />
+                    )}
+                  </div>
+                </ScrollArea>
+              </>
+            )}
           </Card>
 
-          {/* Output Panel */}
-          <div className="h-full">
+          {/* Output Panel - Expands when form is collapsed */}
+          <div className={`h-full transition-all duration-300 ease-in-out ${
+            isPanelCollapsed ? 'flex-1' : 'flex-1 lg:flex-1'
+          }`}>
+            {/* Show expand button when collapsed */}
+            {isPanelCollapsed && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsPanelCollapsed(false)}
+                className="absolute left-4 top-4 z-10"
+              >
+                <PanelLeft className="h-4 w-4 mr-2" />
+                Formular anzeigen
+              </Button>
+            )}
             <OutputPanel 
               content={generatedContent} 
-              isLoading={isGenerating} 
+              isLoading={isGenerating}
+              onContentUpdate={setGeneratedContent}
             />
           </div>
         </div>

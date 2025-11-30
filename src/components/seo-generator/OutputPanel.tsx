@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Copy, 
@@ -16,7 +17,10 @@ import {
   Shield,
   Loader2,
   FileDown,
-  Code
+  Code,
+  Pencil,
+  Save,
+  X
 } from "lucide-react";
 
 export interface GeneratedContent {
@@ -49,11 +53,47 @@ export interface GeneratedContent {
 interface OutputPanelProps {
   content: GeneratedContent | null;
   isLoading?: boolean;
+  onContentUpdate?: (content: GeneratedContent) => void;
 }
 
-export const OutputPanel = ({ content, isLoading }: OutputPanelProps) => {
+export const OutputPanel = ({ content, isLoading, onContentUpdate }: OutputPanelProps) => {
   const { toast } = useToast();
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedText, setEditedText] = useState("");
+  const [editedTitle, setEditedTitle] = useState("");
+  const [editedMetaDescription, setEditedMetaDescription] = useState("");
+
+  const startEditing = () => {
+    if (!content) return;
+    // Convert HTML to plain text for editing, preserving structure
+    setEditedText(content.seoText || "");
+    setEditedTitle(content.title || "");
+    setEditedMetaDescription(content.metaDescription || "");
+    setIsEditing(true);
+  };
+
+  const saveEdits = () => {
+    if (!content || !onContentUpdate) return;
+    onContentUpdate({
+      ...content,
+      seoText: editedText,
+      title: editedTitle,
+      metaDescription: editedMetaDescription,
+    });
+    setIsEditing(false);
+    toast({
+      title: "Gespeichert",
+      description: "Ihre Änderungen wurden übernommen.",
+    });
+  };
+
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setEditedText("");
+    setEditedTitle("");
+    setEditedMetaDescription("");
+  };
 
   const copyToClipboard = async (text: string, section: string) => {
     try {
@@ -187,10 +227,31 @@ export const OutputPanel = ({ content, isLoading }: OutputPanelProps) => {
             Generierter Content
           </CardTitle>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={exportAsHtml}>
-              <FileDown className="h-4 w-4 mr-2" />
-              HTML
-            </Button>
+            {isEditing ? (
+              <>
+                <Button variant="outline" size="sm" onClick={cancelEditing}>
+                  <X className="h-4 w-4 mr-2" />
+                  Abbrechen
+                </Button>
+                <Button size="sm" onClick={saveEdits}>
+                  <Save className="h-4 w-4 mr-2" />
+                  Speichern
+                </Button>
+              </>
+            ) : (
+              <>
+                {onContentUpdate && (
+                  <Button variant="outline" size="sm" onClick={startEditing}>
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Bearbeiten
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" onClick={exportAsHtml}>
+                  <FileDown className="h-4 w-4 mr-2" />
+                  HTML
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -221,13 +282,31 @@ export const OutputPanel = ({ content, isLoading }: OutputPanelProps) => {
 
         <ScrollArea className="flex-1 p-4">
           <TabsContent value="text" className="mt-0 space-y-4">
-            <div className="flex justify-end">
-              <CopyButton text={stripHtml(content.seoText)} section="SEO-Text" />
-            </div>
-            <div 
-              className="prose prose-sm max-w-none dark:prose-invert"
-              dangerouslySetInnerHTML={{ __html: content.seoText || '' }} 
-            />
+            {isEditing ? (
+              <div className="space-y-4">
+                <div className="bg-muted/30 p-3 rounded-lg border border-dashed border-primary/30">
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Bearbeiten Sie den HTML-Text direkt. Überschriften nutzen &lt;h2&gt;, Absätze &lt;p&gt;, Listen &lt;ul&gt;&lt;li&gt;
+                  </p>
+                </div>
+                <Textarea
+                  value={editedText}
+                  onChange={(e) => setEditedText(e.target.value)}
+                  className="min-h-[500px] font-mono text-sm"
+                  placeholder="SEO-Text hier bearbeiten..."
+                />
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-end">
+                  <CopyButton text={stripHtml(content.seoText)} section="SEO-Text" />
+                </div>
+                <div 
+                  className="prose prose-sm max-w-none dark:prose-invert"
+                  dangerouslySetInnerHTML={{ __html: content.seoText || '' }} 
+                />
+              </>
+            )}
           </TabsContent>
 
           <TabsContent value="faq" className="mt-0 space-y-4">
@@ -252,24 +331,42 @@ export const OutputPanel = ({ content, isLoading }: OutputPanelProps) => {
             <Card className="p-4">
               <div className="flex items-start justify-between mb-2">
                 <h4 className="font-semibold text-foreground">Title Tag</h4>
-                <CopyButton text={content.title || ''} section="Title" />
+                {!isEditing && <CopyButton text={content.title || ''} section="Title" />}
               </div>
-              <p className="text-sm text-foreground bg-muted p-2 rounded">{content.title}</p>
+              {isEditing ? (
+                <Textarea
+                  value={editedTitle}
+                  onChange={(e) => setEditedTitle(e.target.value)}
+                  className="text-sm"
+                  rows={2}
+                />
+              ) : (
+                <p className="text-sm text-foreground bg-muted p-2 rounded">{content.title}</p>
+              )}
               <p className="text-xs text-muted-foreground mt-2">
-                {content.title?.length || 0}/60 Zeichen 
-                {(content.title?.length || 0) > 60 && <Badge variant="destructive" className="ml-2 text-xs">Zu lang</Badge>}
+                {(isEditing ? editedTitle : content.title)?.length || 0}/60 Zeichen 
+                {((isEditing ? editedTitle : content.title)?.length || 0) > 60 && <Badge variant="destructive" className="ml-2 text-xs">Zu lang</Badge>}
               </p>
             </Card>
             
             <Card className="p-4">
               <div className="flex items-start justify-between mb-2">
                 <h4 className="font-semibold text-foreground">Meta Description</h4>
-                <CopyButton text={content.metaDescription || ''} section="Meta Description" />
+                {!isEditing && <CopyButton text={content.metaDescription || ''} section="Meta Description" />}
               </div>
-              <p className="text-sm text-foreground bg-muted p-2 rounded">{content.metaDescription}</p>
+              {isEditing ? (
+                <Textarea
+                  value={editedMetaDescription}
+                  onChange={(e) => setEditedMetaDescription(e.target.value)}
+                  className="text-sm"
+                  rows={3}
+                />
+              ) : (
+                <p className="text-sm text-foreground bg-muted p-2 rounded">{content.metaDescription}</p>
+              )}
               <p className="text-xs text-muted-foreground mt-2">
-                {content.metaDescription?.length || 0}/155 Zeichen
-                {(content.metaDescription?.length || 0) > 155 && <Badge variant="destructive" className="ml-2 text-xs">Zu lang</Badge>}
+                {(isEditing ? editedMetaDescription : content.metaDescription)?.length || 0}/155 Zeichen
+                {((isEditing ? editedMetaDescription : content.metaDescription)?.length || 0) > 155 && <Badge variant="destructive" className="ml-2 text-xs">Zu lang</Badge>}
               </p>
             </Card>
 
