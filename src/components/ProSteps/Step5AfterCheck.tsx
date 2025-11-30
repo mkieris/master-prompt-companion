@@ -19,9 +19,13 @@ import {
   Search,
   Zap,
   Award,
-  Loader2
+  Loader2,
+  Copy,
+  Download,
+  Check
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useToast } from "@/hooks/use-toast";
 
 interface GeneratedContent {
   seoText: string;
@@ -438,6 +442,8 @@ export const Step5AfterCheck = ({
   isRegenerating 
 }: Step5Props) => {
   const [expandedCategories, setExpandedCategories] = useState<string[]>(['E-E-A-T', 'Keyword-Optimierung']);
+  const [copied, setCopied] = useState(false);
+  const { toast } = useToast();
 
   const checks = useMemo(() => {
     if (!generatedContent) return [];
@@ -462,6 +468,231 @@ export const Step5AfterCheck = ({
     const score = Math.round(((passed + (warnings * 0.5) + (info * 0.7)) / total) * 100);
     return { passed, warnings, failed, info, total, score };
   }, [checks]);
+
+  // Convert HTML to plain text
+  const htmlToPlainText = (html: string): string => {
+    const temp = document.createElement('div');
+    temp.innerHTML = html;
+    return temp.textContent || temp.innerText || '';
+  };
+
+  // Generate copy content
+  const generateCopyContent = (): string => {
+    if (!generatedContent) return '';
+    
+    let content = '';
+    
+    // Title & Meta
+    content += `TITLE:\n${generatedContent.title || ''}\n\n`;
+    content += `META DESCRIPTION:\n${generatedContent.metaDescription || ''}\n\n`;
+    
+    // Main SEO Text
+    content += `SEO-TEXT:\n${htmlToPlainText(generatedContent.seoText || '')}\n\n`;
+    
+    // FAQ
+    if (generatedContent.faq && generatedContent.faq.length > 0) {
+      content += `FAQ:\n`;
+      generatedContent.faq.forEach((item: any, i: number) => {
+        if (item?.question && item?.answer) {
+          content += `${i + 1}. ${item.question}\n${item.answer}\n\n`;
+        }
+      });
+    }
+    
+    // Internal Links
+    if (generatedContent.internalLinks && generatedContent.internalLinks.length > 0) {
+      content += `\nINTERNE LINKS:\n`;
+      generatedContent.internalLinks.forEach((link: any) => {
+        if (link?.anchorText && link?.url) {
+          content += `- ${link.anchorText}: ${link.url}\n`;
+        }
+      });
+    }
+    
+    // Technical Hints
+    if (generatedContent.technicalHints) {
+      content += `\nTECHNISCHE HINWEISE:\n`;
+      content += typeof generatedContent.technicalHints === 'string' 
+        ? generatedContent.technicalHints 
+        : JSON.stringify(generatedContent.technicalHints, null, 2);
+    }
+    
+    return content;
+  };
+
+  // Copy to clipboard
+  const handleCopy = async () => {
+    const content = generateCopyContent();
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopied(true);
+      toast({
+        title: "Kopiert!",
+        description: "Der SEO-Content wurde in die Zwischenablage kopiert.",
+      });
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      toast({
+        title: "Fehler",
+        description: "Konnte nicht in die Zwischenablage kopieren.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Export as PDF
+  const handleExportPDF = () => {
+    if (!generatedContent) return;
+    
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast({
+        title: "Popup blockiert",
+        description: "Bitte erlauben Sie Popups für den PDF-Export.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const faqHtml = generatedContent.faq && Array.isArray(generatedContent.faq)
+      ? generatedContent.faq.map((item: any, i: number) => 
+          item?.question && item?.answer 
+            ? `<div style="margin-bottom: 16px;"><strong>${i + 1}. ${item.question}</strong><p style="margin: 8px 0 0 0; color: #555;">${item.answer}</p></div>` 
+            : ''
+        ).join('')
+      : '';
+
+    const linksHtml = generatedContent.internalLinks && Array.isArray(generatedContent.internalLinks)
+      ? generatedContent.internalLinks.map((link: any) => 
+          link?.anchorText && link?.url 
+            ? `<li><strong>${link.anchorText}</strong>: ${link.url}</li>` 
+            : ''
+        ).join('')
+      : '';
+
+    const technicalHints = typeof generatedContent.technicalHints === 'string'
+      ? generatedContent.technicalHints
+      : JSON.stringify(generatedContent.technicalHints, null, 2);
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>SEO Content Export - ${formData.focusKeyword}</title>
+        <style>
+          * { box-sizing: border-box; }
+          body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 40px 20px;
+            line-height: 1.6;
+            color: #333;
+          }
+          h1 { color: #1a1a2e; border-bottom: 3px solid #4f46e5; padding-bottom: 10px; }
+          h2 { color: #4f46e5; margin-top: 32px; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px; }
+          h3 { color: #374151; }
+          .meta-box { 
+            background: #f3f4f6; 
+            padding: 20px; 
+            border-radius: 8px; 
+            margin: 20px 0;
+            border-left: 4px solid #4f46e5;
+          }
+          .meta-label { font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+          .meta-value { font-size: 16px; margin-top: 4px; }
+          .seo-text { background: #fafafa; padding: 24px; border-radius: 8px; margin: 20px 0; }
+          .score-badge { 
+            display: inline-block;
+            background: #10b981; 
+            color: white; 
+            padding: 4px 12px; 
+            border-radius: 20px; 
+            font-weight: bold;
+            font-size: 14px;
+          }
+          .header-info { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            margin-bottom: 24px;
+          }
+          ul { padding-left: 20px; }
+          li { margin-bottom: 8px; }
+          .footer { 
+            margin-top: 40px; 
+            padding-top: 20px; 
+            border-top: 1px solid #e5e7eb; 
+            font-size: 12px; 
+            color: #9ca3af;
+            text-align: center;
+          }
+          @media print {
+            body { padding: 20px; }
+            .no-print { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header-info">
+          <h1>SEO Content Export</h1>
+          <span class="score-badge">Score: ${stats.score}%</span>
+        </div>
+        
+        <p><strong>Fokus-Keyword:</strong> ${formData.focusKeyword}</p>
+        <p><strong>Seitentyp:</strong> ${formData.pageType === 'product' ? 'Produktseite' : formData.pageType === 'category' ? 'Kategorieseite' : 'Ratgeber/Blog'}</p>
+        <p><strong>Exportiert am:</strong> ${new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+        
+        <h2>📝 Title & Meta Description</h2>
+        <div class="meta-box">
+          <div class="meta-label">Title Tag (${(generatedContent.title || '').length} Zeichen)</div>
+          <div class="meta-value">${generatedContent.title || ''}</div>
+        </div>
+        <div class="meta-box">
+          <div class="meta-label">Meta Description (${(generatedContent.metaDescription || '').length} Zeichen)</div>
+          <div class="meta-value">${generatedContent.metaDescription || ''}</div>
+        </div>
+        
+        <h2>📄 SEO-Text</h2>
+        <div class="seo-text">
+          ${generatedContent.seoText || ''}
+        </div>
+        
+        ${faqHtml ? `
+        <h2>❓ FAQ</h2>
+        ${faqHtml}
+        ` : ''}
+        
+        ${linksHtml ? `
+        <h2>🔗 Interne Verlinkung</h2>
+        <ul>${linksHtml}</ul>
+        ` : ''}
+        
+        ${technicalHints ? `
+        <h2>⚙️ Technische Hinweise</h2>
+        <pre style="background: #f3f4f6; padding: 16px; border-radius: 8px; white-space: pre-wrap; font-size: 13px;">${technicalHints}</pre>
+        ` : ''}
+        
+        <div class="footer">
+          Erstellt mit SEO Content Generator Pro
+        </div>
+        
+        <script>
+          window.onload = function() { window.print(); }
+        </script>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    
+    toast({
+      title: "PDF-Export",
+      description: "Das Druckfenster wurde geöffnet. Wählen Sie 'Als PDF speichern'.",
+    });
+  };
 
   const toggleCategory = (category: string) => {
     setExpandedCategories(prev => 
@@ -632,31 +863,55 @@ export const Step5AfterCheck = ({
       </ScrollArea>
 
       {/* Actions */}
-      <div className="flex justify-between pt-4 border-t">
-        <Button variant="outline" onClick={onBack}>
-          Zurück zum Text
-        </Button>
-        <div className="flex gap-2">
-          <Button 
-            variant="secondary" 
-            onClick={onRegenerate}
-            disabled={isRegenerating}
-          >
-            {isRegenerating ? (
+      <div className="flex flex-col gap-4 pt-4 border-t">
+        {/* Export Actions */}
+        <div className="flex gap-2 justify-center">
+          <Button variant="outline" onClick={handleCopy} className="flex-1 max-w-[200px]">
+            {copied ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Regeneriere...
+                <Check className="mr-2 h-4 w-4 text-green-500" />
+                Kopiert!
               </>
             ) : (
               <>
-                <Sparkles className="mr-2 h-4 w-4" />
-                Mit Verbesserungen regenerieren
+                <Copy className="mr-2 h-4 w-4" />
+                Text kopieren
               </>
             )}
           </Button>
-          <Button onClick={onFinish}>
-            Abschließen
+          <Button variant="outline" onClick={handleExportPDF} className="flex-1 max-w-[200px]">
+            <Download className="mr-2 h-4 w-4" />
+            Als PDF exportieren
           </Button>
+        </div>
+        
+        {/* Navigation Actions */}
+        <div className="flex justify-between">
+          <Button variant="outline" onClick={onBack}>
+            Zurück zum Text
+          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="secondary" 
+              onClick={onRegenerate}
+              disabled={isRegenerating}
+            >
+              {isRegenerating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Regeneriere...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Mit Verbesserungen regenerieren
+                </>
+              )}
+            </Button>
+            <Button onClick={onFinish}>
+              Abschließen
+            </Button>
+          </div>
         </div>
       </div>
     </div>
