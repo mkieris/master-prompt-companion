@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
 import Index from "./pages/Index";
+import BasicVersion from "./pages/BasicVersion";
 import ProVersion from "./pages/ProVersion";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -41,6 +42,7 @@ const App = () => {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index session={session} />} />
+            <Route path="/basic" element={<BasicVersion session={session} />} />
             <Route path="/pro" element={<ProVersion session={session} />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/seo-check" element={<SEOCheck session={session} />} />
