@@ -332,11 +332,74 @@ Antworte NUR mit validem JSON.` }
       };
     }
 
-    // Validate content quality
+    // Validate and enhance content quality
     const wordCount = generatedContent.mainContent?.split(/\s+/).length || 0;
     console.log('Generated content word count:', wordCount);
 
-    return new Response(JSON.stringify(generatedContent), {
+    // Post-generation quality checks
+    const qualityIssues: string[] = [];
+    
+    // Check if meta title has keyword
+    const keywordLower = (extractedData.focusKeyword || '').toLowerCase();
+    if (keywordLower && !generatedContent.metaTitle?.toLowerCase().includes(keywordLower)) {
+      qualityIssues.push('Meta-Title enthält nicht das Fokus-Keyword');
+    }
+    
+    // Check meta lengths
+    if ((generatedContent.metaTitle?.length || 0) > 60) {
+      qualityIssues.push('Meta-Title überschreitet 60 Zeichen');
+    }
+    if ((generatedContent.metaDescription?.length || 0) > 160) {
+      qualityIssues.push('Meta-Description überschreitet 160 Zeichen');
+    }
+    
+    // Check word count against target
+    const targetWordCount = parseInt(extractedData.wordCount || '1000');
+    const wordCountDiff = Math.abs(wordCount - targetWordCount) / targetWordCount;
+    if (wordCountDiff > 0.2) {
+      qualityIssues.push(`Textlänge (${wordCount}) weicht >20% von Ziel (${targetWordCount}) ab`);
+    }
+    
+    // Check keyword density
+    if (keywordLower && generatedContent.mainContent) {
+      const keywordMatches = (generatedContent.mainContent.toLowerCase().match(
+        new RegExp(keywordLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')
+      ) || []).length;
+      const density = (keywordMatches / wordCount) * 100;
+      if (density < 0.5) {
+        qualityIssues.push(`Keyword-Dichte zu niedrig (${density.toFixed(1)}%)`);
+      } else if (density > 3.5) {
+        qualityIssues.push(`Keyword-Dichte zu hoch (${density.toFixed(1)}%) - Risiko für Keyword-Stuffing`);
+      }
+    }
+    
+    // Check heading structure
+    const h2Count = (generatedContent.mainContent?.match(/^## [^#]/gm) || []).length;
+    if (h2Count < 2) {
+      qualityIssues.push('Zu wenige H2-Überschriften für SEO-optimierte Struktur');
+    }
+    
+    // Log quality issues for debugging
+    if (qualityIssues.length > 0) {
+      console.log('Content quality issues detected:', qualityIssues);
+    }
+
+    // Add quality metadata to response
+    const responseData = {
+      ...generatedContent,
+      _meta: {
+        wordCount,
+        qualityIssues,
+        generatedAt: new Date().toISOString(),
+        parameters: {
+          tonality: extractedData.tonality,
+          wordCountTarget: extractedData.wordCount,
+          focusKeyword: extractedData.focusKeyword,
+        }
+      }
+    };
+
+    return new Response(JSON.stringify(responseData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
