@@ -20,8 +20,87 @@ import {
   Code,
   Pencil,
   Save,
-  X
+  X,
+  BookOpen,
+  ExternalLink,
+  CheckCircle2,
+  AlertTriangle,
+  XCircle
 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+
+interface EEATScore {
+  score: number;
+  status: "green" | "yellow" | "red" | string;
+  notes: string;
+}
+
+interface JohnMuellerCheck {
+  passed: boolean;
+  note: string;
+}
+
+interface HeadingLevel {
+  count: number;
+  hasKeyword?: boolean;
+  length?: number;
+  position?: string;
+  keywordVariations?: number;
+  avgSectionLength?: number;
+  longTailKeywords?: number;
+  status: "green" | "yellow" | "red" | string;
+  seoRelevance: string;
+  issues: string[];
+}
+
+interface EvergreenCheck {
+  value: number;
+  target: string;
+  status: "green" | "yellow" | "red" | string;
+}
+
+interface GuidelineReference {
+  guideline: string;
+  source: string;
+  url: string;
+  section?: string;
+  quote?: string;
+  finding?: string;
+  recommendation?: string;
+}
+
+interface GuidelineValidation {
+  overallScore: number;
+  googleEEAT: {
+    experience: EEATScore;
+    expertise: EEATScore;
+    authority: EEATScore;
+    trust: EEATScore;
+  };
+  johnMuellerChecks: {
+    peopleFirst: JohnMuellerCheck;
+    uniqueValue: JohnMuellerCheck;
+    noKeywordStuffing: JohnMuellerCheck;
+    comprehensiveContent: JohnMuellerCheck;
+  };
+  headingStructure: {
+    h1: HeadingLevel;
+    h2: HeadingLevel;
+    h3: HeadingLevel;
+    h4: HeadingLevel;
+    hierarchyValid: boolean;
+    hierarchyIssues: string[];
+    rankingSummary: string;
+  };
+  evergreenMediaChecks: {
+    avgSentenceLength: EvergreenCheck;
+    passiveVoicePercent: EvergreenCheck;
+    maxParagraphLength: EvergreenCheck;
+    readabilityScore: EvergreenCheck;
+    issues: string[];
+  };
+  references: GuidelineReference[];
+}
 
 export interface GeneratedContent {
   seoText: string;
@@ -48,6 +127,7 @@ export interface GeneratedContent {
       source: string;
     }>;
   };
+  guidelineValidation?: GuidelineValidation;
 }
 
 interface OutputPanelProps {
@@ -257,7 +337,7 @@ export const OutputPanel = ({ content, isLoading, onContentUpdate }: OutputPanel
       </CardHeader>
 
       <Tabs defaultValue="text" className="flex-1 flex flex-col overflow-hidden">
-        <TabsList className="mx-4 mt-3 grid grid-cols-5 h-auto p-1">
+        <TabsList className="mx-4 mt-3 grid grid-cols-6 h-auto p-1">
           <TabsTrigger value="text" className="text-xs py-2">
             <FileText className="h-3.5 w-3.5 mr-1.5" />
             Text
@@ -273,6 +353,10 @@ export const OutputPanel = ({ content, isLoading, onContentUpdate }: OutputPanel
           <TabsTrigger value="links" className="text-xs py-2">
             <LinkIcon className="h-3.5 w-3.5 mr-1.5" />
             Links
+          </TabsTrigger>
+          <TabsTrigger value="guidelines" className="text-xs py-2">
+            <BookOpen className="h-3.5 w-3.5 mr-1.5" />
+            Guidelines
           </TabsTrigger>
           <TabsTrigger value="quality" className="text-xs py-2">
             <Shield className="h-3.5 w-3.5 mr-1.5" />
@@ -403,6 +487,91 @@ export const OutputPanel = ({ content, isLoading, onContentUpdate }: OutputPanel
                 </div>
               </Card>
             ))}
+          </TabsContent>
+
+          <TabsContent value="guidelines" className="mt-0 space-y-4">
+            {content.guidelineValidation ? (
+              <>
+                {/* Overall Score */}
+                <Card className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-semibold text-foreground flex items-center gap-2">
+                      <BookOpen className="h-5 w-5" />
+                      Guideline-Validierung
+                    </h4>
+                    <Badge variant={content.guidelineValidation.overallScore >= 80 ? "default" : content.guidelineValidation.overallScore >= 60 ? "secondary" : "destructive"}>
+                      {content.guidelineValidation.overallScore}/100
+                    </Badge>
+                  </div>
+                  <Progress value={content.guidelineValidation.overallScore} className="h-2" />
+                </Card>
+
+                {/* E-E-A-T Scores */}
+                <Card className="p-4">
+                  <h4 className="font-semibold text-foreground mb-3">Google E-E-A-T Framework</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    {Object.entries(content.guidelineValidation.googleEEAT).map(([key, value]) => (
+                      <div key={key} className="bg-muted/50 p-3 rounded-lg">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-medium capitalize">{key}</span>
+                          <Badge variant={value.status === "green" ? "default" : value.status === "yellow" ? "secondary" : "destructive"} className="text-xs">
+                            {value.score}%
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{value.notes}</p>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+
+                {/* Heading Structure */}
+                <Card className="p-4">
+                  <h4 className="font-semibold text-foreground mb-3">H1-H5 Struktur & Ranking-Relevanz</h4>
+                  <div className="space-y-2">
+                    {["h1", "h2", "h3", "h4"].map((heading) => {
+                      const h = content.guidelineValidation?.headingStructure[heading as keyof typeof content.guidelineValidation.headingStructure] as HeadingLevel | undefined;
+                      if (!h) return null;
+                      return (
+                        <div key={heading} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="uppercase">{heading}</Badge>
+                            <span className="text-sm">{h.seoRelevance}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">Anzahl: {h.count}</span>
+                            {h.status === "green" ? <CheckCircle2 className="h-4 w-4 text-success" /> : h.status === "yellow" ? <AlertTriangle className="h-4 w-4 text-warning" /> : <XCircle className="h-4 w-4 text-destructive" />}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {content.guidelineValidation.headingStructure.rankingSummary && (
+                    <p className="text-sm text-muted-foreground mt-3 p-2 bg-muted/50 rounded">{content.guidelineValidation.headingStructure.rankingSummary}</p>
+                  )}
+                </Card>
+
+                {/* References */}
+                <Card className="p-4">
+                  <h4 className="font-semibold text-foreground mb-3">Quellen & Referenzen</h4>
+                  <div className="space-y-2">
+                    {content.guidelineValidation.references?.map((ref, idx) => (
+                      <a key={idx} href={ref.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-2 bg-muted/50 rounded hover:bg-muted transition-colors">
+                        <div>
+                          <p className="text-sm font-medium">{ref.guideline}</p>
+                          <p className="text-xs text-muted-foreground">{ref.source}</p>
+                        </div>
+                        <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                      </a>
+                    ))}
+                  </div>
+                </Card>
+              </>
+            ) : (
+              <Card className="p-4 text-center text-muted-foreground">
+                <BookOpen className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>Guideline-Validierung wird beim nächsten Generieren erstellt</p>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="quality" className="mt-0 space-y-4">
