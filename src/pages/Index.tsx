@@ -12,8 +12,9 @@ import {
   CheckCircle,
   Zap,
   Target,
-  BarChart3,
-  FileCheck
+  LayoutDashboard,
+  FolderKanban,
+  Globe
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 
@@ -41,10 +42,23 @@ const Index = ({ session }: IndexProps) => {
 
   const tools = [
     {
+      id: 'dashboard',
+      title: 'Dashboard',
+      subtitle: 'Zentrale Übersicht',
+      description: 'Verwalten Sie Ihre Organisation, Projekte und Domain-Wissen zentral an einem Ort.',
+      icon: LayoutDashboard,
+      color: 'from-orange-500 to-amber-500',
+      bgColor: 'bg-orange-500/10',
+      borderColor: 'border-orange-500/20 hover:border-orange-500/50',
+      features: ['Organisations-Verwaltung', 'Projekt-Übersicht', 'Domain Learning', 'Content-Planer'],
+      route: '/dashboard',
+      badge: 'NEU',
+    },
+    {
       id: 'seo-check',
       title: 'SEO-Check',
       subtitle: 'Analyse & Audit',
-      description: 'Umfassende SEO-Analyse für bestehende Seiten. Prüft Meta-Tags, Content-Qualität, technische SEO-Faktoren und gibt konkrete Verbesserungsvorschläge.',
+      description: 'Umfassende SEO-Analyse für bestehende Seiten. Prüft Meta-Tags, Content-Qualität und technische SEO-Faktoren.',
       icon: Search,
       color: 'from-blue-500 to-cyan-500',
       bgColor: 'bg-blue-500/10',
@@ -55,27 +69,27 @@ const Index = ({ session }: IndexProps) => {
     },
     {
       id: 'basic',
-      title: 'SEO Content',
-      subtitle: 'Basic Generator',
-      description: 'Schnelle SEO-Texterstellung für einfache Anforderungen. Ideal für einzelne Produktseiten und einfache Content-Projekte.',
-      icon: FileText,
+      title: 'Content Basic',
+      subtitle: 'Schnell-Generator',
+      description: 'Schnelle SEO-Texterstellung für einfache Anforderungen. Ideal für einzelne Produktseiten.',
+      icon: Zap,
       color: 'from-emerald-500 to-teal-500',
       bgColor: 'bg-emerald-500/10',
       borderColor: 'border-emerald-500/20 hover:border-emerald-500/50',
-      features: ['Keyword-Optimierung', 'FAQ-Generator', 'Meta-Tags', 'Interne Links'],
+      features: ['Ein-Klick-Generierung', 'Keyword-Optimierung', 'FAQ & Meta-Tags', 'Copy-to-Clipboard'],
       route: '/basic',
       badge: null,
     },
     {
       id: 'pro',
-      title: 'SEO Content',
-      subtitle: 'Pro Generator',
-      description: 'Professionelle SEO-Texterstellung mit erweiterten Funktionen. Multi-Step-Wizard, Zielgruppen-Analyse, Tonalitäts-Mixer und umfassender After-Check.',
+      title: 'Content Pro',
+      subtitle: 'Enterprise Generator',
+      description: 'Professionelle SEO-Texterstellung mit 5-Schritt-Wizard, Competitor-Analyse und Compliance-Check.',
       icon: Sparkles,
       color: 'from-violet-500 to-purple-500',
       bgColor: 'bg-violet-500/10',
       borderColor: 'border-violet-500/20 hover:border-violet-500/50',
-      features: ['5-Step Wizard', 'Tonalitäts-Mixer', 'SEO After-Check', 'PDF/Word Export'],
+      features: ['5-Step Wizard', 'Competitor-Analyse', 'Compliance (MDR/HWG)', 'SEO After-Check'],
       route: '/pro',
       badge: 'PRO',
     },
@@ -92,42 +106,48 @@ const Index = ({ session }: IndexProps) => {
                 <Target className="h-6 w-6 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-foreground">SEO Toolbox</h1>
-                <p className="text-xs text-muted-foreground">Professionelle SEO-Tools</p>
+                <h1 className="text-xl font-bold text-foreground">SEO Content Pro</h1>
+                <p className="text-xs text-muted-foreground">Enterprise SEO-Plattform</p>
               </div>
             </div>
-            <Button variant="ghost" onClick={handleSignOut} size="sm">
-              <LogOut className="mr-2 h-4 w-4" />
-              Abmelden
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => navigate('/dashboard')}>
+                <LayoutDashboard className="mr-2 h-4 w-4" />
+                Dashboard
+              </Button>
+              <Button variant="ghost" onClick={handleSignOut} size="sm">
+                <LogOut className="mr-2 h-4 w-4" />
+                Abmelden
+              </Button>
+            </div>
           </div>
         </div>
       </header>
 
       {/* Hero Section */}
-      <section className="py-16 px-4">
+      <section className="py-12 px-4">
         <div className="container mx-auto text-center max-w-3xl">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
-            <Zap className="h-4 w-4" />
+            <Sparkles className="h-4 w-4" />
             KI-gestützte SEO-Optimierung
           </div>
           <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4 leading-tight">
-            Wähle dein <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">SEO-Tool</span>
+            Professionelle <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">SEO-Tools</span>
           </h2>
-          <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Analysiere bestehende Seiten, generiere optimierte Texte oder erstelle professionellen Content mit erweiterten Funktionen.
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            Von der schnellen Content-Erstellung bis zum umfassenden Enterprise-Workflow – wählen Sie das passende Tool.
           </p>
         </div>
       </section>
 
       {/* Tools Grid */}
-      <section className="pb-20 px-4">
+      <section className="pb-16 px-4">
         <div className="container mx-auto max-w-6xl">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {tools.map((tool) => (
               <Card 
                 key={tool.id}
-                className={`relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-2 border-2 ${tool.borderColor} group`}
+                className={`relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 border-2 ${tool.borderColor} group`}
                 onClick={() => navigate(tool.route)}
               >
                 {/* Gradient Overlay */}
@@ -142,30 +162,40 @@ const Index = ({ session }: IndexProps) => {
                   </div>
                 )}
 
-                <CardHeader className="pb-4">
-                  <div className={`w-14 h-14 rounded-2xl ${tool.bgColor} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
-                    <tool.icon className={`h-7 w-7 text-transparent bg-clip-text bg-gradient-to-br ${tool.color}`} style={{ color: tool.color.includes('blue') ? '#3b82f6' : tool.color.includes('emerald') ? '#10b981' : '#8b5cf6' }} />
-                  </div>
-                  <div className="space-y-1">
-                    <CardTitle className="text-2xl font-bold text-foreground group-hover:text-primary transition-colors">
-                      {tool.title}
-                    </CardTitle>
-                    <CardDescription className="text-sm font-medium text-muted-foreground">
-                      {tool.subtitle}
-                    </CardDescription>
+                <CardHeader className="pb-3">
+                  <div className="flex items-start gap-4">
+                    <div className={`w-14 h-14 rounded-2xl ${tool.bgColor} flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300`}>
+                      <tool.icon 
+                        className="h-7 w-7" 
+                        style={{ 
+                          color: tool.color.includes('blue') ? '#3b82f6' : 
+                                 tool.color.includes('emerald') ? '#10b981' : 
+                                 tool.color.includes('violet') ? '#8b5cf6' :
+                                 '#f97316'
+                        }} 
+                      />
+                    </div>
+                    <div className="space-y-1 flex-1">
+                      <CardTitle className="text-xl font-bold text-foreground group-hover:text-primary transition-colors">
+                        {tool.title}
+                      </CardTitle>
+                      <CardDescription className="text-sm font-medium">
+                        {tool.subtitle}
+                      </CardDescription>
+                    </div>
                   </div>
                 </CardHeader>
 
-                <CardContent className="space-y-6">
+                <CardContent className="space-y-4">
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     {tool.description}
                   </p>
 
                   {/* Features */}
-                  <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
                     {tool.features.map((feature, index) => (
-                      <div key={index} className="flex items-center gap-2 text-sm">
-                        <CheckCircle className="h-4 w-4 text-success flex-shrink-0" />
+                      <div key={index} className="flex items-center gap-2 text-xs">
+                        <CheckCircle className="h-3.5 w-3.5 text-success flex-shrink-0" />
                         <span className="text-foreground/80">{feature}</span>
                       </div>
                     ))}
@@ -173,10 +203,10 @@ const Index = ({ session }: IndexProps) => {
 
                   {/* CTA Button */}
                   <Button 
-                    className={`w-full group-hover:bg-gradient-to-r ${tool.color} group-hover:text-white transition-all duration-300`}
+                    className={`w-full mt-2 group-hover:bg-gradient-to-r ${tool.color} group-hover:text-white group-hover:border-transparent transition-all duration-300`}
                     variant="outline"
                   >
-                    Tool starten
+                    {tool.id === 'dashboard' ? 'Öffnen' : 'Starten'}
                     <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                   </Button>
                 </CardContent>
@@ -186,37 +216,34 @@ const Index = ({ session }: IndexProps) => {
         </div>
       </section>
 
-      {/* Stats Section */}
-      <section className="py-12 px-4 border-t border-border/50 bg-muted/30">
+      {/* Quick Stats */}
+      <section className="py-10 px-4 border-t border-border/50 bg-muted/20">
         <div className="container mx-auto max-w-4xl">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-            <div>
-              <div className="text-3xl font-bold text-primary mb-1">E-E-A-T</div>
-              <div className="text-sm text-muted-foreground">Google Guidelines</div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+            <div className="space-y-1">
+              <div className="text-2xl font-bold text-primary">E-E-A-T</div>
+              <div className="text-xs text-muted-foreground">Google Guidelines</div>
             </div>
-            <div>
-              <div className="text-3xl font-bold text-primary mb-1">5-Step</div>
-              <div className="text-sm text-muted-foreground">Pro Wizard</div>
+            <div className="space-y-1">
+              <div className="text-2xl font-bold text-primary">5-Step</div>
+              <div className="text-xs text-muted-foreground">Pro Wizard</div>
             </div>
-            <div>
-              <div className="text-3xl font-bold text-primary mb-1">PDF/DOCX</div>
-              <div className="text-sm text-muted-foreground">Export Optionen</div>
+            <div className="space-y-1">
+              <div className="text-2xl font-bold text-primary">MDR/HWG</div>
+              <div className="text-xs text-muted-foreground">Compliance-Check</div>
             </div>
-            <div>
-              <div className="text-3xl font-bold text-primary mb-1">KI</div>
-              <div className="text-sm text-muted-foreground">Powered Content</div>
+            <div className="space-y-1">
+              <div className="text-2xl font-bold text-primary">AI</div>
+              <div className="text-xs text-muted-foreground">Powered Content</div>
             </div>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="py-6 px-4 border-t border-border/50 text-center space-y-2">
+      <footer className="py-6 px-4 border-t border-border/50 text-center">
         <p className="text-sm text-muted-foreground">
-          SEO Toolbox — Professionelle SEO-Optimierung für bessere Rankings
-        </p>
-        <p className="text-xs text-muted-foreground/60">
-          Entwickelt von Martin Kieris
+          SEO Content Pro — Enterprise SEO-Plattform
         </p>
       </footer>
     </div>
