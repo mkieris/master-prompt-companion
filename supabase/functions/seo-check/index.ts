@@ -6,6 +6,25 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface LinkInfo {
+  url: string;
+  text: string;
+  hasNofollow: boolean;
+}
+
+interface HeadingInfo {
+  level: number;
+  text: string;
+  hasIssue: boolean;
+  issue?: string;
+}
+
+interface ImageInfo {
+  src: string;
+  alt: string;
+  hasAlt: boolean;
+}
+
 interface SEOCheckResult {
   url: string;
   timestamp: string;
@@ -19,6 +38,26 @@ interface SEOCheckResult {
   };
   issues: SEOIssue[];
   recommendations: string[];
+  // New detailed data
+  contentData: {
+    markdown: string;
+    wordCount: number;
+    headings: HeadingInfo[];
+  };
+  linkData: {
+    internal: LinkInfo[];
+    external: LinkInfo[];
+  };
+  mediaData: {
+    images: ImageInfo[];
+    imagesWithoutAlt: ImageInfo[];
+  };
+  metaData: {
+    title: string;
+    description: string;
+    canonical: string;
+    robots: string;
+  };
 }
 
 interface CategoryResult {
@@ -257,10 +296,45 @@ function analyzeSEO(url: string, html: string, markdown: string, metadata: any):
   // === CONTENT ANALYSIS ===
   const contentChecks: CheckResult[] = [];
 
+  // Extract all headings for detailed view
+  const headingsList: HeadingInfo[] = [];
+  const headingRegex = /<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi;
+  let headingMatch;
+  let lastLevel = 0;
+  
+  while ((headingMatch = headingRegex.exec(html)) !== null) {
+    const level = parseInt(headingMatch[1]);
+    const text = headingMatch[2].replace(/<[^>]*>/g, '').trim();
+    
+    let hasIssue = false;
+    let issue: string | undefined;
+    
+    // Check for hierarchy issues (e.g., H3 after H1 without H2)
+    if (level > lastLevel + 1 && lastLevel !== 0) {
+      hasIssue = true;
+      issue = `Sprung von H${lastLevel} zu H${level} - H${lastLevel + 1} übersprungen`;
+    }
+    
+    headingsList.push({ level, text, hasIssue, issue });
+    lastLevel = level;
+  }
+
   // H1 Tag
   const h1Matches = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/gi) || [];
   const h1Count = h1Matches.length;
   const h1Text = h1Matches[0]?.replace(/<[^>]*>/g, '').trim() || '';
+  
+  // Mark H1 issues
+  if (h1Count === 0) {
+    headingsList.unshift({ level: 1, text: '(Keine H1 vorhanden)', hasIssue: true, issue: 'H1 fehlt komplett' });
+  } else if (h1Count > 1) {
+    headingsList.forEach(h => {
+      if (h.level === 1) {
+        h.hasIssue = true;
+        h.issue = 'Mehrere H1-Tags gefunden - sollte nur eine sein';
+      }
+    });
+  }
   
   contentChecks.push({
     name: 'H1 Überschrift vorhanden',
@@ -399,85 +473,114 @@ function analyzeSEO(url: string, html: string, markdown: string, metadata: any):
   // === LINKS ANALYSIS ===
   const linkChecks: CheckResult[] = [];
 
-  const internalLinks = (html.match(/<a[^>]*href=["'][^"']*["'][^>]*>/gi) || [])
-    .filter(link => {
-      const hrefMatch = link.match(/href=["']([^"']*)["']/i);
-      if (!hrefMatch) return false;
-      const href = hrefMatch[1];
-      return href.startsWith('/') || href.includes(urlObj.hostname);
-    });
-
-  const externalLinks = (html.match(/<a[^>]*href=["']https?:\/\/[^"']*["'][^>]*>/gi) || [])
-    .filter(link => {
-      const hrefMatch = link.match(/href=["']([^"']*)["']/i);
-      if (!hrefMatch) return false;
-      return !hrefMatch[1].includes(urlObj.hostname);
-    });
+  // Extract detailed link information
+  const allLinks = html.match(/<a[^>]*href=["'][^"']*["'][^>]*>[\s\S]*?<\/a>/gi) || [];
+  
+  const internalLinksList: LinkInfo[] = [];
+  const externalLinksList: LinkInfo[] = [];
+  
+  allLinks.forEach(link => {
+    const hrefMatch = link.match(/href=["']([^"']*)["']/i);
+    if (!hrefMatch) return;
+    
+    const href = hrefMatch[1];
+    const textMatch = link.match(/>([^<]*)</);
+    const text = textMatch ? textMatch[1].trim() : '';
+    const hasNofollow = link.toLowerCase().includes('nofollow');
+    
+    // Skip anchors, javascript, mailto, tel
+    if (href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:')) {
+      return;
+    }
+    
+    const isInternal = href.startsWith('/') || href.includes(urlObj.hostname);
+    const isExternal = href.startsWith('http') && !href.includes(urlObj.hostname);
+    
+    if (isInternal) {
+      internalLinksList.push({ url: href, text: text || href, hasNofollow });
+    } else if (isExternal) {
+      externalLinksList.push({ url: href, text: text || href, hasNofollow });
+    }
+  });
 
   linkChecks.push({
     name: 'Interne Links',
-    passed: internalLinks.length >= 3,
-    severity: internalLinks.length < 3 ? 'warning' : 'info',
-    message: `${internalLinks.length} interne Links gefunden`,
-    value: internalLinks.length,
-    recommendation: internalLinks.length < 3 ? 'Fügen Sie mehr interne Links zu relevanten Seiten hinzu' : undefined,
+    passed: internalLinksList.length >= 3,
+    severity: internalLinksList.length < 3 ? 'warning' : 'info',
+    message: `${internalLinksList.length} interne Links gefunden`,
+    value: internalLinksList.length,
+    recommendation: internalLinksList.length < 3 ? 'Fügen Sie mehr interne Links zu relevanten Seiten hinzu' : undefined,
   });
 
   linkChecks.push({
     name: 'Externe Links',
-    passed: externalLinks.length > 0,
+    passed: externalLinksList.length > 0,
     severity: 'info',
-    message: `${externalLinks.length} externe Links gefunden`,
-    value: externalLinks.length,
+    message: `${externalLinksList.length} externe Links gefunden`,
+    value: externalLinksList.length,
   });
 
   // Check for rel="nofollow" on external links
-  const nofollowExternal = externalLinks.filter(link => link.toLowerCase().includes('nofollow'));
+  const nofollowExternal = externalLinksList.filter(link => link.hasNofollow);
   linkChecks.push({
     name: 'Nofollow auf externen Links',
     passed: true,
     severity: 'info',
-    message: `${nofollowExternal.length} von ${externalLinks.length} externen Links mit nofollow`,
+    message: `${nofollowExternal.length} von ${externalLinksList.length} externen Links mit nofollow`,
     value: nofollowExternal.length,
   });
 
   // === MEDIA ANALYSIS ===
   const mediaChecks: CheckResult[] = [];
 
-  const images = html.match(/<img[^>]*>/gi) || [];
-  const imagesWithAlt = images.filter(img => {
+  const imageMatches = html.match(/<img[^>]*>/gi) || [];
+  const imagesList: ImageInfo[] = [];
+  const imagesWithoutAltList: ImageInfo[] = [];
+  
+  imageMatches.forEach(img => {
+    const srcMatch = img.match(/src=["']([^"']*)["']/i);
     const altMatch = img.match(/alt=["']([^"']*)["']/i);
-    return altMatch && altMatch[1].trim().length > 0;
+    
+    const src = srcMatch ? srcMatch[1] : '';
+    const alt = altMatch ? altMatch[1].trim() : '';
+    const hasAlt = alt.length > 0;
+    
+    const imageInfo: ImageInfo = { src, alt, hasAlt };
+    imagesList.push(imageInfo);
+    
+    if (!hasAlt) {
+      imagesWithoutAltList.push(imageInfo);
+    }
   });
 
   mediaChecks.push({
     name: 'Bilder mit Alt-Text',
-    passed: images.length === 0 || imagesWithAlt.length === images.length,
-    severity: imagesWithAlt.length < images.length ? 'warning' : 'info',
-    message: `${imagesWithAlt.length} von ${images.length} Bildern haben Alt-Text`,
-    value: `${imagesWithAlt.length}/${images.length}`,
-    recommendation: imagesWithAlt.length < images.length ? 'Fügen Sie beschreibende Alt-Texte zu allen Bildern hinzu' : undefined,
+    passed: imagesList.length === 0 || imagesWithoutAltList.length === 0,
+    severity: imagesWithoutAltList.length > 0 ? 'warning' : 'info',
+    message: `${imagesList.length - imagesWithoutAltList.length} von ${imagesList.length} Bildern haben Alt-Text`,
+    value: `${imagesList.length - imagesWithoutAltList.length}/${imagesList.length}`,
+    recommendation: imagesWithoutAltList.length > 0 ? 'Fügen Sie beschreibende Alt-Texte zu allen Bildern hinzu' : undefined,
   });
 
-  if (imagesWithAlt.length < images.length) {
+  if (imagesWithoutAltList.length > 0) {
     issues.push({
       category: 'Media',
       severity: 'warning',
       title: 'Fehlende Alt-Texte',
-      description: `${images.length - imagesWithAlt.length} Bilder haben keinen Alt-Text.`,
+      description: `${imagesWithoutAltList.length} Bilder haben keinen Alt-Text.`,
       recommendation: 'Fügen Sie beschreibende Alt-Texte zu allen Bildern hinzu.',
     });
   }
 
   // Check for lazy loading
-  const lazyImages = images.filter(img => img.includes('loading="lazy"') || img.includes("loading='lazy'"));
+  const lazyImages = imageMatches.filter(img => img.includes('loading="lazy"') || img.includes("loading='lazy'"));
   mediaChecks.push({
     name: 'Lazy Loading für Bilder',
-    passed: images.length === 0 || lazyImages.length > 0,
-    severity: images.length > 0 && lazyImages.length === 0 ? 'info' : 'info',
-    message: `${lazyImages.length} von ${images.length} Bildern mit Lazy Loading`,
+    passed: imagesList.length === 0 || lazyImages.length > 0,
+    severity: imagesList.length > 0 && lazyImages.length === 0 ? 'info' : 'info',
+    message: `${lazyImages.length} von ${imagesList.length} Bildern mit Lazy Loading`,
     value: lazyImages.length,
-    recommendation: images.length > 3 && lazyImages.length === 0 ? 'Implementieren Sie Lazy Loading für bessere Performance' : undefined,
+    recommendation: imagesList.length > 3 && lazyImages.length === 0 ? 'Implementieren Sie Lazy Loading für bessere Performance' : undefined,
   });
 
   // Calculate scores
@@ -531,5 +634,24 @@ function analyzeSEO(url: string, html: string, markdown: string, metadata: any):
     },
     issues,
     recommendations,
+    contentData: {
+      markdown: markdown.substring(0, 10000), // Limit size
+      wordCount,
+      headings: headingsList,
+    },
+    linkData: {
+      internal: internalLinksList,
+      external: externalLinksList,
+    },
+    mediaData: {
+      images: imagesList,
+      imagesWithoutAlt: imagesWithoutAltList,
+    },
+    metaData: {
+      title,
+      description,
+      canonical,
+      robots,
+    },
   };
 }
