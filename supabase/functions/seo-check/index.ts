@@ -49,6 +49,60 @@ interface KeywordAnalysis {
   occurrences: number;
 }
 
+interface ReadabilityAnalysis {
+  // Flesch-Reading-Ease (German)
+  fleschScore: number;
+  fleschLevel: string;
+  fleschGrade: string;
+  
+  // Wiener Sachtextformel
+  wstfScore: number;
+  wstfLevel: string;
+  
+  // LIX Score
+  lixScore: number;
+  lixLevel: string;
+  
+  // Text Statistics
+  sentences: number;
+  words: number;
+  syllables: number;
+  characters: number;
+  paragraphs: number;
+  
+  // Averages
+  avgSentenceLength: number;
+  avgWordLength: number;
+  avgSyllablesPerWord: number;
+  
+  // Word Analysis
+  longWordsCount: number;
+  longWordsPercent: number;
+  complexWordsCount: number;
+  complexWordsPercent: number;
+  
+  // Sentence Analysis
+  shortSentences: number;
+  mediumSentences: number;
+  longSentences: number;
+  veryLongSentences: number;
+  
+  // Additional Metrics
+  passiveVoiceCount: number;
+  fillWordsCount: number;
+  
+  // Recommendations
+  issues: ReadabilityIssue[];
+  overallRating: 'excellent' | 'good' | 'moderate' | 'difficult' | 'very-difficult';
+}
+
+interface ReadabilityIssue {
+  type: string;
+  severity: 'info' | 'warning' | 'error';
+  message: string;
+  recommendation: string;
+}
+
 interface SEOCheckResult {
   url: string;
   timestamp: string;
@@ -67,10 +121,7 @@ interface SEOCheckResult {
     markdown: string;
     wordCount: number;
     headings: HeadingInfo[];
-    readabilityScore: number;
-    readabilityLevel: string;
-    avgSentenceLength: number;
-    avgWordLength: number;
+    readability: ReadabilityAnalysis;
   };
   linkData: {
     internal: LinkInfo[];
@@ -210,41 +261,327 @@ serve(async (req) => {
   }
 });
 
-// Calculate Flesch Reading Ease for German text
-function calculateFleschDE(text: string): { score: number; level: string; avgSentenceLength: number; avgWordLength: number } {
-  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
-  const words = text.split(/\s+/).filter(w => w.length > 0);
+// Advanced German syllable counting
+function countGermanSyllables(word: string): number {
+  const cleaned = word.toLowerCase().replace(/[^a-zäöüß]/g, '');
+  if (cleaned.length === 0) return 0;
+  if (cleaned.length <= 3) return 1;
   
-  if (words.length === 0 || sentences.length === 0) {
-    return { score: 0, level: 'Nicht berechenbar', avgSentenceLength: 0, avgWordLength: 0 };
+  let syllables = 0;
+  const vowels = 'aeiouäöü';
+  
+  // German diphthongs and special vowel combinations that count as ONE syllable
+  const diphthongs = ['ei', 'ai', 'au', 'äu', 'eu', 'ie', 'oi'];
+  
+  let processedWord = cleaned;
+  
+  // Replace diphthongs with a single marker to count them correctly
+  for (const diphthong of diphthongs) {
+    processedWord = processedWord.replace(new RegExp(diphthong, 'g'), '@');
   }
   
-  // Count syllables (simplified German approximation)
-  const countSyllables = (word: string): number => {
-    const vowels = word.toLowerCase().match(/[aeiouäöü]/gi);
-    return vowels ? vowels.length : 1;
-  };
+  // Count remaining vowels and markers
+  let prevWasVowel = false;
+  for (let i = 0; i < processedWord.length; i++) {
+    const char = processedWord[i];
+    const isVowel = vowels.includes(char) || char === '@';
+    
+    if (isVowel && !prevWasVowel) {
+      syllables++;
+    }
+    prevWasVowel = isVowel;
+  }
   
-  const totalSyllables = words.reduce((sum, word) => sum + countSyllables(word), 0);
+  // Handle silent 'e' at the end (German: -e, -en, -er, -el, -em are often unstressed but still syllables)
+  // In German, final -e is usually pronounced, unlike English
+  
+  // Handle common German suffixes that form syllables
+  const suffixes = ['ung', 'heit', 'keit', 'schaft', 'tion', 'sion', 'tät', 'lich', 'isch', 'ig', 'bar', 'sam', 'haft'];
+  for (const suffix of suffixes) {
+    if (cleaned.endsWith(suffix) && cleaned.length > suffix.length) {
+      // These suffixes are typically 1 syllable, already counted
+    }
+  }
+  
+  return Math.max(1, syllables);
+}
+
+// German fill words (Füllwörter)
+const GERMAN_FILL_WORDS = [
+  'also', 'eigentlich', 'halt', 'eben', 'ja', 'nun', 'denn', 'wohl', 'mal', 'schon',
+  'doch', 'etwa', 'einfach', 'quasi', 'sozusagen', 'gewissermaßen', 'irgendwie',
+  'praktisch', 'grundsätzlich', 'prinzipiell', 'natürlich', 'selbstverständlich',
+  'offensichtlich', 'offenbar', 'anscheinend', 'vermutlich', 'wahrscheinlich'
+];
+
+// German passive voice indicators
+const PASSIVE_INDICATORS = [
+  'wird', 'werden', 'wurde', 'wurden', 'worden', 'geworden',
+  'ist...worden', 'sind...worden', 'war...worden', 'waren...worden'
+];
+
+// Comprehensive readability analysis for German text
+function analyzeReadability(text: string): ReadabilityAnalysis {
+  const issues: ReadabilityIssue[] = [];
+  
+  // Clean text for analysis
+  const cleanText = text
+    .replace(/[#*\[\]()_`]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  
+  // Split into paragraphs, sentences, and words
+  const paragraphs = cleanText.split(/\n\n+/).filter(p => p.trim().length > 0);
+  const sentences = cleanText.split(/[.!?]+/).filter(s => s.trim().length > 10);
+  const words = cleanText.split(/\s+/).filter(w => w.replace(/[^a-zA-ZäöüÄÖÜß]/g, '').length > 0);
+  
+  if (words.length === 0 || sentences.length === 0) {
+    return {
+      fleschScore: 0,
+      fleschLevel: 'Nicht berechenbar',
+      fleschGrade: '-',
+      wstfScore: 0,
+      wstfLevel: 'Nicht berechenbar',
+      lixScore: 0,
+      lixLevel: 'Nicht berechenbar',
+      sentences: 0,
+      words: 0,
+      syllables: 0,
+      characters: 0,
+      paragraphs: 0,
+      avgSentenceLength: 0,
+      avgWordLength: 0,
+      avgSyllablesPerWord: 0,
+      longWordsCount: 0,
+      longWordsPercent: 0,
+      complexWordsCount: 0,
+      complexWordsPercent: 0,
+      shortSentences: 0,
+      mediumSentences: 0,
+      longSentences: 0,
+      veryLongSentences: 0,
+      passiveVoiceCount: 0,
+      fillWordsCount: 0,
+      issues: [{ type: 'no-content', severity: 'error', message: 'Nicht genug Text für Analyse', recommendation: 'Fügen Sie mehr Textinhalt hinzu' }],
+      overallRating: 'very-difficult'
+    };
+  }
+  
+  // Calculate syllables for each word
+  const syllableCounts = words.map(w => countGermanSyllables(w));
+  const totalSyllables = syllableCounts.reduce((a, b) => a + b, 0);
+  const totalCharacters = words.reduce((sum, w) => sum + w.length, 0);
+  
+  // Basic statistics
   const avgSentenceLength = words.length / sentences.length;
+  const avgWordLength = totalCharacters / words.length;
   const avgSyllablesPerWord = totalSyllables / words.length;
-  const avgWordLength = words.reduce((sum, w) => sum + w.length, 0) / words.length;
   
-  // German Flesch formula: 180 - ASL - (58.5 * ASW)
-  const score = Math.round(180 - avgSentenceLength - (58.5 * avgSyllablesPerWord));
+  // Long words (>6 characters) - German specific, as German has compound words
+  const longWords = words.filter(w => w.replace(/[^a-zA-ZäöüÄÖÜß]/g, '').length > 6);
+  const longWordsPercent = (longWords.length / words.length) * 100;
   
-  let level: string;
-  if (score >= 80) level = 'Sehr leicht';
-  else if (score >= 60) level = 'Leicht';
-  else if (score >= 40) level = 'Mittelschwer';
-  else if (score >= 20) level = 'Schwer';
-  else level = 'Sehr schwer';
+  // Complex words (3+ syllables)
+  const complexWords = words.filter((_, i) => syllableCounts[i] >= 3);
+  const complexWordsPercent = (complexWords.length / words.length) * 100;
   
-  return { 
-    score: Math.max(0, Math.min(100, score)), 
-    level, 
+  // Sentence length distribution
+  const sentenceLengths = sentences.map(s => s.split(/\s+/).filter(w => w.length > 0).length);
+  const shortSentences = sentenceLengths.filter(l => l <= 10).length;
+  const mediumSentences = sentenceLengths.filter(l => l > 10 && l <= 20).length;
+  const longSentences = sentenceLengths.filter(l => l > 20 && l <= 30).length;
+  const veryLongSentences = sentenceLengths.filter(l => l > 30).length;
+  
+  // Passive voice detection (simplified for German)
+  const lowerText = cleanText.toLowerCase();
+  let passiveVoiceCount = 0;
+  for (const indicator of PASSIVE_INDICATORS) {
+    const regex = new RegExp(`\\b${indicator}\\b`, 'gi');
+    const matches = lowerText.match(regex);
+    passiveVoiceCount += matches ? matches.length : 0;
+  }
+  
+  // Fill words count
+  let fillWordsCount = 0;
+  for (const fillWord of GERMAN_FILL_WORDS) {
+    const regex = new RegExp(`\\b${fillWord}\\b`, 'gi');
+    const matches = lowerText.match(regex);
+    fillWordsCount += matches ? matches.length : 0;
+  }
+  
+  // === FLESCH-READING-EASE (German) ===
+  // Formula: 180 - ASL - (58.5 × ASW)
+  const fleschScore = Math.round(Math.max(0, Math.min(100, 180 - avgSentenceLength - (58.5 * avgSyllablesPerWord))));
+  
+  let fleschLevel: string;
+  let fleschGrade: string;
+  if (fleschScore >= 80) { fleschLevel = 'Sehr leicht'; fleschGrade = '5. Klasse'; }
+  else if (fleschScore >= 70) { fleschLevel = 'Leicht'; fleschGrade = '6. Klasse'; }
+  else if (fleschScore >= 60) { fleschLevel = 'Mittel'; fleschGrade = '7.-8. Klasse'; }
+  else if (fleschScore >= 50) { fleschLevel = 'Mittelschwer'; fleschGrade = '9.-10. Klasse'; }
+  else if (fleschScore >= 40) { fleschLevel = 'Schwer'; fleschGrade = 'Oberstufe'; }
+  else if (fleschScore >= 30) { fleschLevel = 'Sehr schwer'; fleschGrade = 'Akademisch'; }
+  else { fleschLevel = 'Extrem schwer'; fleschGrade = 'Wissenschaftlich'; }
+  
+  // === WIENER SACHTEXTFORMEL (WSTF) ===
+  // MS = 0.1935 × SL + 0.1672 × WL + 0.1297 × IW - 0.0875 × ES - 0.875
+  // SL = % sentences with 3+ syllable words
+  // WL = average word length in characters × 100 / average sentence length
+  // IW = % words with 3+ syllables
+  // ES = % single syllable words
+  const sentencesWithComplexWords = sentences.filter(s => {
+    const sWords = s.split(/\s+/).filter(w => w.length > 0);
+    return sWords.some(w => countGermanSyllables(w) >= 3);
+  }).length;
+  const slPercent = (sentencesWithComplexWords / sentences.length) * 100;
+  const singleSyllableWords = words.filter((_, i) => syllableCounts[i] === 1);
+  const esPercent = (singleSyllableWords.length / words.length) * 100;
+  
+  const wstfScore = Math.round(
+    (0.1935 * slPercent) + 
+    (0.1672 * (avgWordLength * 100 / avgSentenceLength)) + 
+    (0.1297 * complexWordsPercent) - 
+    (0.0875 * esPercent) - 
+    0.875
+  );
+  
+  let wstfLevel: string;
+  if (wstfScore <= 4) wstfLevel = 'Sehr leicht (Grundschule)';
+  else if (wstfScore <= 7) wstfLevel = 'Leicht (Mittelstufe)';
+  else if (wstfScore <= 10) wstfLevel = 'Mittel (Oberstufe)';
+  else if (wstfScore <= 13) wstfLevel = 'Schwer (Studium)';
+  else wstfLevel = 'Sehr schwer (Akademisch)';
+  
+  // === LIX Score ===
+  // LIX = (Wörter / Sätze) + (Langwörter × 100 / Wörter)
+  const lixScore = Math.round(avgSentenceLength + longWordsPercent);
+  
+  let lixLevel: string;
+  if (lixScore < 30) lixLevel = 'Sehr leicht (Kinderbuch)';
+  else if (lixScore < 40) lixLevel = 'Leicht (Belletristik)';
+  else if (lixScore < 50) lixLevel = 'Mittel (Sachliteratur)';
+  else if (lixScore < 60) lixLevel = 'Schwer (Fachliteratur)';
+  else lixLevel = 'Sehr schwer (Wissenschaft)';
+  
+  // === Generate Issues and Recommendations ===
+  
+  // Very long sentences
+  if (veryLongSentences > 0) {
+    issues.push({
+      type: 'long-sentences',
+      severity: 'warning',
+      message: `${veryLongSentences} Sätze haben mehr als 30 Wörter`,
+      recommendation: 'Teilen Sie lange Sätze in kürzere, leichter verständliche Einheiten auf'
+    });
+  }
+  
+  // High passive voice usage
+  const passiveRatio = passiveVoiceCount / sentences.length;
+  if (passiveRatio > 0.3) {
+    issues.push({
+      type: 'passive-voice',
+      severity: 'info',
+      message: `Hoher Anteil an Passivkonstruktionen (${Math.round(passiveRatio * 100)}%)`,
+      recommendation: 'Verwenden Sie mehr aktive Formulierungen für einen direkteren Schreibstil'
+    });
+  }
+  
+  // Too many fill words
+  const fillWordRatio = fillWordsCount / words.length;
+  if (fillWordRatio > 0.05) {
+    issues.push({
+      type: 'fill-words',
+      severity: 'info',
+      message: `${fillWordsCount} Füllwörter gefunden (${Math.round(fillWordRatio * 100)}% des Textes)`,
+      recommendation: 'Reduzieren Sie Füllwörter wie "eigentlich", "halt", "irgendwie" für prägnantere Texte'
+    });
+  }
+  
+  // High complexity
+  if (complexWordsPercent > 30) {
+    issues.push({
+      type: 'complex-words',
+      severity: 'warning',
+      message: `${Math.round(complexWordsPercent)}% der Wörter sind komplex (3+ Silben)`,
+      recommendation: 'Ersetzen Sie komplexe Wörter durch einfachere Alternativen, wo möglich'
+    });
+  }
+  
+  // Very long average sentence
+  if (avgSentenceLength > 25) {
+    issues.push({
+      type: 'avg-sentence-length',
+      severity: 'warning',
+      message: `Durchschnittliche Satzlänge von ${Math.round(avgSentenceLength)} Wörtern ist hoch`,
+      recommendation: 'Optimal sind 15-20 Wörter pro Satz für gute Lesbarkeit'
+    });
+  }
+  
+  // Low Flesch score
+  if (fleschScore < 30) {
+    issues.push({
+      type: 'low-flesch',
+      severity: 'error',
+      message: 'Text ist sehr schwer lesbar (Flesch < 30)',
+      recommendation: 'Vereinfachen Sie Satzbau und Wortwahl deutlich'
+    });
+  } else if (fleschScore < 50) {
+    issues.push({
+      type: 'moderate-flesch',
+      severity: 'info',
+      message: 'Text erfordert konzentriertes Lesen (Flesch 30-50)',
+      recommendation: 'Für breiteres Publikum sollte der Score auf 50-60 verbessert werden'
+    });
+  }
+  
+  // Only short sentences (boring)
+  if (shortSentences > sentences.length * 0.8 && sentences.length > 5) {
+    issues.push({
+      type: 'monotonous-short',
+      severity: 'info',
+      message: 'Überwiegend kurze Sätze können monoton wirken',
+      recommendation: 'Variieren Sie die Satzlänge für einen lebendigeren Schreibstil'
+    });
+  }
+  
+  // Overall rating
+  let overallRating: 'excellent' | 'good' | 'moderate' | 'difficult' | 'very-difficult';
+  const avgScore = (fleschScore + (100 - lixScore) + (100 - wstfScore * 5)) / 3;
+  
+  if (avgScore >= 70) overallRating = 'excellent';
+  else if (avgScore >= 55) overallRating = 'good';
+  else if (avgScore >= 40) overallRating = 'moderate';
+  else if (avgScore >= 25) overallRating = 'difficult';
+  else overallRating = 'very-difficult';
+  
+  return {
+    fleschScore,
+    fleschLevel,
+    fleschGrade,
+    wstfScore: Math.max(0, wstfScore),
+    wstfLevel,
+    lixScore,
+    lixLevel,
+    sentences: sentences.length,
+    words: words.length,
+    syllables: totalSyllables,
+    characters: totalCharacters,
+    paragraphs: paragraphs.length,
     avgSentenceLength: Math.round(avgSentenceLength * 10) / 10,
-    avgWordLength: Math.round(avgWordLength * 10) / 10
+    avgWordLength: Math.round(avgWordLength * 10) / 10,
+    avgSyllablesPerWord: Math.round(avgSyllablesPerWord * 100) / 100,
+    longWordsCount: longWords.length,
+    longWordsPercent: Math.round(longWordsPercent * 10) / 10,
+    complexWordsCount: complexWords.length,
+    complexWordsPercent: Math.round(complexWordsPercent * 10) / 10,
+    shortSentences,
+    mediumSentences,
+    longSentences,
+    veryLongSentences,
+    passiveVoiceCount,
+    fillWordsCount,
+    issues,
+    overallRating
   };
 }
 
@@ -552,15 +889,15 @@ function analyzeSEO(url: string, html: string, markdown: string, metadata: any, 
   });
 
   // Readability Score
-  const readability = calculateFleschDE(textContent);
+  const readability = analyzeReadability(textContent);
   
   contentChecks.push({
     name: 'Lesbarkeit (Flesch DE)',
-    passed: readability.score >= 40,
-    severity: readability.score < 30 ? 'warning' : 'info',
-    message: `Score: ${readability.score} - ${readability.level}`,
-    value: readability.score,
-    recommendation: readability.score < 40 ? 'Vereinfachen Sie Satzstruktur und Wortwahl' : undefined,
+    passed: readability.fleschScore >= 40,
+    severity: readability.fleschScore < 30 ? 'warning' : 'info',
+    message: `Score: ${readability.fleschScore} - ${readability.fleschLevel}`,
+    value: readability.fleschScore,
+    recommendation: readability.fleschScore < 40 ? 'Vereinfachen Sie Satzstruktur und Wortwahl' : undefined,
   });
 
   contentChecks.push({
@@ -570,6 +907,15 @@ function analyzeSEO(url: string, html: string, markdown: string, metadata: any, 
     message: `${readability.avgSentenceLength} Wörter pro Satz`,
     value: readability.avgSentenceLength,
     recommendation: readability.avgSentenceLength > 20 ? 'Kürzen Sie lange Sätze für bessere Lesbarkeit' : undefined,
+  });
+
+  contentChecks.push({
+    name: 'Wortlänge & Komplexität',
+    passed: readability.complexWordsPercent <= 30,
+    severity: readability.complexWordsPercent > 40 ? 'warning' : 'info',
+    message: `${readability.complexWordsPercent}% komplexe Wörter, ${readability.avgSyllablesPerWord} Silben/Wort`,
+    value: readability.complexWordsPercent,
+    recommendation: readability.complexWordsPercent > 30 ? 'Reduzieren Sie den Anteil komplexer Wörter' : undefined,
   });
 
   // Structured Data
@@ -923,10 +1269,7 @@ function analyzeSEO(url: string, html: string, markdown: string, metadata: any, 
       markdown: markdown.substring(0, 10000),
       wordCount,
       headings: headingsList,
-      readabilityScore: readability.score,
-      readabilityLevel: readability.level,
-      avgSentenceLength: readability.avgSentenceLength,
-      avgWordLength: readability.avgWordLength,
+      readability,
     },
     linkData: {
       internal: internalLinksList,
