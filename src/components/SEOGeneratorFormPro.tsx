@@ -9,12 +9,15 @@ import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { Loader2 } from "lucide-react";
 
+export type PageType = 'product' | 'category' | 'guide';
+
 export interface FormData {
   // Step 1
-  manufacturerName: string;
-  manufacturerWebsite: string;
-  productName: string;
-  productUrls: string[];
+  pageType: PageType;
+  brandName: string; // Was: manufacturerName - jetzt flexibler Name
+  websiteUrl: string; // Was: manufacturerWebsite
+  mainTopic: string; // Was: productName - jetzt flexibler (Produkt/Kategorie/Thema)
+  referenceUrls: string[]; // Was: productUrls - jetzt flexibler
   additionalInfo: string;
   briefingFiles: string[];
   competitorUrls: string[];
@@ -51,10 +54,11 @@ interface SEOGeneratorFormProps {
 export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormProps) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FormData>({
-    manufacturerName: "",
-    manufacturerWebsite: "",
-    productName: "",
-    productUrls: [],
+    pageType: 'product',
+    brandName: "",
+    websiteUrl: "",
+    mainTopic: "",
+    referenceUrls: [],
     additionalInfo: "",
     briefingFiles: [],
     competitorUrls: [],
@@ -268,10 +272,11 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
         {currentStep === 1 && (
           <Step1InfoGathering
             data={{
-              manufacturerName: formData.manufacturerName,
-              manufacturerWebsite: formData.manufacturerWebsite,
-              productName: formData.productName,
-              productUrls: formData.productUrls,
+              pageType: formData.pageType,
+              brandName: formData.brandName,
+              websiteUrl: formData.websiteUrl,
+              mainTopic: formData.mainTopic,
+              referenceUrls: formData.referenceUrls,
               additionalInfo: formData.additionalInfo,
               briefingFiles: formData.briefingFiles,
               competitorUrls: formData.competitorUrls,

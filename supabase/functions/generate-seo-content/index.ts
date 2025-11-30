@@ -589,6 +589,31 @@ function buildUserPrompt(formData: any, briefingContent: string = ''): string {
     innovative: 'Innovativ & Zukunftsorientiert'
   };
 
+  // Page type specific labels
+  const pageTypeConfig: Record<string, { brandLabel: string; topicLabel: string; urlsLabel: string; description: string }> = {
+    product: {
+      brandLabel: 'Hersteller/Marke',
+      topicLabel: 'Produktname',
+      urlsLabel: 'Produkt-URLs',
+      description: 'Produktseite mit Spezifikationen und Anwendungen'
+    },
+    category: {
+      brandLabel: 'Shop/Marke',
+      topicLabel: 'Kategoriename',
+      urlsLabel: 'Beispiel-Produkte/Unterseiten',
+      description: 'Kategorieseite/Shop-Übersicht (evtl. Multi-Brand)'
+    },
+    guide: {
+      brandLabel: 'Autor/Unternehmen',
+      topicLabel: 'Thema/Titel',
+      urlsLabel: 'Quellen/Referenzen',
+      description: 'Ratgeber/Blog-Artikel zu einem Thema'
+    }
+  };
+
+  const pageType = formData.pageType || 'product';
+  const config = pageTypeConfig[pageType] || pageTypeConfig.product;
+
   // Build compliance info
   let complianceInfo = '';
   if (formData.complianceChecks && (formData.complianceChecks.mdr || formData.complianceChecks.hwg || formData.complianceChecks.studies)) {
@@ -612,21 +637,50 @@ function buildUserPrompt(formData: any, briefingContent: string = ''): string {
   }
   if (formData.includeTabs) {
     layoutStructure += '✓ TAB-STRUKTUR: Organisiere zusätzliche Informationen in Tabs\n';
-    layoutStructure += '  Empfohlene Tabs: Technische Daten | Anwendungsbereiche | Zubehör & Erweiterungen | Downloads\n';
+    if (pageType === 'product') {
+      layoutStructure += '  Empfohlene Tabs: Technische Daten | Anwendungsbereiche | Zubehör & Erweiterungen | Downloads\n';
+    } else if (pageType === 'category') {
+      layoutStructure += '  Empfohlene Tabs: Produktübersicht | Auswahlhilfe | Marken | Zubehör\n';
+    } else {
+      layoutStructure += '  Empfohlene Tabs: Übersicht | Anleitung | Tipps | Weiterführende Infos\n';
+    }
     layoutStructure += '  - Jeder Tab enthält strukturierte, leicht erfassbare Informationen\n';
   }
   if (formData.includeFAQ) {
     layoutStructure += '✓ FAQ-BEREICH: Umfangreicher FAQ-Block am Ende mit 5-8 relevanten Fragen\n';
   }
 
+  // Build step 1 info based on page type
+  let step1Info = `=== SCHRITT 1: GRUNDINFORMATIONEN ===\n`;
+  step1Info += `Seitentyp: ${config.description}\n`;
+  
+  // Support both old and new field names for backward compatibility
+  const brandName = formData.brandName || formData.manufacturerName || '';
+  const websiteUrl = formData.websiteUrl || formData.manufacturerWebsite || '';
+  const mainTopic = formData.mainTopic || formData.productName || '';
+  const referenceUrls = formData.referenceUrls || formData.productUrls || [];
+  
+  if (brandName) {
+    step1Info += `${config.brandLabel}: ${brandName}\n`;
+  }
+  if (websiteUrl) {
+    step1Info += `Website: ${websiteUrl}\n`;
+  }
+  if (mainTopic) {
+    step1Info += `${config.topicLabel}: ${mainTopic}\n`;
+  }
+  if (referenceUrls && referenceUrls.length > 0) {
+    step1Info += `${config.urlsLabel}:\n${referenceUrls.map((url: string) => `- ${url}`).join('\n')}\n`;
+  }
+  if (formData.additionalInfo) {
+    step1Info += `Zusätzliche Informationen/USPs:\n${formData.additionalInfo}\n`;
+  }
+  if (formData.competitorData) {
+    step1Info += `\n=== KONKURRENTEN-ANALYSE (BEST PRACTICES) ===\n${formData.competitorData}\n\nNUTZE DIESE ERKENNTNISSE:\n- Übernimm erfolgreiche Keyword-Strategien\n- Adaptiere bewährte Content-Strukturen\n- Integriere überzeugende Argumentationsmuster\n- Hebe dich gleichzeitig mit einzigartigen USPs ab\n`;
+  }
+
   return `
-=== SCHRITT 1: PRODUKTINFORMATIONEN ===
-${formData.manufacturerName ? `Herstellername: ${formData.manufacturerName}` : ''}
-${formData.manufacturerWebsite ? `Hersteller-Website: ${formData.manufacturerWebsite}` : ''}
-${formData.productName ? `Produktname: ${formData.productName}` : ''}
-${formData.productUrls && formData.productUrls.length > 0 ? `Produkt-URLs:\n${formData.productUrls.map((url: string) => `- ${url}`).join('\n')}` : ''}
-${formData.additionalInfo ? `Zusätzliche Informationen/USPs:\n${formData.additionalInfo}` : ''}
-${formData.competitorData ? `\n=== KONKURRENTEN-ANALYSE (BEST PRACTICES) ===\n${formData.competitorData}\n\nNUTZE DIESE ERKENNTNISSE:\n- Übernimm erfolgreiche Keyword-Strategien\n- Adaptiere bewährte Content-Strukturen\n- Integriere überzeugende Argumentationsmuster\n- Hebe dich gleichzeitig mit einzigartigen USPs ab\n` : ''}
+${step1Info}
 
 === SCHRITT 2: ZIELGRUPPE & ANSPRACHE ===
 Zielgruppe: ${formData.targetAudience || 'Nicht angegeben'}
@@ -644,7 +698,7 @@ ${formData.contentStructure ? `\nZusätzliche Struktur-Anforderungen:\n${formDat
 ${briefingContent ? `\n\n=== HOCHGELADENE BRIEFING-DOKUMENTE ===\nBerücksichtige folgende Informationen aus den hochgeladenen Dokumenten:${briefingContent}` : ''}${complianceInfo}
 
 === AUFGABE ===
-Erstelle einen hochwertigen, SEO-optimierten Text, der:
+Erstelle einen hochwertigen, SEO-optimierten ${pageType === 'product' ? 'Produkttext' : pageType === 'category' ? 'Kategorietext' : 'Ratgeberartikel'}, der:
 - Alle Keyword-Vorgaben natürlich integriert
 - Die definierte Seitenlayout-Struktur exakt umsetzt
 - Auf die Zielgruppe zugeschnitten ist
@@ -655,6 +709,9 @@ Erstelle einen hochwertigen, SEO-optimierten Text, der:
 }
 
 function parseGeneratedContent(text: string, formData: any): any {
+  const pageType = formData.pageType || 'product';
+  const mainTopic = formData.mainTopic || formData.productName || formData.focusKeyword;
+  
   try {
     // Try to parse as JSON
     const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -665,18 +722,22 @@ function parseGeneratedContent(text: string, formData: any): any {
     console.error('Failed to parse as JSON, using fallback structure:', e);
   }
 
-  // Fallback: create a basic structure
+  // Fallback: create a basic structure based on page type
+  const schemaRecommendations: Record<string, string> = {
+    product: 'Empfohlene Schema.org Typen: Product, Offer, AggregateRating',
+    category: 'Empfohlene Schema.org Typen: BreadcrumbList, ItemList, CollectionPage',
+    guide: 'Empfohlene Schema.org Typen: Article, FAQPage, HowTo'
+  };
+
   return {
-    seoText: `<h1>${formData.focusKeyword}</h1>\n<p>${text}</p>`,
+    seoText: `<h1>${mainTopic}</h1>\n<p>${text}</p>`,
     faq: [
-      { question: "Was ist " + formData.focusKeyword + "?", answer: "Weitere Informationen folgen." }
+      { question: "Was ist " + mainTopic + "?", answer: "Weitere Informationen folgen." }
     ],
-    title: formData.focusKeyword.substring(0, 60),
+    title: mainTopic.substring(0, 60),
     metaDescription: text.substring(0, 155),
     internalLinks: [],
-    technicalHints: formData.pageType === 'product' 
-      ? 'Empfohlene Schema.org Typen: Product, Offer, AggregateRating' 
-      : 'Empfohlene Schema.org Typen: BreadcrumbList, ItemList',
+    technicalHints: schemaRecommendations[pageType] || schemaRecommendations.product,
     qualityReport: formData.complianceCheck ? {
       status: 'green',
       flags: [],
