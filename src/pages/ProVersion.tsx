@@ -77,7 +77,8 @@ const ProVersion = ({ session }: ProVersionProps) => {
   const [isRefining, setIsRefining] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
-  const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
+  const [generatedContent, setGeneratedContent] = useState<any>(null);
+  const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
   
   const [formData, setFormData] = useState<FormData>({
@@ -151,6 +152,7 @@ const ProVersion = ({ session }: ProVersionProps) => {
 
       setGenerationProgress(100);
       setGeneratedContent(data);
+      setSelectedVariantIndex(0); // Reset to first variant
       
       setTimeout(() => {
         setCurrentStep(4);
@@ -290,6 +292,22 @@ const ProVersion = ({ session }: ProVersionProps) => {
   const handleFinish = () => {
     toast({ title: "Fertig!", description: "Content wurde erfolgreich erstellt" });
     // Could save to projects here
+  };
+
+  const handleVariantSelect = (index: number) => {
+    setSelectedVariantIndex(index);
+  };
+
+  const getSelectedContent = () => {
+    if (!generatedContent) return null;
+    
+    // Check if we have variants structure
+    if (generatedContent.variants && Array.isArray(generatedContent.variants)) {
+      return generatedContent.variants[selectedVariantIndex] || generatedContent.variants[0];
+    }
+    
+    // Fallback to direct content
+    return generatedContent;
   };
 
   const handleStepClick = (step: number) => {
@@ -469,28 +487,33 @@ const ProVersion = ({ session }: ProVersionProps) => {
                           wordCount: formData.wordCount,
                           includeFAQ: formData.includeFAQ,
                           targetAudience: formData.targetAudience,
+                          promptVersion: formData.promptVersion,
+                          focusKeyword: formData.focusKeyword,
+                          pageType: formData.pageType
                         }}
+                        onSelectVariant={handleVariantSelect}
+                        formData={formData}
                       />
                     )}
 
-                    {currentStep === 5 && (
-                      <Step5AfterCheck
-                        generatedContent={generatedContent}
-                        formData={{
-                          focusKeyword: formData.focusKeyword,
-                          secondaryKeywords: formData.secondaryKeywords,
-                          pageType: formData.pageType,
-                          targetAudience: formData.targetAudience,
-                          wordCount: formData.wordCount,
-                        }}
-                        onBack={() => setCurrentStep(4)}
-                        onFinish={handleFinish}
-                        onRegenerate={handleRegenerateWithImprovements}
-                        onRefine={handleSectionRefine}
-                        isRegenerating={isRegenerating}
-                        isRefining={isRefining}
-                      />
-                    )}
+            {currentStep === 5 && (
+              <Step5AfterCheck
+                generatedContent={getSelectedContent()}
+                formData={{
+                  focusKeyword: formData.focusKeyword,
+                  secondaryKeywords: formData.secondaryKeywords,
+                  pageType: formData.pageType,
+                  targetAudience: formData.targetAudience,
+                  wordCount: formData.wordCount,
+                }}
+                onBack={() => setCurrentStep(4)}
+                onFinish={handleFinish}
+                onRegenerate={handleRegenerateWithImprovements}
+                onRefine={handleSectionRefine}
+                isRegenerating={isRegenerating}
+                isRefining={isRefining}
+              />
+            )}
                   </div>
                 </ScrollArea>
               </>
