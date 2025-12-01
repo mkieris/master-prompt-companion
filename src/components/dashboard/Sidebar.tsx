@@ -49,6 +49,7 @@ const navigation = [
 
 const adminNavigation = [
   { name: "KI-Insights", href: "/dashboard/insights", icon: Brain },
+  { name: "System Prompts", href: "/dashboard/system-prompts", icon: FileText },
   { name: "Team", href: "/dashboard/team", icon: Users },
   { name: "Einstellungen", href: "/dashboard/settings", icon: Settings },
 ];
