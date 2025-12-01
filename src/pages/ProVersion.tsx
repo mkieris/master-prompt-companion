@@ -356,15 +356,17 @@ const ProVersion = ({ session }: ProVersionProps) => {
       {/* Main Content */}
       <main className="flex-1 container mx-auto px-4 py-6">
         <div className="flex gap-6 h-[calc(100vh-220px)]">
-          {/* Collapse Toggle Button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
-            className="absolute left-4 top-1/2 z-10 h-8 w-8 rounded-full bg-background border shadow-sm hover:bg-muted lg:hidden"
-          >
-            {isPanelCollapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-          </Button>
+          {/* Collapse Toggle Button - visible when panel is collapsed */}
+          {isPanelCollapsed && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsPanelCollapsed(false)}
+              className="flex-shrink-0 h-[calc(100vh-220px)] px-2 hover:bg-muted border-r-0 rounded-r-none"
+            >
+              <PanelLeft className="h-4 w-4" />
+            </Button>
+          )}
 
           {/* Form Panel - Collapsible */}
           <Card 
