@@ -983,6 +983,7 @@ Erstelle einen hochwertigen, SEO-optimierten ${pageType === 'product' ? 'Produkt
 - Überschriften und Text perfekt aufeinander abstimmt
 - Die gewählte Tonalität (${tonalityValue}) mit der exakten Gewichtung konsequent umsetzt
 - Die vorgegebene Wortanzahl (${resolvedWordCount}) einhält
+- Die max. Absatzlänge von ${formData.maxParagraphLength || 300} Wörtern pro Absatz STRIKT einhält
 `;
 }
 
