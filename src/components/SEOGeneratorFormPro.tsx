@@ -8,7 +8,9 @@ import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
-import { Loader2 } from "lucide-react";
+import { Loader2, TestTube } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { getDemoData } from "@/lib/demoData";
 
 export type PageType = 'product' | 'category' | 'guide';
 
@@ -112,6 +114,15 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
 
   const updateFormData = (data: Partial<FormData>) => {
     setFormData({ ...formData, ...data });
+  };
+
+  const loadDemoData = () => {
+    const demoData = getDemoData('default');
+    setFormData(demoData);
+    toast({
+      title: "Demo-Daten geladen",
+      description: "Alle Formularfelder wurden mit Test-Daten befüllt",
+    });
   };
 
   const handleGenerateContent = async () => {
@@ -299,29 +310,42 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
   };
 
   const renderStepIndicator = () => (
-    <div className="flex items-center justify-center gap-2 mb-6">
-      {[1, 2, 3, 4, 5].map((step) => (
-        <div key={step} className="flex items-center">
-          <div
-            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-              step === currentStep
-                ? "bg-primary text-primary-foreground"
-                : step < currentStep
-                ? "bg-primary/20 text-primary"
-                : "bg-muted text-muted-foreground"
-            }`}
-          >
-            {step}
-          </div>
-          {step < 5 && (
+    <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-center gap-2 flex-1">
+        {[1, 2, 3, 4, 5].map((step) => (
+          <div key={step} className="flex items-center">
             <div
-              className={`w-8 h-0.5 ${
-                step < currentStep ? "bg-primary" : "bg-muted"
+              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                step === currentStep
+                  ? "bg-primary text-primary-foreground"
+                  : step < currentStep
+                  ? "bg-primary/20 text-primary"
+                  : "bg-muted text-muted-foreground"
               }`}
-            />
-          )}
-        </div>
-      ))}
+            >
+              {step}
+            </div>
+            {step < 5 && (
+              <div
+                className={`w-8 h-0.5 ${
+                  step < currentStep ? "bg-primary" : "bg-muted"
+                }`}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+      {currentStep < 4 && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={loadDemoData}
+          className="ml-4 gap-2"
+        >
+          <TestTube className="h-4 w-4" />
+          Test-Modus
+        </Button>
+      )}
     </div>
   );
 
