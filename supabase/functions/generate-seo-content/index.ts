@@ -175,7 +175,7 @@ serve(async (req) => {
         const maxRetries = 3;
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           try {
-            console.log('Variant ' + (variantIndex + 1) + ': attempt ' + attempt);
+            console.log('Variant ' + (variantIndex + 1) + ' (${approach.name}): attempt ' + attempt);
             const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
               method: 'POST',
               headers: { 'Authorization': 'Bearer ' + LOVABLE_API_KEY, 'Content-Type': 'application/json' },
@@ -184,8 +184,23 @@ serve(async (req) => {
 
             if (response.ok) {
               const data = await response.json();
-              const parsed = parseGeneratedContent(data.choices[0].message.content, formData);
-              parsed._variantInfo = { name: approach.name, description: approach.description };
+              const rawContent = data.choices[0].message.content;
+              console.log('Variant ' + (variantIndex + 1) + ' raw response length:', rawContent?.length || 0);
+              
+              const parsed = parseGeneratedContent(rawContent, formData);
+              
+              // Validate the parsed content
+              if (!parsed.seoText || parsed.seoText.length < 100) {
+                console.error('CRITICAL: Variant ' + (variantIndex + 1) + ' has empty or too short seoText:', parsed.seoText?.length || 0);
+                if (attempt < maxRetries) {
+                  console.log('Retrying variant ' + (variantIndex + 1) + ' due to empty content...');
+                  await new Promise(resolve => setTimeout(resolve, 2000));
+                  continue;
+                }
+              }
+              
+              parsed._variantInfo = { name: approach.name, description: approach.description, index: variantIndex };
+              console.log('Variant ' + (variantIndex + 1) + ' successfully parsed. seoText length:', parsed.seoText?.length || 0);
               return parsed;
             }
             
@@ -194,17 +209,19 @@ serve(async (req) => {
             }
             
             if (response.status >= 500 && attempt < maxRetries) {
+              console.log('Server error for variant ' + (variantIndex + 1) + ', retrying...');
               await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
               continue;
             }
             
             throw new Error('AI Gateway error: ' + response.status);
           } catch (err) {
+            console.error('Error generating variant ' + (variantIndex + 1) + ':', err);
             if (attempt === maxRetries) throw err;
             await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
           }
         }
-        throw new Error('Failed variant ' + variantIndex);
+        throw new Error('Failed to generate variant ' + variantIndex + ' after ' + maxRetries + ' attempts');
       };
       
       const variants = await Promise.all([generateVariant(0), generateVariant(1), generateVariant(2)]);
@@ -431,15 +448,43 @@ function buildUserPrompt(formData: any, briefingContent: string): string {
 function parseGeneratedContent(text: string, formData: any): any {
   const mainTopic = formData.mainTopic || formData.productName || formData.focusKeyword;
   
+  // Try to extract JSON from various formats
+  try {
+    // First try: direct JSON parse
+    const parsed = JSON.parse(text);
+    if (parsed.seoText || parsed.text) {
+      return validateAndFixContent(parsed, mainTopic);
+    }
+  } catch (e) {
+    // Continue to next parsing method
+  }
+
+  // Second try: find JSON in markdown code block
+  try {
+    const codeBlockMatch = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+    if (codeBlockMatch) {
+      const parsed = JSON.parse(codeBlockMatch[1]);
+      return validateAndFixContent(parsed, mainTopic);
+    }
+  } catch (e) {
+    console.error('Failed to parse JSON from code block:', e);
+  }
+
+  // Third try: find any JSON object in text
   try {
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) return JSON.parse(jsonMatch[0]);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      return validateAndFixContent(parsed, mainTopic);
+    }
   } catch (e) {
     console.error('Failed to parse JSON:', e);
   }
 
+  // Fallback: create structured content from plain text
+  console.warn('No valid JSON found, creating fallback content');
   return {
-    seoText: '<h1>' + mainTopic + '</h1>\n<p>' + text + '</p>',
+    seoText: '<h1>' + mainTopic + '</h1>\n<p>' + text.substring(0, 2000) + '</p>',
     faq: [{ question: 'Was ist ' + mainTopic + '?', answer: 'Weitere Informationen folgen.' }],
     title: mainTopic.substring(0, 60),
     metaDescription: text.substring(0, 155),
@@ -447,4 +492,27 @@ function parseGeneratedContent(text: string, formData: any): any {
     technicalHints: 'Schema.org Product/Article empfohlen',
     qualityReport: { status: 'green', flags: [], evidenceTable: [] }
   };
+}
+
+function validateAndFixContent(content: any, mainTopic: string): any {
+  // Ensure all required fields exist
+  const validated = {
+    seoText: content.seoText || content.text || '<h1>' + mainTopic + '</h1><p>Content konnte nicht generiert werden.</p>',
+    faq: Array.isArray(content.faq) ? content.faq : [{ question: 'Was ist ' + mainTopic + '?', answer: 'Weitere Informationen folgen.' }],
+    title: content.title || mainTopic.substring(0, 60),
+    metaDescription: content.metaDescription || content.meta_description || mainTopic.substring(0, 155),
+    internalLinks: Array.isArray(content.internalLinks) ? content.internalLinks : [],
+    technicalHints: content.technicalHints || 'Schema.org Product/Article empfohlen',
+    qualityReport: content.qualityReport || { status: 'green', flags: [], evidenceTable: [] }
+  };
+
+  // Log validation issues
+  if (!content.seoText && !content.text) {
+    console.error('CRITICAL: No seoText or text field in generated content');
+  }
+  if (!validated.seoText || validated.seoText.length < 100) {
+    console.error('WARNING: seoText is too short:', validated.seoText?.length || 0, 'chars');
+  }
+
+  return validated;
 }

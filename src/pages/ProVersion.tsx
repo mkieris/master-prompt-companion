@@ -77,7 +77,7 @@ const ProVersion = ({ session }: ProVersionProps) => {
   const [isRefining, setIsRefining] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
-  const [generatedContent, setGeneratedContent] = useState<any>(null);
+  const [allVariants, setAllVariants] = useState<any[]>([]);
   const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
   
@@ -151,8 +151,18 @@ const ProVersion = ({ session }: ProVersionProps) => {
       if (error) throw error;
 
       setGenerationProgress(100);
-      setGeneratedContent(data);
-      setSelectedVariantIndex(0); // Reset to first variant
+      
+      // Handle variants structure
+      if (data.variants && Array.isArray(data.variants)) {
+        console.log('Received variants:', data.variants.length);
+        setAllVariants(data.variants);
+        setSelectedVariantIndex(data.selectedVariant || 0);
+      } else {
+        // Single content, wrap in array for consistency
+        console.log('Received single content, wrapping in array');
+        setAllVariants([data]);
+        setSelectedVariantIndex(0);
+      }
       
       setTimeout(() => {
         setCurrentStep(4);
@@ -185,12 +195,17 @@ const ProVersion = ({ session }: ProVersionProps) => {
         body: {
           ...formData,
           refinementPrompt: prompt,
-          existingContent: generatedContent,
+          existingContent: getCurrentVariant(),
         },
       });
 
       if (error) throw error;
-      setGeneratedContent(data);
+      
+      // Update the current variant with refined content
+      const updatedVariants = [...allVariants];
+      updatedVariants[selectedVariantIndex] = data;
+      setAllVariants(updatedVariants);
+      
       toast({ title: "Erfolgreich", description: "Text wurde überarbeitet" });
     } catch (error) {
       console.error("Refinement error:", error);
@@ -216,12 +231,17 @@ const ProVersion = ({ session }: ProVersionProps) => {
           ...formData,
           refinementPrompt: refinementPrompt,
           refinementSection: options.section,
-          existingContent: generatedContent,
+          existingContent: getCurrentVariant(),
         },
       });
 
       if (error) throw error;
-      setGeneratedContent(data);
+      
+      // Update the current variant
+      const updatedVariants = [...allVariants];
+      updatedVariants[selectedVariantIndex] = data;
+      setAllVariants(updatedVariants);
+      
       toast({ 
         title: "Erfolgreich", 
         description: options.section === 'full' 
@@ -246,12 +266,17 @@ const ProVersion = ({ session }: ProVersionProps) => {
         body: {
           ...updatedFormData,
           quickChange: true,
-          existingContent: generatedContent,
+          existingContent: getCurrentVariant(),
         },
       });
 
       if (error) throw error;
-      setGeneratedContent(data);
+      
+      // Update the current variant
+      const updatedVariants = [...allVariants];
+      updatedVariants[selectedVariantIndex] = data;
+      setAllVariants(updatedVariants);
+      
       toast({ title: "Erfolgreich", description: "Änderungen wurden übernommen" });
     } catch (error) {
       console.error("Quick change error:", error);
@@ -274,12 +299,17 @@ const ProVersion = ({ session }: ProVersionProps) => {
             - Kürzere Sätze (max. 20 Wörter)
             - Weniger Passiv-Konstruktionen
             - Mehr konkrete Beispiele`,
-          existingContent: generatedContent,
+          existingContent: getCurrentVariant(),
         },
       });
 
       if (error) throw error;
-      setGeneratedContent(data);
+      
+      // Update the current variant
+      const updatedVariants = [...allVariants];
+      updatedVariants[selectedVariantIndex] = data;
+      setAllVariants(updatedVariants);
+      
       toast({ title: "Erfolgreich", description: "Text wurde mit SEO-Verbesserungen regeneriert" });
     } catch (error) {
       console.error("Regeneration error:", error);
@@ -295,26 +325,20 @@ const ProVersion = ({ session }: ProVersionProps) => {
   };
 
   const handleVariantSelect = (index: number) => {
+    console.log('Variant selected:', index);
     setSelectedVariantIndex(index);
   };
 
-  const getSelectedContent = () => {
-    if (!generatedContent) return null;
-    
-    // Check if we have variants structure
-    if (generatedContent.variants && Array.isArray(generatedContent.variants)) {
-      return generatedContent.variants[selectedVariantIndex] || generatedContent.variants[0];
-    }
-    
-    // Fallback to direct content
-    return generatedContent;
+  const getCurrentVariant = () => {
+    if (allVariants.length === 0) return null;
+    return allVariants[selectedVariantIndex] || allVariants[0];
   };
 
   const handleStepClick = (step: number) => {
     // Only allow going back or to current step
     if (step <= currentStep) {
       // Don't allow going to step 4 or 5 without content
-      if ((step === 4 || step === 5) && !generatedContent) {
+      if ((step === 4 || step === 5) && allVariants.length === 0) {
         return;
       }
       setCurrentStep(step);
@@ -325,7 +349,7 @@ const ProVersion = ({ session }: ProVersionProps) => {
     formData.mainTopic ? 1 : 0,
     formData.targetAudience && formData.formOfAddress ? 2 : 0,
     formData.focusKeyword ? 3 : 0,
-    generatedContent ? 4 : 0,
+    allVariants.length > 0 ? 4 : 0,
   ].filter(Boolean);
 
   return (
@@ -475,7 +499,7 @@ const ProVersion = ({ session }: ProVersionProps) => {
 
                     {currentStep === 4 && (
                       <Step4Preview
-                        generatedContent={generatedContent}
+                        generatedContent={{ variants: allVariants, selectedVariant: selectedVariantIndex }}
                         onRefine={handleRefineContent}
                         onQuickChange={handleQuickChange}
                         onBack={() => setCurrentStep(3)}
@@ -498,7 +522,7 @@ const ProVersion = ({ session }: ProVersionProps) => {
 
             {currentStep === 5 && (
               <Step5AfterCheck
-                generatedContent={getSelectedContent()}
+                generatedContent={getCurrentVariant()}
                 formData={{
                   focusKeyword: formData.focusKeyword,
                   secondaryKeywords: formData.secondaryKeywords,
@@ -537,9 +561,13 @@ const ProVersion = ({ session }: ProVersionProps) => {
               </Button>
             )}
             <OutputPanel 
-              content={generatedContent} 
+              content={getCurrentVariant()} 
               isLoading={isGenerating}
-              onContentUpdate={setGeneratedContent}
+              onContentUpdate={(updatedContent) => {
+                const updatedVariants = [...allVariants];
+                updatedVariants[selectedVariantIndex] = updatedContent;
+                setAllVariants(updatedVariants);
+              }}
             />
           </div>
         </div>
