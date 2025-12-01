@@ -10,6 +10,7 @@ import Index from "./pages/Index";
 import BasicVersion from "./pages/BasicVersion";
 import ProVersion from "./pages/ProVersion";
 import Auth from "./pages/Auth";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import SEOCheck from "./pages/SEOCheck";
 import Dashboard from "./pages/Dashboard";
@@ -52,6 +53,7 @@ const App = () => {
             <Route path="/basic" element={<BasicVersion session={session} />} />
             <Route path="/pro" element={<ProVersion session={session} />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/seo-check" element={<SEOCheck session={session} />} />
             <Route path="/onboarding" element={<Onboarding session={session} />} />
             <Route path="/dashboard" element={<Dashboard session={session} />}>
