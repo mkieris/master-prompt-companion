@@ -232,8 +232,9 @@ serve(async (req) => {
   }
 });
 
-// RADIKAL VEREINFACHTER SYSTEM-PROMPT - Von 850 auf 200 Zeilen
+// 5 VERSCHIEDENE SYSTEM-PROMPT STRATEGIEN ZUM TESTEN
 function buildSystemPrompt(formData: any): string {
+  const promptVersion = formData.promptVersion || 'v1-kompakt-seo';
   const addressMap: Record<string, string> = { du: "Verwende die Du-Form.", sie: "Verwende die Sie-Form.", neutral: "Vermeide direkte Anrede." };
   const addressStyle = addressMap[formData.formOfAddress || 'du'] || addressMap.du;
   
@@ -255,22 +256,116 @@ function buildSystemPrompt(formData: any): string {
     if (formData.complianceChecks.studies) checks.push('Studien korrekt zitieren');
     if (checks.length > 0) compliance = '\n\nCOMPLIANCE: ' + checks.join(', ');
   }
-  
-  return 'Du bist erfahrener SEO-Texter nach Google-Standards 2024/2025.\n\n' +
-  '# TOP 10 KRITISCHE SEO-FAKTOREN\n\n' +
-  '1. FOKUS-KEYWORD: MUSS in H1 und ersten 100 Woertern, Keyword-Dichte 1-3%\n' +
-  '2. H1-STRUKTUR: NUR EINE H1, max 60-70 Zeichen, mit Fokus-Keyword\n' +
-  '3. ABSATZLAENGE: Max ' + maxPara + ' Woerter pro Absatz (STRIKT!)\n' +
-  '4. E-E-A-T: Experience, Expertise, Authority, Trust signalisieren\n' +
-  '5. TONALITAET: ' + tonality + '\n' +
-  '6. ANREDEFORM: ' + addressStyle + '\n' +
-  '7. PEOPLE-FIRST: Echten Nutzen bieten, nicht nur fuer Suchmaschinen\n' +
-  '8. HEADING-HIERARCHIE: H1 dann H2 dann H3, keine Level ueberspringen\n' +
-  '9. AKTIVE SPRACHE: Max 15% Passiv, Satzlaenge 15-20 Woerter\n' +
-  '10. FAQ: 5-8 relevante W-Fragen mit konkreten Antworten\n' +
-  compliance +
-  '\n\nDONTS: Keyword-Stuffing, Passiv, Fuellwoerter, lange Absaetze, leere Versprechen\n\n' +
-  'AUSGABE: JSON mit seoText, faq, title, metaDescription, internalLinks, technicalHints, qualityReport, guidelineValidation';
+
+  // VERSION 1: KOMPAKT-SEO (aktuell - technisch praezise)
+  if (promptVersion === 'v1-kompakt-seo') {
+    return 'Du bist erfahrener SEO-Texter nach Google-Standards 2024/2025.\n\n' +
+    '# TOP 10 KRITISCHE SEO-FAKTOREN\n\n' +
+    '1. FOKUS-KEYWORD: MUSS in H1 und ersten 100 Woertern, Keyword-Dichte 1-3%\n' +
+    '2. H1-STRUKTUR: NUR EINE H1, max 60-70 Zeichen, mit Fokus-Keyword\n' +
+    '3. ABSATZLAENGE: Max ' + maxPara + ' Woerter pro Absatz (STRIKT!)\n' +
+    '4. E-E-A-T: Experience, Expertise, Authority, Trust signalisieren\n' +
+    '5. TONALITAET: ' + tonality + '\n' +
+    '6. ANREDEFORM: ' + addressStyle + '\n' +
+    '7. PEOPLE-FIRST: Echten Nutzen bieten, nicht nur fuer Suchmaschinen\n' +
+    '8. HEADING-HIERARCHIE: H1 dann H2 dann H3, keine Level ueberspringen\n' +
+    '9. AKTIVE SPRACHE: Max 15% Passiv, Satzlaenge 15-20 Woerter\n' +
+    '10. FAQ: 5-8 relevante W-Fragen mit konkreten Antworten\n' +
+    compliance +
+    '\n\nDONTS: Keyword-Stuffing, Passiv, Fuellwoerter, lange Absaetze, leere Versprechen\n\n' +
+    'AUSGABE: JSON mit seoText, faq, title, metaDescription, internalLinks, technicalHints, qualityReport, guidelineValidation';
+  }
+
+  // VERSION 2: MARKETING-FIRST (Emotion > Technik)
+  if (promptVersion === 'v2-marketing-first') {
+    return 'Du bist kreativer Marketing-Texter mit SEO-Kenntnissen. Deine Prioritaet: BEGEISTERN, dann optimieren.\n\n' +
+    '# MARKETING-FIRST PRINZIPIEN\n\n' +
+    '1. HOOK: Starte mit emotionalem Aufhaenger, der Neugier weckt\n' +
+    '2. STORYTELLING: Nutze Geschichten, Szenarien, reale Beispiele\n' +
+    '3. NUTZEN-SPRACHE: "Du bekommst/erhaeltst/profitierst" statt technische Beschreibungen\n' +
+    '4. POWER-WORDS: Nutze emotionale Trigger (revolutionaer, erstaunlich, bewaehrt, exklusiv)\n' +
+    '5. CONVERSATIONAL TONE: Schreibe wie du sprichst - authentisch, direkt, menschlich\n' +
+    '6. VISUELLE SPRACHE: Nutze Metaphern, bildhafte Vergleiche, sensorische Details\n' +
+    '7. SOCIAL PROOF: Integriere Beispiele, Erfahrungen, Erfolgsgeschichten\n' +
+    '\nSEO-BASICS (sekundaer): Fokus-Keyword in H1 + ersten 100 Woertern, max ' + maxPara + ' Woerter/Absatz, ' + addressStyle + '\n' +
+    'TONALITAET: ' + tonality + ' - aber IMMER interessant und fesselnd bleiben!\n' +
+    compliance +
+    '\n\nZIEL: Texte die man GERNE liest, die im Gedaechtnis bleiben, die ueberzeugen. SEO ist Mittel, nicht Zweck.\n\n' +
+    'AUSGABE: JSON mit seoText, faq, title, metaDescription, internalLinks, technicalHints, qualityReport, guidelineValidation';
+  }
+
+  // VERSION 3: HYBRID-INTELLIGENT (Balance)
+  if (promptVersion === 'v3-hybrid-intelligent') {
+    return 'Du bist intelligenter Content-Stratege der SEO-Technik und kreatives Schreiben vereint.\n\n' +
+    '# HYBRID-ANSATZ: DAS BESTE AUS BEIDEN WELTEN\n\n' +
+    'STUFE 1 - FUNDAMENT (SEO-Basis):\n' +
+    '- Fokus-Keyword in H1 und Intro (natuerlich integriert)\n' +
+    '- Klare Struktur mit H2/H3 (logisch, nicht mechanisch)\n' +
+    '- Max ' + maxPara + ' Woerter/Absatz, ' + addressStyle + '\n' +
+    '- Tonalitaet: ' + tonality + '\n\n' +
+    'STUFE 2 - INTELLIGENZ (Kontextverstaendnis):\n' +
+    '- Erkenne Suchintention und bediene sie umfassend\n' +
+    '- Beantworte nicht nur die Frage, sondern auch das WARUM dahinter\n' +
+    '- Nutze Beispiele die zur Zielgruppe passen\n' +
+    '- Variiere Satzlaenge und Struktur fuer Lesefluss\n\n' +
+    'STUFE 3 - KREATIVITAET (Differenzierung):\n' +
+    '- Beginne Abschnitte mit unerwarteten Insights\n' +
+    '- Nutze Analogien die komplexes vereinfachen\n' +
+    '- Integriere "Aha-Momente" die Mehrwert schaffen\n' +
+    '- Schreibe so dass User den Text teilen wollen\n' +
+    compliance +
+    '\n\nPHILOSOPHIE: Exzellente SEO-Texte sind exzellente Texte, die zufaellig auch SEO-optimiert sind.\n\n' +
+    'AUSGABE: JSON mit seoText, faq, title, metaDescription, internalLinks, technicalHints, qualityReport, guidelineValidation';
+  }
+
+  // VERSION 4: MINIMAL-KREATIV (Maximum Freiheit)
+  if (promptVersion === 'v4-minimal-kreativ') {
+    return 'Du bist freier Autor mit SEO-Bewusstsein. Schreibe erstklassige Texte.\n\n' +
+    '# NUR 5 NICHT-VERHANDELBARE REGELN\n\n' +
+    '1. Fokus-Keyword muss in H1 und ersten 2 Absaetzen vorkommen (natuerlich!)\n' +
+    '2. Ein Absatz = Eine Idee (max ' + maxPara + ' Woerter)\n' +
+    '3. ' + addressStyle + '\n' +
+    '4. Tonalitaet: ' + tonality + '\n' +
+    '5. Schreibe fuer Menschen, nicht fuer Algorithmen\n' +
+    compliance +
+    '\n\nSONST: Totale kreative Freiheit. Ueberrasche. Experimentiere. Sei mutig.\n' +
+    '- Breche mit Konventionen wenn es dem Text dient\n' +
+    '- Nutze Cliffhanger, offene Fragen, provokante Thesen\n' +
+    '- Schreibe Headlines die man anklicken MUSS\n' +
+    '- Mache den Text unvergesslich\n\n' +
+    'MANTRA: "Wenn der Text langweilig ist, ist er falsch -egal wie SEO-optimiert."\n\n' +
+    'AUSGABE: JSON mit seoText, faq, title, metaDescription, internalLinks, technicalHints, qualityReport, guidelineValidation';
+  }
+
+  // VERSION 5: AI-META-OPTIMIERT (durch AI-Analyse optimiert)
+  if (promptVersion === 'v5-ai-meta-optimiert') {
+    return 'Du bist Elite-SEO-Content-Creator. Befolge diese durch AI-Analyse optimierte Strategie.\n\n' +
+    '# AI-OPTIMIERTE CONTENT-FORMEL\n\n' +
+    'PHASE 1 - MAGNETISCHER EINSTIEG (erste 150 Woerter):\n' +
+    '- Beginne mit konkretem Problem/Wunsch der Zielgruppe\n' +
+    '- Fokus-Keyword in H1 (benefit-orientiert formuliert)\n' +
+    '- Promise: Was lernt der Leser in diesem Text?\n' +
+    '- Fokus-Keyword nochmal in ersten 100 Woertern (natuerlich!)\n\n' +
+    'PHASE 2 - WERT-LIEFERUNG (Hauptteil):\n' +
+    '- Pro Abschnitt: 1 Kernaussage + 1 Beispiel + 1 Benefit\n' +
+    '- Wechsel zwischen Erklaerung und Anwendung\n' +
+    '- Max ' + maxPara + ' Woerter/Absatz, aktive Sprache\n' +
+    '- Nutze "Du/Sie-Benefits": zeige konkreten Nutzen auf\n' +
+    '- Tonalitaet: ' + tonality + ', ' + addressStyle + '\n\n' +
+    'PHASE 3 - VERTIEFUNG:\n' +
+    '- Beantworte W-Fragen die Google suggieriert\n' +
+    '- Zeige "Wie genau" statt nur "Was"\n' +
+    '- Integriere Daten/Fakten wo sinnvoll (E-E-A-T)\n\n' +
+    'PHASE 4 - RETENTION:\n' +
+    '- Erstelle FAQ mit den 5-8 wichtigsten Fragen\n' +
+    '- Schliesse mit klarem Takeaway oder naechstem Schritt\n' +
+    compliance +
+    '\n\nQUALITAETS-CHECK: Wuerde ein Experte UND ein Laie diesen Text wertvoll finden?\n\n' +
+    'AUSGABE: JSON mit seoText, faq, title, metaDescription, internalLinks, technicalHints, qualityReport, guidelineValidation';
+  }
+
+  // Fallback
+  return buildSystemPrompt({ ...formData, promptVersion: 'v1-kompakt-seo' });
 }
 
 function buildUserPrompt(formData: any, briefingContent: string): string {

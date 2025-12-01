@@ -2,7 +2,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Loader2, Link as LinkIcon, X, Globe, CheckCircle2, Plus, Target, Search, Package, FolderTree, BookOpen } from "lucide-react";
+import { Loader2, Link as LinkIcon, X, Globe, CheckCircle2, Plus, Target, Search, Package, FolderTree, BookOpen, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -22,6 +22,7 @@ interface Step1Data {
   briefingFiles: string[];
   competitorUrls: string[];
   competitorData: string;
+  promptVersion?: string;
 }
 
 interface Step1Props {
@@ -87,6 +88,39 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
 
   const config = pageTypeConfig[data.pageType];
   const IconComponent = config.icon;
+
+  const promptVersions = [
+    {
+      id: 'v1-kompakt-seo',
+      name: '🎯 Kompakt-SEO',
+      description: 'Top 10 SEO-Faktoren, technisch präzise (aktueller Standard)',
+      emoji: '🎯'
+    },
+    {
+      id: 'v2-marketing-first',
+      name: '🚀 Marketing-First',
+      description: 'Emotionen & Überzeugungskraft > Technik. Texte die begeistern!',
+      emoji: '🚀'
+    },
+    {
+      id: 'v3-hybrid-intelligent',
+      name: '🧠 Hybrid-Intelligent',
+      description: 'Perfekte Balance: SEO-Technik + kreative Freiheit',
+      emoji: '🧠'
+    },
+    {
+      id: 'v4-minimal-kreativ',
+      name: '✨ Minimal-Kreativ',
+      description: 'Nur 5 Regeln, maximale Kreativität. Mutige Experimente!',
+      emoji: '✨'
+    },
+    {
+      id: 'v5-ai-meta-optimiert',
+      name: '🤖 AI-Meta-Optimiert',
+      description: 'Durch AI-Analyse optimierte Content-Formel',
+      emoji: '🤖'
+    }
+  ];
 
   const handleScrapeWebsite = async () => {
     if (!data.websiteUrl) {
@@ -534,6 +568,48 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
           })}
         </div>
       </div>
+
+      {/* AI PROMPT VERSION AUSWAHL */}
+      <Card className="p-4 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            <Label className="text-base font-semibold">AI-Prompt-Version (BETA)</Label>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Wählen Sie die AI-Strategie: Von technisch-präzise bis maximal-kreativ. Testen Sie verschiedene Ansätze!
+          </p>
+          <RadioGroup
+            value={data.promptVersion || 'v1-kompakt-seo'}
+            onValueChange={(value) => onUpdate({ promptVersion: value })}
+            className="grid grid-cols-1 gap-3 mt-3"
+          >
+            {promptVersions.map((version) => (
+              <div key={version.id} className="relative">
+                <RadioGroupItem
+                  value={version.id}
+                  id={version.id}
+                  className="peer sr-only"
+                />
+                <Label
+                  htmlFor={version.id}
+                  className="flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all
+                    hover:border-primary/50 hover:bg-primary/5
+                    peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10"
+                >
+                  <span className="text-2xl mt-0.5">{version.emoji}</span>
+                  <div className="flex-1">
+                    <div className="font-medium">{version.name}</div>
+                    <div className="text-sm text-muted-foreground mt-0.5">
+                      {version.description}
+                    </div>
+                  </div>
+                </Label>
+              </div>
+            ))}
+          </RadioGroup>
+        </div>
+      </Card>
 
       <div className="border-t pt-6 space-y-4">
         {/* Brand/Author Name - conditional based on page type */}

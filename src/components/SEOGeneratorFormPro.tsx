@@ -25,6 +25,7 @@ export interface FormData {
   briefingFiles: string[];
   competitorUrls: string[];
   competitorData: string;
+  promptVersion?: string;
   // Step 2
   targetAudience: string;
   formOfAddress: string;
@@ -70,6 +71,7 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
     briefingFiles: [],
     competitorUrls: [],
     competitorData: "",
+    promptVersion: "v1-kompakt-seo",
     targetAudience: "",
     formOfAddress: "",
     language: "",
@@ -148,6 +150,42 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
       setGeneratedContent(data);
       setSelectedVariantIndex(0); // Reset to first variant
       
+      // AUTO-SAVE: Save to database after successful generation
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('current_organization_id')
+          .eq('id', user?.id)
+          .single();
+
+        if (user && profile?.current_organization_id) {
+          const projectData = {
+            title: formData.mainTopic || formData.focusKeyword || 'Unbenanntes Projekt',
+            page_type: formData.pageType,
+            focus_keyword: formData.focusKeyword,
+            form_data: formData as any,
+            generated_content: data as any,
+            organization_id: profile.current_organization_id,
+            created_by: user.id,
+            status: 'completed',
+            description: formData.additionalInfo?.substring(0, 500) || null
+          };
+
+          const { error: saveError } = await supabase
+            .from('content_projects')
+            .insert([projectData]);
+
+          if (saveError) {
+            console.error('Save error:', saveError);
+          } else {
+            console.log('✅ Content auto-saved to database');
+          }
+        }
+      } catch (saveErr) {
+        console.error('Auto-save failed:', saveErr);
+      }
+      
       setTimeout(() => {
         setCurrentStep(4);
         setIsGenerating(false);
@@ -157,7 +195,7 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
       const variantCount = data?.variants?.length || 1;
       toast({
         title: "Erfolgreich",
-        description: `${variantCount} SEO-Inhalt${variantCount > 1 ? '-Varianten wurden' : ' wurde'} generiert`,
+        description: `${variantCount} SEO-Inhalt${variantCount > 1 ? '-Varianten wurden' : ' wurde'} generiert & gespeichert`,
       });
     } catch (error) {
       console.error("Generation error:", error);
@@ -395,6 +433,7 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
               briefingFiles: formData.briefingFiles,
               competitorUrls: formData.competitorUrls,
               competitorData: formData.competitorData,
+              promptVersion: formData.promptVersion,
             }}
             onUpdate={updateFormData}
             onNext={() => setCurrentStep(2)}
