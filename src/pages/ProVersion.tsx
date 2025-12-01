@@ -29,6 +29,7 @@ export interface FormData {
   briefingFiles: string[];
   competitorUrls: string[];
   competitorData: string;
+  promptVersion?: string;
   targetAudience: string;
   formOfAddress: string;
   language: string;
@@ -89,6 +90,7 @@ const ProVersion = ({ session }: ProVersionProps) => {
     briefingFiles: [],
     competitorUrls: [],
     competitorData: "",
+    promptVersion: 'v1-kompakt-seo',
     targetAudience: "",
     formOfAddress: "",
     language: "de",
@@ -406,6 +408,7 @@ const ProVersion = ({ session }: ProVersionProps) => {
                           briefingFiles: formData.briefingFiles,
                           competitorUrls: formData.competitorUrls,
                           competitorData: formData.competitorData,
+                          promptVersion: formData.promptVersion,
                         }}
                         onUpdate={updateFormData}
                         onNext={() => setCurrentStep(2)}
