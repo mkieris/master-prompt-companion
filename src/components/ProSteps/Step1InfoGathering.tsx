@@ -579,35 +579,37 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
           <p className="text-sm text-muted-foreground">
             Wählen Sie die AI-Strategie: Von technisch-präzise bis maximal-kreativ. Testen Sie verschiedene Ansätze!
           </p>
-          <RadioGroup
-            value={data.promptVersion || 'v1-kompakt-seo'}
-            onValueChange={(value) => onUpdate({ promptVersion: value })}
-            className="grid grid-cols-1 gap-3 mt-3"
-          >
-            {promptVersions.map((version) => (
-              <div key={version.id} className="relative">
-                <RadioGroupItem
-                  value={version.id}
-                  id={version.id}
-                  className="peer sr-only"
-                />
-                <Label
-                  htmlFor={version.id}
-                  className="flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all
-                    hover:border-primary/50 hover:bg-primary/5
-                    peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10"
+          <div className="grid grid-cols-1 gap-3 mt-3">
+            {promptVersions.map((version) => {
+              const isSelected = (data.promptVersion || 'v1-kompakt-seo') === version.id;
+              return (
+                <Card
+                  key={version.id}
+                  className={`p-4 cursor-pointer transition-all border-2 hover:border-primary/50 hover:bg-primary/5 ${
+                    isSelected 
+                      ? 'border-primary bg-primary/10 ring-2 ring-primary/20' 
+                      : 'border-border'
+                  }`}
+                  onClick={() => onUpdate({ promptVersion: version.id })}
                 >
-                  <span className="text-2xl mt-0.5">{version.emoji}</span>
-                  <div className="flex-1">
-                    <div className="font-medium">{version.name}</div>
-                    <div className="text-sm text-muted-foreground mt-0.5">
-                      {version.description}
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl mt-0.5">{version.emoji}</span>
+                    <div className="flex-1">
+                      <div className="font-medium flex items-center gap-2">
+                        {version.name}
+                        {isSelected && (
+                          <CheckCircle2 className="h-4 w-4 text-primary" />
+                        )}
+                      </div>
+                      <div className="text-sm text-muted-foreground mt-0.5">
+                        {version.description}
+                      </div>
                     </div>
                   </div>
-                </Label>
-              </div>
-            ))}
-          </RadioGroup>
+                </Card>
+              );
+            })}
+          </div>
         </div>
       </Card>
 

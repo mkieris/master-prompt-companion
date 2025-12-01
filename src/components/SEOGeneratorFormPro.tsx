@@ -129,6 +129,16 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
   };
 
   const handleGenerateContent = async () => {
+    // Validation vor Generierung
+    if (!formData.focusKeyword?.trim()) {
+      toast({
+        title: "Fehler",
+        description: "Bitte geben Sie ein Fokus-Keyword ein",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsGenerating(true);
     setGenerationProgress(0);
     
@@ -145,7 +155,14 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
         body: formData,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Generation error:', error);
+        throw new Error(error.message || 'Fehler beim Generieren des Inhalts');
+      }
+
+      if (!data) {
+        throw new Error('Keine Daten vom Server erhalten');
+      }
 
       setGenerationProgress(100);
       setGeneratedContent(data);

@@ -644,6 +644,48 @@ export type Database = {
         }
         Relationships: []
       }
+      system_prompt_versions: {
+        Row: {
+          average_rating: number | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          metadata: Json | null
+          system_prompt: string
+          updated_at: string | null
+          usage_count: number | null
+          version_description: string | null
+          version_key: string
+          version_name: string
+        }
+        Insert: {
+          average_rating?: number | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          system_prompt: string
+          updated_at?: string | null
+          usage_count?: number | null
+          version_description?: string | null
+          version_key: string
+          version_name: string
+        }
+        Update: {
+          average_rating?: number | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          system_prompt?: string
+          updated_at?: string | null
+          usage_count?: number | null
+          version_description?: string | null
+          version_key?: string
+          version_name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

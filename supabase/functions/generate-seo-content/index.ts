@@ -13,10 +13,30 @@ serve(async (req) => {
 
   try {
     const formData = await req.json();
+    
+    // Validierung kritischer Felder
+    if (!formData || typeof formData !== 'object') {
+      return new Response(
+        JSON.stringify({ error: 'Ungültige Anfragedaten' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!formData.focusKeyword?.trim()) {
+      return new Response(
+        JSON.stringify({ error: 'Fokus-Keyword ist erforderlich' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     
     if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+      console.error('LOVABLE_API_KEY not configured');
+      return new Response(
+        JSON.stringify({ error: 'Server-Konfigurationsfehler' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log('Generating SEO content with params:', {

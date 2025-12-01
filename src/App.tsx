@@ -22,6 +22,7 @@ import AIContentCreator from "./pages/AIContentCreator";
 import SEOTraining from "./pages/SEOTraining";
 import GenerationHistory from "./pages/GenerationHistory";
 import AdminInsights from "./pages/AdminInsights";
+import SystemPromptVersions from "./pages/SystemPromptVersions";
 
 const queryClient = new QueryClient();
 
@@ -66,6 +67,7 @@ const App = () => {
               <Route path="seo-training" element={<SEOTraining session={session} />} />
               <Route path="history" element={<GenerationHistory />} />
               <Route path="insights" element={<AdminInsights />} />
+              <Route path="system-prompts" element={<SystemPromptVersions />} />
             </Route>
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
