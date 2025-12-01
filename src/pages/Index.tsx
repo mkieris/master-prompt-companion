@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
+import { useOrganization } from "@/hooks/useOrganization";
 import { 
   Search, 
   FileText, 
@@ -14,7 +15,8 @@ import {
   Target,
   LayoutDashboard,
   FolderKanban,
-  Globe
+  Globe,
+  Loader2
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 
@@ -24,6 +26,7 @@ interface IndexProps {
 
 const Index = ({ session }: IndexProps) => {
   const navigate = useNavigate();
+  const { needsOnboarding, isLoading } = useOrganization(session);
 
   useEffect(() => {
     if (!session) {
@@ -31,12 +34,33 @@ const Index = ({ session }: IndexProps) => {
     }
   }, [session, navigate]);
 
+  // Redirect to onboarding if user has no organization
+  useEffect(() => {
+    if (!isLoading && needsOnboarding && session) {
+      navigate("/onboarding");
+    }
+  }, [isLoading, needsOnboarding, session, navigate]);
+
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     navigate("/auth");
   };
 
   if (!session) {
+    return null;
+  }
+
+  // Show loading while checking organization status
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Will redirect to onboarding
+  if (needsOnboarding) {
     return null;
   }
 
