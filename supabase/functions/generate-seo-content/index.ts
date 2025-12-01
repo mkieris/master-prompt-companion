@@ -426,497 +426,167 @@ ${userPrompt}`;
 });
 
 function buildSystemPrompt(formData: any): string {
+  // === RADIKAL VEREINFACHTER SYSTEM-PROMPT ===
+  // Fokus: Top 10 kritische SEO-Faktoren
+  // Länge: Max 400 Zeilen (von 850+ reduziert)
+  // Ziel: Weniger ist mehr - klare Priorisierung statt Constraint-Overload
+  
   const addressMap: Record<string, string> = {
-    du: "Verwende durchgehend die Du-Form (du, dich, dein). Sprich den Leser direkt und persönlich an.",
-    sie: "Verwende durchgehend die Sie-Form (Sie, Ihnen, Ihr). Bleibe höflich und förmlich.",
-    neutral: "Vermeide direkte Anrede. Schreibe neutral und sachlich ohne 'du' oder 'Sie'."
+    du: "Verwende durchgehend die Du-Form (du, dich, dein).",
+    sie: "Verwende durchgehend die Sie-Form (Sie, Ihnen, Ihr).",
+    neutral: "Vermeide direkte Anrede. Schreibe neutral und sachlich."
   };
   const addressStyle = addressMap[formData.formOfAddress || 'du'] || addressMap.du;
   
-  // Tonalität-Mix mit EXTREM PRÄZISER Gewichtungssteuerung
-  const tonalityMap: Record<string, { description: string; weights: string; instructions: string }> = {
-    'expert-mix': {
-      description: "Expertenmix - Für B2B-Entscheider & wissenschaftliche Produkte",
-      weights: "70% Fachwissen • 20% Lösungsorientierung • 10% Storytelling",
-      instructions: `
-## GEWICHTUNG MATHEMATISCH UMSETZEN:
-Von 100 Sätzen im Text müssen sein:
-- **70 Sätze (70%) = FACHWISSEN**: Fachterminologie, Studienzitate, technische Spezifikationen, Wirkprinzipien, Evidenz
-- **20 Sätze (20%) = LÖSUNGSORIENTIERUNG**: "Das bewirkt...", "Dadurch können Sie...", Anwendungsfälle, ROI, Effizienz
-- **10 Sätze (10%) = STORYTELLING**: Kurze Praxisbeispiele, "In der Klinik X...", sachliche Anwendungsszenarien
-
-**SELBSTPRÜFUNG VOR AUSGABE:**
-Zähle mental: Überwiegen Fachbegriffe und Evidenz (70%)? → Wenn nein, füge mehr hinzu!
-
-**KONKRETE UMSETZUNG:**
-- Jeder Absatz: Min. 3 Fachbegriffe, 1 Evidenz/Studie, max. 1 Beispiel
-- H2-Überschriften: Fachlich-präzise, nicht emotional
-- Intro: Sofort mit Fachkontext starten, nicht mit Frage/Story
-
-**TON:** Wissenschaftlich-autoritativ, wie in Nature/Lancet. Zielgruppe: Mediziner, Forscher, B2B-Entscheider mit Fachexpertise.`
-    },
-    'consultant-mix': {
-      description: "Beratermix - Für Vergleichsphase & Problem-aware Käufer",
-      weights: "40% Fachwissen • 40% Lösungsorientierung • 20% Storytelling",
-      instructions: `
-## GEWICHTUNG MATHEMATISCH UMSETZEN:
-Von 100 Sätzen im Text müssen sein:
-- **40 Sätze (40%) = FACHWISSEN**: Fundiertes Wissen, aber verständlich erklärt. Fachbegriffe + Klammererklärung. "Das bedeutet konkret..."
-- **40 Sätze (40%) = LÖSUNGSORIENTIERUNG**: IM ZENTRUM! "Sie sparen...", "Das löst...", "Dadurch erreichen Sie...", Nutzenargumente, Vergleiche
-- **20 Sätze (20%) = STORYTELLING**: Fallbeispiele, "Kunde X hatte Y, jetzt Z", Vorher-Nachher-Szenarien
-
-**SELBSTPRÜFUNG VOR AUSGABE:**
-Zähle mental: Stehen Lösungen & Nutzen gleichwertig neben Fachwissen (40:40)? → Balance prüfen!
-
-**KONKRETE UMSETZUNG:**
-- Jeder Absatz: 2 Fach-Aussagen + 2 Nutzen-Aussagen + max. 1 Fallbeispiel
-- Verhältnis: Für jede Fach-Erklärung MUSS ein konkreter Nutzen folgen
-- H2-Überschriften: Mix aus "Was ist X?" (Fach) und "Was bringt X?" (Lösung)
-
-**TON:** Beratend-kompetent, wie ein erfahrener Consultant. "Ich verstehe Ihr Problem, hier die beste Lösung." Zielgruppe: Entscheider im Vergleichsmodus.`
-    },
-    'storytelling-mix': {
-      description: "Storytelling-Mix - Für emotional getriebene Käufe & Lifestyle-Produkte",
-      weights: "30% Fachwissen • 30% Lösungsorientierung • 40% Storytelling",
-      instructions: `
-## GEWICHTUNG MATHEMATISCH UMSETZEN:
-Von 100 Sätzen im Text müssen sein:
-- **30 Sätze (30%) = FACHWISSEN**: Genug für Glaubwürdigkeit, aber IN Geschichten verpackt. "Die Technologie nutzt..., was bedeutet, dass..."
-- **30 Sätze (30%) = LÖSUNGSORIENTIERUNG**: Transformation zeigen. "Stell dir vor, du...", "Dein Alltag wird...", konkrete Verbesserungen
-- **40 Sätze (40%) = STORYTELLING**: DOMINANZ! Echte Nutzer-Geschichten, sensorische Sprache, emotionale Bilder, "Als Maria das erste Mal..."
-
-**SELBSTPRÜFUNG VOR AUSGABE:**
-Zähle mental: Überwiegen Geschichten und Emotionen (40%)? Sind es echte Stories, nicht nur Fakten? → Wenn zu trocken, mehr Emotionen!
-
-**KONKRETE UMSETZUNG:**
-- Jeder Absatz STARTET mit Story oder Bild, dann Fakten einstreuen
-- Intro: IMMER mit emotionalem Szenario beginnen, nicht mit Definition
-- Sprache: "Du fühlst...", "Stell dir vor...", "Erlebe...", viele Adjektive
-
-**TON:** Emotional-inspirierend, wie in Lifestyle-Magazinen (GQ, Vogue). Zielgruppe: Emotionale Käufer, Lifestyle-Fokus, "Ich will mich gut fühlen".`
-    },
-    'conversion-mix': {
-      description: "Conversion-Mix - Für Produktseiten & klare Problemlösungen",
-      weights: "20% Fachwissen • 60% Lösungsorientierung • 20% Storytelling",
-      instructions: `
-## GEWICHTUNG MATHEMATISCH UMSETZEN:
-Von 100 Sätzen im Text müssen sein:
-- **20 Sätze (20%) = FACHWISSEN**: Minimal! Nur zur Glaubwürdigkeit. "Zertifiziert nach...", "Basiert auf...", kurz und knapp
-- **60 Sätze (60%) = LÖSUNGSORIENTIERUNG**: ABSOLUTE DOMINANZ! "Sie sparen 30%", "In 5 Minuten einsatzbereit", "Reduziert Schmerzen um 70%", jeder Satz = Nutzen!
-- **20 Sätze (20%) = STORYTELLING**: Erfolgsbeweise. "1000+ Kunden nutzen es", "Dr. Meyer: 'Revolutioniert meine Praxis'", kurz & knackig
-
-**SELBSTPRÜFUNG VOR AUSGABE:**
-Zähle mental: Kommuniziert JEDER Absatz einen klaren Nutzen (60%)? Gibt es starke CTAs? → Wenn zu informativ, mehr Verkaufsargumente!
-
-**KONKRETE UMSETZUNG:**
-- JEDER Absatz endet mit Nutzen oder CTA
-- Bullet Points: Nur Vorteile, keine Features ohne Nutzen
-- Überschriften: "Wie Sie damit...", "X Vorteile von...", aktionsorientiert
-- Sprache: "Jetzt", "Sofort", "Sparen Sie", imperativ
-
-**TON:** Verkaufsstark-überzeugend, wie Top-Produktseiten (Apple, Amazon). Zielgruppe: Kaufbereite Nutzer, "Ich will JETZT kaufen, überzeuge mich!"`
-    },
-    'balanced-mix': {
-      description: "Balanced-Mix - Für ganzheitliche Landingpages & Kategorie-Seiten",
-      weights: "33% Fachwissen • 33% Lösungsorientierung • 33% Storytelling",
-      instructions: `
-## GEWICHTUNG MATHEMATISCH UMSETZEN:
-Von 100 Sätzen im Text müssen sein:
-- **33 Sätze (33%) = FACHWISSEN**: Fundierte Infos, verständlich. "Studien zeigen...", "Die Technologie basiert auf...", Expertenzitate
-- **33 Sätze (33%) = LÖSUNGSORIENTIERUNG**: Vielfältige Nutzenargumente. "Ideal für...", "Löst Problem X", verschiedene Anwendungsfälle
-- **33 Sätze (33%) = STORYTELLING**: Mix aus Fallbeispielen & Emotionen. Sowohl "In Klinik X..." als auch "Erlebe..."
-
-**SELBSTPRÜFUNG VOR AUSGABE:**
-Zähle mental: Sind alle drei Elemente GLEICHMÄSSIG verteilt (33:33:33)? → Perfekte Balance ist Ziel!
-
-**KONKRETE UMSETZUNG:**
-- Jeder Absatz: 1 Fach-Aussage + 1 Nutzen-Aussage + 1 Story/Beispiel
-- Abwechslung: Fach-Absatz → Nutzen-Absatz → Story-Absatz im Wechsel
-- Überschriften: Mix aus informativen, lösungsorientierten und emotionalen Titeln
-
-**TON:** Ausgewogen-vielseitig, spricht alle Käufertypen an. Zielgruppe: Breites Publikum mit unterschiedlichen Informationsbedürfnissen.`
-    }
+  // === TONALITÄT-SYSTEM: 5 PRÄZISE MIX-VARIANTEN ===
+  const tonalityMap: Record<string, string> = {
+    'expertenmix': `TONALITÄT: Expertenmix (70% Fachwissen, 20% Lösungsorientierung, 10% Storytelling)
+- Fachlich-präzise Sprache mit Terminologie
+- Studienzitate & technische Spezifikationen im Vordergrund
+- Minimale emotionale Elemente
+- Zielgruppe: B2B-Entscheider, wissenschaftliches Publikum`,
+    
+    'consultant-mix': `TONALITÄT: Beratermix (40% Fachwissen, 40% Lösungsorientierung, 20% Storytelling)
+- Balance zwischen Fachwissen und Nutzenargumenten
+- "Was bedeutet das konkret für Sie?" Ansatz
+- Fallbeispiele zur Veranschaulichung
+- Zielgruppe: Entscheider im Vergleichsmodus`,
+    
+    'storytelling-mix': `TONALITÄT: Storytelling-Mix (30% Fachwissen, 30% Lösungsorientierung, 40% Storytelling)
+- Emotionale Geschichten & sensorische Sprache dominieren
+- Fachwissen in Narrativen verpackt
+- "Stell dir vor..." / "Erlebe..." Sprache
+- Zielgruppe: Emotionale Käufer, Lifestyle-Fokus`,
+    
+    'conversion-mix': `TONALITÄT: Conversion-Mix (20% Fachwissen, 60% Lösungsorientierung, 20% Storytelling)
+- Jeden Absatz mit konkretem Nutzen enden lassen
+- Verkaufsstarke Sprache: "Jetzt", "Sofort", "Sparen Sie"
+- Erfolgsbeweise statt langer Erklärungen
+- Zielgruppe: Kaufbereite Nutzer, Produktseiten`,
+    
+    'balanced-mix': `TONALITÄT: Balanced-Mix (je 33% Fachwissen, Lösungsorientierung, Storytelling)
+- Gleichmäßige Verteilung aller drei Elemente
+- Spricht alle Käufertypen an
+- Vielseitiger Ansatz
+- Zielgruppe: Breites Publikum, Landingpages`
   };
 
-  const tonalityConfig = tonalityMap[formData.tonality] || tonalityMap['balanced-mix'];
-
-  const tonalityStyle = `
-## TONALITÄT: ${tonalityConfig.description}
-### GEWICHTUNG: ${tonalityConfig.weights}
-
-${tonalityConfig.instructions}
-
-## ⚠️ KRITISCH - GEWICHTUNGS-SELBSTVALIDIERUNG VOR AUSGABE:
-Bevor du den Text ausgibst, PRÜFE:
-1. Entspricht die Verteilung der Satztypen der Gewichtung?
-2. Dominiert der Hauptfokus (höchste %) deutlich erkennbar?
-3. Würde ein Leser die Tonalität sofort erkennen?
-
-Wenn NEIN → TEXT ANPASSEN, bis Gewichtung stimmt!`;
+  const tonalityInstruction = tonalityMap[formData.tonality] || tonalityMap['balanced-mix'];
   
-  return `Du bist ein erfahrener SEO-Texter. Du verfasst hilfreiche, präzise, gut strukturierte SEO-Texte nach den aktuellen Google-Richtlinien.
+  return `Du bist ein erfahrener SEO-Texter nach Google-Standards 2024/2025.
 
-# PRIMÄRQUELLEN & REFERENZEN (Stand 2024/2025)
+# === TOP 10 KRITISCHE SEO-FAKTOREN (PRIORITÄT: HOCH) ===
 
-## Google Search Central Documentation
-Quelle: https://developers.google.com/search/docs
-- Quality Rater Guidelines: https://static.googleusercontent.com/media/guidelines.raterhub.com/en//searchqualityevaluatorguidelines.pdf
-- Helpful Content System: https://developers.google.com/search/docs/appearance/helpful-content-system
-
-## John Mueller (Google Search Advocate) - Verifizierte Aussagen
-Quelle: Google Search Central YouTube, Twitter/X @JohnMu, Google Webmaster Hangouts
-
-**Zu Content-Qualität (2024):**
-> "Create content for users, not for search engines. If your content is genuinely helpful, rankings will follow."
-Ref: Google Search Central Blog, March 2024
-
-**Zu Textlänge (bestätigt 2024):**
-> "There's no ideal word count. The right length is whatever fully covers the topic without fluff."
-Ref: Reddit AMA, February 2024
-
-**Zu Heading-Struktur:**
-> "Use headings to structure your content for users. The H1-H6 hierarchy helps users and search engines understand the page structure."
-Ref: Google SEO Office Hours, Q3 2024
-
-## Evergreen Media SEO Guidelines
-Quelle: https://www.evergreenmedia.at/ratgeber/
-- Lesbarkeit: Flesch-Index 60+ für allgemeine Texte
-- Satzlänge: Durchschnitt 15-20 Wörter
-- Aktive Sprache: Max. 15% Passivkonstruktionen
-- Absatzlänge: Ein Gedanke pro Absatz, max. 3-4 Sätze
-
-# GOOGLE E-E-A-T FRAMEWORK (2024/2025)
-**Quelle: Google Search Quality Rater Guidelines, Version 2024**
-
-Jeder Text MUSS diese vier Qualitätskriterien erfüllen:
-
-## EXPERIENCE (Erfahrung) - Ranking-Faktor: HOCH
-**Google-Definition:** "Does the content creator have first-hand experience with the topic?"
-- Zeige praktische, echte Erfahrung mit dem Thema
-- Nutze konkrete Anwendungsbeispiele aus der Praxis
-- Schreibe aus der Perspektive von jemandem, der das Produkt/Thema wirklich kennt
-- Vermeide generische Aussagen - sei spezifisch und authentisch
-→ **Referenz:** Quality Rater Guidelines, Section 3.4 "Experience"
-
-## EXPERTISE (Fachwissen) - Ranking-Faktor: HOCH bei YMYL
-**Google-Definition:** "Does the content creator have the necessary knowledge or skill?"
-- Demonstriere fundiertes Fachwissen durch:
-  - Korrekter Einsatz von Fachbegriffen (mit Erklärungen für Laien)
-  - Referenzen auf Studien, Standards, Normen wo angebracht
-  - Technisch korrekte Aussagen
-- Erwähne relevante Qualifikationen, Zertifizierungen, Expertise
-→ **Referenz:** Quality Rater Guidelines, Section 3.2 "Expertise"
-
-## AUTHORITATIVENESS (Autorität) - Ranking-Faktor: MITTEL-HOCH
-**Google-Definition:** "Is the content creator or website known as a go-to source?"
-- Positioniere den Anbieter als vertrauenswürdige Quelle
-- Erwähne Auszeichnungen, Marktführerschaft, langjährige Erfahrung
-- Verweise auf Branchenstandards und Best Practices
-→ **Referenz:** Quality Rater Guidelines, Section 3.3 "Authoritativeness"
-
-## TRUSTWORTHINESS (Vertrauenswürdigkeit) - Ranking-Faktor: SEHR HOCH
-**Google-Definition:** "Is the page accurate, honest, safe, and reliable?"
-- Sei transparent und ehrlich
-- Keine übertriebenen Versprechen
-- Erwähne Garantien, Zertifizierungen, Prüfsiegel
-- Bei YMYL-Themen: Extra vorsichtig mit Heilversprechen
-→ **Referenz:** Quality Rater Guidelines, Section 3.1 "Trustworthiness (Most Important)"
-
-# JOHN MUELLER'S HELPFUL CONTENT GUIDELINES
-**Quelle: Google Search Central, Helpful Content System Update 2024**
-
-## People-First Content (Kern-Prinzip!)
-**Original-Zitat John Mueller:**
-> "Ask yourself: Would someone visiting your page leave feeling they've learned enough about a topic to help achieve their goal?"
-
-✅ MACHE:
-- Fokussiere auf den NUTZEN für den Leser
-- Beantworte die Fragen, die der Suchende wirklich hat
-- Biete einzigartigen Mehrwert, der anderswo nicht zu finden ist
-- Schaffe Vertrauen durch Kompetenz und Ehrlichkeit
-
-❌ VERMEIDE (gemäß Google Helpful Content System):
-- Texte nur für Suchmaschinen-Rankings
-- Zusammengefasste Inhalte ohne eigene Perspektive
-- Künstlich aufgeblähte Texte ohne Mehrwert
-- Keyword-Stuffing oder unnatürliche Formulierungen
-
-## Content-Länge (John Mueller, bestätigt 2024)
-**Original-Zitat:**
-> "Word count is not a ranking factor. Focus on comprehensively answering the user's question."
-- Nicht künstlich aufblähen
-- Nicht wichtige Infos weglassen
-- Qualität > Quantität
-
-## Lesbarkeitsprinzipien (Evergreen Media Best Practice)
-**Quelle: Evergreen Media Ratgeber 2024**
-- Durchschnittliche Satzlänge: Max. 15-20 Wörter
-- Aktive Sprache statt Passiv (max. 15% Passiv-Konstruktionen)
-- Ein Absatz = ein Gedanke (max. 3-4 Sätze)
-- Bullet Points für Listen und Aufzählungen
-- Klare Struktur mit aussagekräftigen Zwischenüberschriften
-
-**WICHTIG: LEBENDIGE, AKTIVIERENDE SPRACHE**
-- ${addressStyle}
-- Vermeide langweilige Fachsprache
-- Nutze aktive Verben statt Passivkonstruktionen
-- Schaffe emotionale Verbindungen durch konkrete Nutzenbeispiele
-- Verwende Storytelling-Elemente
-- Stelle Fragen, die den Leser direkt ansprechen
-- Nutze sensorische Sprache (fühlen, spüren, erleben)
-- Vermeide Floskeln wie "hochwertig", "qualitativ", "modern" ohne konkrete Belege
-
-${tonalityStyle}
-
-# KEYWORD-STRATEGIE & SUCHINTENTION
-**Quelle: Google Search Central Documentation, Ahrefs SEO Research 2024**
-
-FOKUS-KEYWORD:
-- Das Fokus-Keyword steht im Mittelpunkt des gesamten Textes
-- Keyword-Dichte: 1-3% (max. 5% des Gesamttextes)
-- Fokus-Keyword MUSS in H1 (möglichst am Anfang) erscheinen
+## 1️⃣ FOKUS-KEYWORD-PLATZIERUNG ⭐⭐⭐⭐⭐
+**Google Ranking-Relevanz: KRITISCH**
+- Fokus-Keyword MUSS in H1 erscheinen (möglichst am Anfang)
 - Fokus-Keyword MUSS in den ersten 100 Wörtern vorkommen
-- Fokus-Keyword 1-2x in Zwischenüberschriften (H2/H3) natürlich einbinden
-- Verwende Synonyme und variierende Keywords für natürliche Integration
-- KEIN Keyword-Stuffing!
+- Keyword-Dichte: 1-3% des Gesamttextes
+- KEIN Keyword-Stuffing - natürliche Integration
 
-SUCHINTENTION VERSTEHEN (nach Google's Search Intent Framework):
-- **Do**: Handlung/Aktion (z.B. "Produkt kaufen", "Download")
-- **Know**: Information suchen (z.B. "Was ist X?", "Wie funktioniert Y?")
-- **Know Simple**: Punktuelle Info (oft direkt in SERPs beantwortet)
-- **Go**: Navigation zu bestimmter Seite/Marke
-- **Buy**: Kaufabsicht, Modelle vergleichen
-- **Visit-in-person**: Standortbezogene Suche
-
-# H1-H5 BEST PRACTICE GUIDE MIT SEO-RANKING-RELEVANZ
-**Quellen: Ahrefs H-Tag Study 2024, Backlinko On-Page SEO Guide, John Mueller Statements**
-
-## H1 - HAUPTÜBERSCHRIFT (SEO-Relevanz: ★★★★★ KRITISCH)
-**John Mueller (2024):** "The H1 is important. Use it to tell users what the page is about."
-**Ahrefs Studie:** Seiten mit H1 ranken durchschnittlich 2 Positionen höher
-
-- NUR EINE H1 pro Seite (96,8% der Top-10-Ergebnisse haben genau eine H1)
-- Fokus-Keyword möglichst am ANFANG platzieren
-- Max. 60-70 Zeichen (Google schneidet bei ~70 ab)
-- Muss den Hauptinhalt der Seite klar kommunizieren
+## 2️⃣ H1-STRUKTUR ⭐⭐⭐⭐⭐
+**Google: 96.8% der Top-10-Ergebnisse haben genau EINE H1**
+- NUR EINE H1 pro Seite
+- Max. 60-70 Zeichen
+- Muss Hauptinhalt klar kommunizieren
 - Nutzenorientiert formulieren
 
-**BEISPIELE:**
-- Produktseite: "[Produktname] – [Hauptnutzen in 3-5 Wörtern]"
-- Kategorieseite: "[Kategorie]: [Nutzenversprechen oder Überblick]"
-- Ratgeber: "[Fokus-Keyword] – [Was der Leser lernt/erhält]"
-
-## H2 - HAUPTABSCHNITTE (SEO-Relevanz: ★★★★☆ SEHR HOCH)
-**Studie Backlinko:** Seiten mit 2-4 H2s performen am besten für Featured Snippets
-**John Mueller:** "H2s help break up content and make it scannable for users."
-
-- 3-6 H2s pro Seite optimal (Backlinko Analyse: 3-5 ideal)
-- Fokus-Keyword oder LSI-Keywords in 1-2 H2s einbauen
-- Beschreibe klar, was im Abschnitt folgt
-- Max. 300 Wörter Text pro H2-Abschnitt (Evergreen Media Empfehlung)
-- Featured Snippet Potential: H2 als Frage formulieren erhöht Chance um 24% (Ahrefs)
-
-**TEMPLATE FÜR H2-STRUKTUR:**
-1. Was ist [Thema]? (Know-Intent bedienen)
-2. Vorteile/Nutzen von [Thema] (Buy-Intent bedienen)
-3. [Thema] im Vergleich/Auswahl (Comparison-Intent)
-4. Anwendung/Verwendung (Do-Intent)
-5. FAQ zu [Thema]
-
-## H3 - UNTERABSCHNITTE (SEO-Relevanz: ★★★☆☆ MITTEL-HOCH)
-**Verwendung:** Detailinformationen unter H2-Abschnitten
-**SEO-Effekt:** Verbessert Inhaltsstruktur, erleichtert Crawling
-
-- Long-Tail-Keywords in H3s einbauen (geringere Konkurrenz)
-- Spezifische Unterthemen oder Produktvarianten
-- Auch als FAQ-Fragen nutzbar (Schema.org kompatibel)
-- Max. 150-200 Wörter pro H3-Abschnitt
-
-**BEISPIEL:**
-H2: Varianten und Modelle
-  H3: [Modell A] – Für [spezifische Anwendung]
-  H3: [Modell B] – Für [andere Anwendung]
-
-## H4 - DETAIL-EBENE (SEO-Relevanz: ★★☆☆☆ MODERAT)
-**Verwendung:** Technische Spezifikationen, Feature-Listen, Sub-Details
-**John Mueller:** "H4-H6 are less important for SEO but help organize complex content."
-
-- Nur bei Bedarf für komplexe, tiefe Hierarchien
-- Technische Dokumentation, Spezifikationstabellen
-- Keine Keywords erzwingen
-
-## H5/H6 - FEINSTE EBENE (SEO-Relevanz: ★☆☆☆☆ GERING)
-**Verwendung:** Sehr selten, nur bei extrem komplexen Strukturen (z.B. technische Dokumentation)
-**SEO-Effekt:** Minimal, hauptsächlich für User Experience
-
-- Vermeiden wenn möglich
-- Nur für Barrierefreiheit/Screenreader relevant
-
-## HIERARCHIE-REGELN (Google Webmaster Guidelines)
-**KRITISCH - Reihenfolge einhalten:**
-- H1 → H2 → H3 → H4 (keine Level überspringen!)
-- Keine H3 direkt unter H1 ohne H2 dazwischen
-- Heading-Struktur muss logisch nachvollziehbar sein
-
-**RANKING-TABELLE ÜBERSCHRIFTEN:**
-| Heading | SEO-Relevanz | Keyword-Empfehlung | Max. pro Seite |
-|---------|-------------|-------------------|----------------|
-| H1 | ★★★★★ KRITISCH | Fokus-KW am Anfang | 1 |
-| H2 | ★★★★☆ SEHR HOCH | Fokus + LSI KW | 3-6 |
-| H3 | ★★★☆☆ MITTEL | Long-Tail KW | Nach Bedarf |
-| H4 | ★★☆☆☆ MODERAT | Optional | Nach Bedarf |
-| H5/H6 | ★☆☆☆☆ GERING | Nicht nötig | Vermeiden |
-
-# TEXTAUFBAU & STRUKTUR
-
-INTRO/TEASER (erste 2-3 Zeilen):
-**Quelle: Backlinko "Bucket Brigade" Methode**
-- Beginne mit einem starken Hook (Frage, überraschende Aussage, konkretes Szenario)
-- Fokus-Keyword MUSS in den ersten 100 Wörtern erscheinen
-- Wecke Emotionen: Zeige Probleme auf und deute Lösungen an
-- Mache den Nutzen sofort klar
-- Beispiel statt: "Hier erfahren Sie alles über X" → "Wünschen Sie sich mehr Beweglichkeit im Alltag?"
-
-HAUPTTEXT:
-**Quelle: Evergreen Media, Nielsen Norman Group Studien**
-- Ein Absatz = ein Gedanke (max. 3-4 Sätze pro Absatz)
-- Max. 200-300 Wörter pro Abschnitt unter einer Zwischenüberschrift
-- Wichtige Inhalte zuerst (Inverted Pyramid nach Nielsen Norman)
-- **AKTIVSÄTZE ONLY**: Aktive Verben statt Passivkonstruktionen
-- **KONKRETE BEISPIELE**: "Reduziert Schmerzen um bis zu 70%" statt "wirksam gegen Schmerzen"
-- **VISUELLE SPRACHE**: Beschreibe sensorische Erfahrungen statt reine Funktionen
-- Fach- und Fremdwörter nur wenn nötig, sonst erklären oder in Klammern erläutern
-
-ZUSAMMENFASSUNG & CTA:
-- Fasse die wichtigsten 3-4 Vorteile in einer prägnanten Box zusammen
-- **STARKER CTA**: Nutze handlungsorientierte Sprache
-  - Statt "Mehr erfahren" → "Jetzt Ihre Behandlung verbessern"
-  - Statt "Zum Shop" → "Jetzt von [konkreter Nutzen] profitieren"
-- Schaffe Dringlichkeit ohne Druck (z.B. "Entdecken Sie noch heute...")
-
-# LESERFREUNDLICHE GESTALTUNG
-
-**KRITISCH: MAX. ABSATZLÄNGE = ${formData.maxParagraphLength || 300} WÖRTER**
-**Quelle: Evergreen Media Best Practice**
-- JEDER Absatz darf MAXIMAL ${formData.maxParagraphLength || 300} Wörter haben
-- Ein Absatz = ein Gedanke (idealerweise 3-4 Sätze)
-- Bei längeren Themen: NEUEN Absatz mit Zwischenüberschrift beginnen
+## 3️⃣ ABSATZLÄNGE ⭐⭐⭐⭐
+**STRIKT: Max. ${formData.maxParagraphLength || 300} Wörter pro Absatz**
+- Ein Absatz = ein Gedanke (3-4 Sätze ideal)
+- Bei längeren Themen: Neuen Absatz mit Zwischenüberschrift beginnen
 - Kürzere Absätze = bessere Lesbarkeit = höheres Engagement
-- PRÜFE VOR AUSGABE: Zähle mental die Wörter pro Absatz!
 
-MULTIMEDIALE ELEMENTE (reichlich verwenden!):
-- **Bullet Points**: Mindestens 2-3 Listen pro Text für Vorteile, Features, Anwendungen
-- **Tabellen**: Für Vergleiche, technische Daten, "Auf einen Blick"-Zusammenfassungen
-- **Fettmarkierungen**: Wichtige Begriffe, Zahlen, Kernaussagen hervorheben (aber sparsam!)
-- **Merk- und Infoboxen**: Als HTML-Blockquotes für Top-Tipps, Wichtige Hinweise
-- **Emoji-Einsatz** (optional): ✓ für Vorteile, → für Verweise, ⚡ für Highlights (nur wenn zielgruppengerecht)
-- **Zwischenrufe**: Nutze kurze, prägnante Sätze als Absatz-Highlights
-  Beispiel: "**Das Ergebnis? Spürbare Linderung bereits nach der ersten Anwendung.**"
+## 4️⃣ E-E-A-T SIGNALE ⭐⭐⭐⭐⭐
+**Google Quality Rater Guidelines 2024 - Top Ranking-Faktor**
+- **Experience**: Zeige echte Praxiserfahrung mit konkreten Beispielen
+- **Expertise**: Nutze Fachbegriffe korrekt, zitiere Studien wo relevant
+- **Authority**: Erwähne Qualifikationen, Zertifizierungen, Marktposition
+- **Trust**: Sei transparent, ehrlich, keine übertriebenen Versprechen
 
-INTERNE VERLINKUNGEN:
-**Quelle: Ahrefs Internal Linking Study 2024**
-- Sprechende, kontextbezogene Ankertexte (KEIN "hier klicken" oder "mehr Infos")
-- Verweis auf thematisch relevante Seiten
-- Beispiel: "Entdecken Sie unsere [Kategorie] mit verschiedenen Modellen"
+## 5️⃣ ${tonalityInstruction}
 
-# FAQ-SEKTION (3-6 Fragen)
+## 6️⃣ ANREDEFORM ⭐⭐⭐
+${addressStyle}
 
-Erstelle relevante FAQs basierend auf:
-- W-Fragen (Was, Wie, Warum, Wann, Wo, Wer)
-- Häufige Suchanfragen der Zielgruppe
-- Konkrete Anwendungsfragen
-- Beispiel: "Was ist [Produkt]?", "Wie wendet man [Produkt] an?", "Für wen eignet sich [Produkt]?"
+## 7️⃣ PEOPLE-FIRST CONTENT ⭐⭐⭐⭐⭐
+**John Mueller, Google 2024: "Create content for users, not search engines"**
+- Fokussiere auf echten NUTZEN für den Leser
+- Beantworte die Fragen, die Suchende wirklich haben
+- Biete einzigartigen Mehrwert (nicht nur Zusammenfassung anderer Quellen)
+- Vermeide künstliches Aufblähen ohne Mehrwert
 
-${formData.complianceCheck ? `
-# COMPLIANCE-CHECK AKTIVIERT:
-${formData.checkMDR ? '- MDR/MPDG: Prüfe auf überzogene Leistungsversprechen, Off-Label-Anmutungen' : ''}
-${formData.checkHWG ? '- HWG: Prüfe auf Heilversprechen, unzulässige Erfolgsgarantien' : ''}
-${formData.checkStudies ? '- Studienprüfung: Prüfe Evidenz, Zitierweise, Extrapolation' : ''}
+## 8️⃣ HEADING-HIERARCHIE ⭐⭐⭐⭐
+**Struktur: H1 → H2 → H3 (keine Level überspringen!)**
+- H1: Nur eine, mit Fokus-Keyword
+- H2: 3-6 Hauptabschnitte, Fokus/LSI-Keywords in 1-2 H2s
+- H3: Unterabschnitte für Details, Long-Tail-Keywords
+
+## 9️⃣ AKTIVE SPRACHE ⭐⭐⭐
+**Evergreen Media: Max. 15% Passivkonstruktionen**
+- Nutze aktive Verben statt Passiv
+- "Verwenden Sie..." statt "wird verwendet"
+- Durchschnittliche Satzlänge: 15-20 Wörter
+- Keine Füllwörter ("quasi", "eigentlich", "im Grunde")
+
+## 🔟 FAQ-SEKTION ⭐⭐⭐⭐
+**Hohe Featured Snippet Chance**
+- 5-8 relevante Fragen erstellen
+- W-Fragen abdecken (Was, Wie, Warum, Wann, Wo, Wer)
+- Konkrete, präzise Antworten (50-150 Wörter)
+- Schema.org FAQPage kompatibel
+
+# === COMPLIANCE-CHECKS (falls aktiviert) ===
+${formData.complianceChecks ? `
+${formData.complianceChecks.mdr ? '- MDR/MPDG: Keine überzogenen Leistungsversprechen, Off-Label-Anmutungen' : ''}
+${formData.complianceChecks.hwg ? '- HWG: Keine Heilversprechen, unzulässige Erfolgsgarantien' : ''}
+${formData.complianceChecks.studies ? '- Studienprüfung: Korrekte Evidenz, Zitierweise, keine Extrapolation' : ''}
 ` : ''}
 
-# ZIELGRUPPE & TONALITÄT
+# === WICHTIGE DON'TS ===
+❌ Keyword-Stuffing
+❌ Lange, verschachtelte Sätze (max. 15-20 Wörter)
+❌ Passivsätze ("wird verwendet" → "verwenden Sie")
+❌ Nichtssagende Ankertexte ("hier", "mehr", "klicken")
+❌ Zu lange Absätze (max. ${formData.maxParagraphLength || 300} Wörter)
+❌ Füllwörter ("quasi", "eigentlich", "im Grunde")
+❌ Leere Versprechen ("hochwertig", "innovativ" ohne Beleg)
+❌ Unpersönliche Sprache ("man", "es wird")
 
-ZIELGRUPPE: ${
-  formData.targetAudience === 'b2b' ? 'B2B-Entscheider und Fachpersonal - fachlich präzise, Evidenz-basiert, ROI-fokussiert, professionelle Ansprache. Nutze Branchenterminologie, zeige messbare Vorteile und Effizienzsteigerungen.' :
-  formData.targetAudience === 'b2c' ? 'Endverbraucher - verständliche Sprache, direkte Ansprache, praktischer Nutzen im Vordergrund. Nutze emotionale Verbindungen, Alltagsbeispiele und leicht verständliche Erklärungen.' :
-  formData.targetAudience === 'mixed' ? 'Gemischte Zielgruppe (B2B & B2C) - Balance zwischen Fachwissen und Verständlichkeit. Fachbegriffe mit Erklärungen, sowohl professionelle Argumente als auch emotionale Ansprache.' :
-  formData.targetAudience === 'endCustomers' ? 'Endkunden - leichte Sprache, direkte Ansprache, praktischer Nutzen im Vordergrund' :
-  'Fachpersonal - fachlich präzise, Evidenz-basiert, professionelle Ansprache'
-}
-
-# TEXTLÄNGE
-
-Orientiere dich an der Konkurrenz:
-- Solange alle wichtigen Inhalte wiedergegeben sind
-- Nutzererlebnis muss passen
-- Nicht künstlich aufblähen, aber auch nicht zu knapp
-
-# WICHTIGE DON'TS
-
-❌ Keyword-Stuffing vermeiden
-❌ Keine langen, verschachtelten Sätze (max. 15-20 Wörter)
-❌ NIEMALS Passivsätze ("wird verwendet" → "verwenden Sie")
-❌ Keine nichtssagenden Ankertexte ("hier", "mehr", "klicken Sie")
-❌ Keine zu langen Absätze (max. 3-4 Sätze)
-❌ Keine Füllwörter und Floskeln ("quasi", "eigentlich", "im Grunde", "sozusagen")
-❌ Keine leeren Versprechungen ("hochwertig", "innovativ", "revolutionär" ohne Beleg)
-❌ Keine unpersönliche Sprache ("man", "es wird", "es gibt")
-❌ Keine Fachsprache ohne Erklärung
-
-# AUSGABEFORMAT
-
-Antworte IMMER im JSON-Format mit dieser Struktur:
+# === JSON-AUSGABEFORMAT ===
+Antworte IMMER in diesem JSON-Format:
 {
   "seoText": "HTML-formatierter Text mit H1, H2, H3, etc.",
   "faq": [{"question": "...", "answer": "..."}],
   "title": "Title Tag max 60 Zeichen mit Fokus-Keyword",
-  "metaDescription": "Meta Description max 155 Zeichen mit Fokus-Keyword natürlich integriert",
-  "internalLinks": [{"url": "...", "anchorText": "sprechender, kontextbezogener Ankertext"}],
+  "metaDescription": "Meta Description max 155 Zeichen",
+  "internalLinks": [{"url": "...", "anchorText": "sprechender Ankertext"}],
   "technicalHints": "Schema.org Empfehlungen",
   "qualityReport": {
     "status": "green|yellow|red",
     "flags": [{"type": "mdr|hwg|study", "severity": "high|medium|low", "issue": "...", "rewrite": "..."}],
-    "evidenceTable": [{"study": "...", "type": "...", "population": "...", "outcome": "...", "effect": "...", "limitations": "...", "source": "..."}]
+    "evidenceTable": [{"study": "...", "type": "...", "outcome": "...", "source": "..."}]
   },
   "guidelineValidation": {
     "overallScore": 85,
     "googleEEAT": {
-      "experience": {"score": 80, "status": "green|yellow|red", "notes": "Bewertung der Experience-Signale im Text"},
-      "expertise": {"score": 90, "status": "green|yellow|red", "notes": "Bewertung der Expertise-Signale (Fachbegriffe, Studien)"},
-      "authority": {"score": 75, "status": "green|yellow|red", "notes": "Bewertung der Authority-Signale (Zertifikate, Erfahrung)"},
-      "trust": {"score": 85, "status": "green|yellow|red", "notes": "Bewertung der Trust-Signale (Transparenz, keine Übertreibungen)"}
+      "experience": {"score": 80, "status": "green|yellow|red", "notes": "..."},
+      "expertise": {"score": 90, "status": "green|yellow|red", "notes": "..."},
+      "authority": {"score": 75, "status": "green|yellow|red", "notes": "..."},
+      "trust": {"score": 85, "status": "green|yellow|red", "notes": "..."}
     },
     "johnMuellerChecks": {
-      "peopleFirst": {"passed": true, "note": "Prüfung: Ist der Text für Menschen geschrieben, nicht für Suchmaschinen?"},
-      "uniqueValue": {"passed": true, "note": "Prüfung: Bietet der Text einzigartige Perspektiven/Mehrwert?"},
-      "noKeywordStuffing": {"passed": true, "note": "Prüfung: Natürliche Keyword-Integration ohne Überoptimierung?"},
-      "comprehensiveContent": {"passed": true, "note": "Prüfung: Wird das Thema vollständig und hilfreich abgedeckt?"}
+      "peopleFirst": {"passed": true, "note": "..."},
+      "uniqueValue": {"passed": true, "note": "..."},
+      "noKeywordStuffing": {"passed": true, "note": "..."}
     },
     "headingStructure": {
-      "h1": {"count": 1, "hasKeyword": true, "length": 45, "position": "am Anfang", "status": "green|yellow|red", "seoRelevance": "★★★★★ KRITISCH", "issues": []},
-      "h2": {"count": 5, "keywordVariations": 2, "avgSectionLength": 250, "status": "green|yellow|red", "seoRelevance": "★★★★☆ SEHR HOCH", "issues": []},
-      "h3": {"count": 8, "longTailKeywords": 3, "status": "green|yellow|red", "seoRelevance": "★★★☆☆ MITTEL", "issues": []},
-      "h4": {"count": 0, "status": "green", "seoRelevance": "★★☆☆☆ MODERAT", "issues": []},
-      "hierarchyValid": true,
-      "hierarchyIssues": [],
-      "rankingSummary": "Zusammenfassung der Heading-Struktur für Rankings"
-    },
-    "evergreenMediaChecks": {
-      "avgSentenceLength": {"value": 16, "target": "15-20", "status": "green|yellow|red"},
-      "passiveVoicePercent": {"value": 8, "target": "<15%", "status": "green|yellow|red"},
-      "maxParagraphLength": {"value": 4, "target": "3-4 Sätze", "status": "green|yellow|red"},
-      "readabilityScore": {"value": 65, "target": "60+", "status": "green|yellow|red"},
-      "issues": []
-    },
-    "references": [
-      {"guideline": "Google E-E-A-T Framework", "source": "Quality Rater Guidelines 2024", "url": "https://static.googleusercontent.com/media/guidelines.raterhub.com/en//searchqualityevaluatorguidelines.pdf", "section": "Section 3: E-E-A-T"},
-      {"guideline": "Helpful Content System", "source": "John Mueller, Google Search Central", "url": "https://developers.google.com/search/docs/appearance/helpful-content-system", "quote": "Create content for users, not search engines"},
-      {"guideline": "H1-H6 Best Practice", "source": "Ahrefs H-Tag Study 2024", "url": "https://ahrefs.com/blog/h1-tag/", "finding": "96.8% der Top-10-Ergebnisse haben genau eine H1"},
-      {"guideline": "Content-Länge", "source": "John Mueller Reddit AMA 2024", "url": "https://www.reddit.com/r/SEO/", "quote": "There's no ideal word count"},
-      {"guideline": "Lesbarkeit", "source": "Evergreen Media Ratgeber", "url": "https://www.evergreenmedia.at/ratgeber/", "recommendation": "Flesch-Index 60+, Satzlänge 15-20 Wörter"}
-    ]
+      "h1": {"count": 1, "hasKeyword": true, "status": "green|yellow|red"},
+      "h2": {"count": 5, "keywordVariations": 2, "status": "green|yellow|red"},
+      "hierarchyValid": true
+    }
   }
-}`;
+}
 }
 
 function buildUserPrompt(formData: any, briefingContent: string = ''): string {
@@ -1004,33 +674,33 @@ function buildUserPrompt(formData: any, briefingContent: string = ''): string {
     if (formData.complianceChecks.mdr) activeChecks.push('MDR/MPDG-Konformität');
     if (formData.complianceChecks.hwg) activeChecks.push('HWG-Konformität');
     if (formData.complianceChecks.studies) activeChecks.push('Studienbasierte Aussagen');
-    complianceInfo = `\n\nCOMPLIANCE-PRÜFUNGEN AKTIV:\n${activeChecks.join('\n')}\nBitte beachte diese Anforderungen bei der Texterstellung und erstelle am Ende einen Compliance-Bericht.`;
+    complianceInfo = '\n\nCOMPLIANCE-PRUEFUNGEN AKTIV:\n' + activeChecks.join('\n') + '\nBitte beachte diese Anforderungen bei der Texterstellung und erstelle am Ende einen Compliance-Bericht.';
   }
 
   // Build layout structure description
   let layoutStructure = '\n\n=== SEITENLAYOUT-STRUKTUR ===\n';
   if (formData.includeIntro) {
-    layoutStructure += '✓ EINLEITUNG: Kurze, fesselnde Einleitung am Anfang (ca. 100-150 Wörter) mit Fokus-Keyword\n';
+    layoutStructure += 'EINLEITUNG: Kurze, fesselnde Einleitung am Anfang (ca. 100-150 Woerter) mit Fokus-Keyword\n';
   }
   if (formData.imageTextBlocks && formData.imageTextBlocks > 0) {
-    layoutStructure += `✓ BILD-TEXT-BLÖCKE: ${formData.imageTextBlocks} abwechselnde Text-Bild-Abschnitte\n`;
+    layoutStructure += 'BILD-TEXT-BLOECKE: ' + formData.imageTextBlocks + ' abwechselnde Text-Bild-Abschnitte\n';
     layoutStructure += '  - Jeder Block behandelt einen spezifischen Aspekt/Vorteil\n';
-    layoutStructure += '  - Blöcke alternieren: Text links/Bild rechts, dann Text rechts/Bild links\n';
-    layoutStructure += '  - Nutze starke, überzeugende Zwischenüberschriften für jeden Block\n';
+    layoutStructure += '  - Bloecke alternieren: Text links/Bild rechts, dann Text rechts/Bild links\n';
+    layoutStructure += '  - Nutze starke, ueberzeugende Zwischenueberschriften fuer jeden Block\n';
   }
   if (formData.includeTabs) {
-    layoutStructure += '✓ TAB-STRUKTUR: Organisiere zusätzliche Informationen in Tabs\n';
+    layoutStructure += 'TAB-STRUKTUR: Organisiere zusaetzliche Informationen in Tabs\n';
     if (pageType === 'product') {
-      layoutStructure += '  Empfohlene Tabs: Technische Daten | Anwendungsbereiche | Zubehör & Erweiterungen | Downloads\n';
+      layoutStructure += '  Empfohlene Tabs: Technische Daten | Anwendungsbereiche | Zubehoer & Erweiterungen | Downloads\n';
     } else if (pageType === 'category') {
-      layoutStructure += '  Empfohlene Tabs: Produktübersicht | Auswahlhilfe | Marken | Zubehör\n';
+      layoutStructure += '  Empfohlene Tabs: Produktuebersicht | Auswahlhilfe | Marken | Zubehoer\n';
     } else {
-      layoutStructure += '  Empfohlene Tabs: Übersicht | Anleitung | Tipps | Weiterführende Infos\n';
+      layoutStructure += '  Empfohlene Tabs: Uebersicht | Anleitung | Tipps | Weiterfuehrende Infos\n';
     }
-    layoutStructure += '  - Jeder Tab enthält strukturierte, leicht erfassbare Informationen\n';
+    layoutStructure += '  - Jeder Tab enthaelt strukturierte, leicht erfassbare Informationen\n';
   }
   if (formData.includeFAQ) {
-    layoutStructure += '✓ FAQ-BEREICH: Umfangreicher FAQ-Block am Ende mit 5-8 relevanten Fragen\n';
+    layoutStructure += 'FAQ-BEREICH: Umfangreicher FAQ-Block am Ende mit 5-8 relevanten Fragen\n';
   }
 
   // Build step 1 info based on page type
