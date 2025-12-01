@@ -9,6 +9,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { ContentRating } from "@/components/ContentRating";
 
 interface Step4Props {
   generatedContent: any;
@@ -23,8 +24,13 @@ interface Step4Props {
     wordCount: string;
     includeFAQ: boolean;
     targetAudience: string;
+    promptVersion?: string;
+    focusKeyword?: string;
+    pageType?: string;
   };
   onSelectVariant?: (index: number) => void;
+  projectId?: string;
+  formData?: any;
 }
 
 export interface QuickChangeParams {
@@ -48,9 +54,11 @@ export const Step4Preview = ({
   onQuickChange, 
   onBack, 
   onNext, 
-  isRefining,
-  currentFormData,
-  onSelectVariant
+  isRefining, 
+  currentFormData, 
+  onSelectVariant,
+  projectId,
+  formData
 }: Step4Props) => {
   const [refinePrompt, setRefinePrompt] = useState("");
   const [showQuickChanges, setShowQuickChanges] = useState(false);
@@ -351,7 +359,19 @@ export const Step4Preview = ({
         </div>
       )}
 
-      <div className="flex justify-between">
+      {/* Content Rating Component */}
+      {currentContent && projectId && (
+        <div className="mt-6">
+          <ContentRating
+            projectId={projectId}
+            promptVersion={currentFormData.promptVersion || 'v1-kompakt-seo'}
+            formData={formData || currentFormData}
+            generatedContent={currentContent}
+          />
+        </div>
+      )}
+
+      <div className="flex justify-between mt-6">
         <Button variant="outline" onClick={onBack}>
           Zurück
         </Button>

@@ -16,7 +16,9 @@ import {
   Building2,
   ChevronDown,
   Bot,
-  GraduationCap
+  GraduationCap,
+  Clock,
+  Brain
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -38,7 +40,7 @@ const navigation = [
   { name: "KI Content Creator", href: "/dashboard/ai-content", icon: Bot, isNew: true },
   { name: "Content Basic", href: "/basic", icon: FileText },
   { name: "Content Pro", href: "/pro", icon: Sparkles },
-  { name: "Verlauf", href: "/dashboard/history", icon: FolderOpen },
+  { name: "Verlauf", href: "/dashboard/history", icon: Clock },
   { name: "Projekte", href: "/dashboard/projects", icon: FolderOpen },
   { name: "Content Planner", href: "/dashboard/planner", icon: Calendar },
   { name: "Domain Learning", href: "/dashboard/domain", icon: Globe },
@@ -46,6 +48,7 @@ const navigation = [
 ];
 
 const adminNavigation = [
+  { name: "KI-Insights", href: "/dashboard/insights", icon: Brain },
   { name: "Team", href: "/dashboard/team", icon: Users },
   { name: "Einstellungen", href: "/dashboard/settings", icon: Settings },
 ];
