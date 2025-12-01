@@ -209,6 +209,10 @@ serve(async (req) => {
       
       const variants = await Promise.all([generateVariant(0), generateVariant(1), generateVariant(2)]);
       console.log('Successfully generated 3 variants');
+      console.log('Variants structure:', { 
+        count: variants.length, 
+        types: variants.map((v, i) => ({ index: i, hasText: !!v?.seoText, textLength: v?.seoText?.length || 0 }))
+      });
       return new Response(JSON.stringify({ variants, selectedVariant: 0, variantDescriptions: variantApproaches.map(a => ({ name: a.name, description: a.description })) }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
