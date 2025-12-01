@@ -190,15 +190,12 @@ serve(async (req) => {
       console.log('Generating 3 content variants in parallel...');
       
       const generateVariant = async (variantIndex: number): Promise<any> => {
-        const variantPrompts = [
-          'Variante A: Fokussiere auf einen informativen, sachlichen Stil mit starkem Mehrwert.',
-          'Variante B: Fokussiere auf einen emotionalen, nutzerorientierten Stil mit mehr Storytelling.',
-          'Variante C: Fokussiere auf einen verkaufsorientierten Stil mit klaren Call-to-Actions.',
-        ];
+        // All variants use the same prompt - variation comes from temperature/creativity
+        const variantLabels = ['A', 'B', 'C'];
         
         const variantMessages = [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: `${variantPrompts[variantIndex]}\n\n${userPrompt}` }
+          { role: 'user', content: `Dies ist Variante ${variantLabels[variantIndex]}. Erstelle eine eigenständige, kreative Umsetzung des folgenden Briefings:\n\n${userPrompt}` }
         ];
         
         const maxRetries = 3;

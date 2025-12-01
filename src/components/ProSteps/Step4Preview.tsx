@@ -37,9 +37,9 @@ export interface QuickChangeParams {
 }
 
 const variantLabels = [
-  { name: "Variante A", description: "Informativ & sachlich", icon: "📚" },
-  { name: "Variante B", description: "Emotional & nutzerorientiert", icon: "💡" },
-  { name: "Variante C", description: "Verkaufsorientiert", icon: "🎯" },
+  { name: "Variante A", description: "Kreative Umsetzung 1", icon: "✨" },
+  { name: "Variante B", description: "Kreative Umsetzung 2", icon: "💫" },
+  { name: "Variante C", description: "Kreative Umsetzung 3", icon: "🌟" },
 ];
 
 export const Step4Preview = ({ 
