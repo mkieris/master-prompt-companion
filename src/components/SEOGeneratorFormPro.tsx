@@ -338,14 +338,14 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
                   <Loader2 className="h-12 w-12 animate-spin text-primary" />
                 </div>
                 <div className="space-y-2 text-center">
-                  <h3 className="text-lg font-semibold">3 SEO-Content Varianten werden generiert...</h3>
+                  <h3 className="text-lg font-semibold">3 kreative Varianten werden generiert...</h3>
                   <p className="text-sm text-muted-foreground">
-                    Dies kann 60-90 Sekunden dauern. Bitte warten Sie.
+                    Die KI erstellt 3 eigenständige Umsetzungen. Dies kann 60-90 Sekunden dauern.
                   </p>
                   <div className="flex justify-center gap-2 mt-2">
-                    <span className="text-xs px-2 py-1 bg-primary/10 rounded">Variante A</span>
-                    <span className="text-xs px-2 py-1 bg-primary/10 rounded">Variante B</span>
-                    <span className="text-xs px-2 py-1 bg-primary/10 rounded">Variante C</span>
+                    <span className="text-xs px-2 py-1 bg-primary/10 rounded">✨ Variante A</span>
+                    <span className="text-xs px-2 py-1 bg-primary/10 rounded">💫 Variante B</span>
+                    <span className="text-xs px-2 py-1 bg-primary/10 rounded">🌟 Variante C</span>
                   </div>
                 </div>
                 <div className="space-y-2">
