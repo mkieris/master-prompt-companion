@@ -2,11 +2,13 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { Loader2, RefreshCw, Sparkles, Check } from "lucide-react";
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 
 interface Step4Props {
   generatedContent: any;
@@ -22,6 +24,7 @@ interface Step4Props {
     includeFAQ: boolean;
     targetAudience: string;
   };
+  onSelectVariant?: (index: number) => void;
 }
 
 export interface QuickChangeParams {
@@ -33,6 +36,12 @@ export interface QuickChangeParams {
   addExamples?: boolean;
 }
 
+const variantLabels = [
+  { name: "Variante A", description: "Informativ & sachlich", icon: "📚" },
+  { name: "Variante B", description: "Emotional & nutzerorientiert", icon: "💡" },
+  { name: "Variante C", description: "Verkaufsorientiert", icon: "🎯" },
+];
+
 export const Step4Preview = ({ 
   generatedContent, 
   onRefine, 
@@ -40,10 +49,12 @@ export const Step4Preview = ({
   onBack, 
   onNext, 
   isRefining,
-  currentFormData 
+  currentFormData,
+  onSelectVariant
 }: Step4Props) => {
   const [refinePrompt, setRefinePrompt] = useState("");
   const [showQuickChanges, setShowQuickChanges] = useState(false);
+  const [selectedVariant, setSelectedVariant] = useState(0);
   const [quickChanges, setQuickChanges] = useState<QuickChangeParams>({
     tonality: currentFormData.tonality || 'balanced-mix',
     formOfAddress: currentFormData.formOfAddress || 'du',
@@ -53,6 +64,11 @@ export const Step4Preview = ({
     addExamples: false,
   });
 
+  // Check if we have variants or single content
+  const hasVariants = generatedContent?.variants && Array.isArray(generatedContent.variants);
+  const variants = hasVariants ? generatedContent.variants : [generatedContent];
+  const currentContent = variants[selectedVariant] || variants[0];
+
   const handleRefine = async () => {
     if (!refinePrompt.trim()) return;
     await onRefine(refinePrompt);
@@ -61,50 +77,100 @@ export const Step4Preview = ({
 
   const handleQuickChange = async () => {
     await onQuickChange(quickChanges);
-    // Reset quickChanges to new values after successful change
     setQuickChanges({
       tonality: quickChanges.tonality,
       formOfAddress: quickChanges.formOfAddress,
       wordCount: quickChanges.wordCount,
       keywordDensity: quickChanges.keywordDensity,
       includeFAQ: quickChanges.includeFAQ,
-      addExamples: false, // Reset to false after application
+      addExamples: false,
     });
     setShowQuickChanges(false);
+  };
+
+  const handleVariantSelect = (index: number) => {
+    setSelectedVariant(index);
+    onSelectVariant?.(index);
   };
 
   const hasChanges = 
     quickChanges.tonality !== currentFormData.tonality ||
     quickChanges.formOfAddress !== currentFormData.formOfAddress ||
     quickChanges.wordCount !== currentFormData.wordCount ||
-    quickChanges.keywordDensity !== "normal" || // Added missing check
+    quickChanges.keywordDensity !== "normal" ||
     quickChanges.includeFAQ !== currentFormData.includeFAQ ||
     quickChanges.addExamples === true;
+
+  const renderContentPreview = (content: any) => (
+    <div className="prose max-w-none">
+      <h3 className="text-lg font-semibold mb-2">{content?.title || ''}</h3>
+      <p className="text-sm text-muted-foreground mb-4">{content?.metaDescription || ''}</p>
+      <div 
+        className="whitespace-pre-wrap" 
+        dangerouslySetInnerHTML={{ 
+          __html: typeof content?.seoText === 'string' 
+            ? content.seoText 
+            : (typeof content?.text === 'string' ? content.text : '') 
+        }} 
+      />
+    </div>
+  );
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold mb-4">Schritt 4: Vorschau & Überarbeitung</h2>
         <p className="text-sm text-muted-foreground mb-6">
-          Überprüfen Sie den generierten Text und passen Sie ihn bei Bedarf an
+          {hasVariants 
+            ? "Wählen Sie eine der 3 generierten Varianten aus und passen Sie sie bei Bedarf an"
+            : "Überprüfen Sie den generierten Text und passen Sie ihn bei Bedarf an"}
         </p>
       </div>
 
-      {generatedContent ? (
+      {currentContent ? (
         <div className="space-y-4">
+          {/* Variant Selection */}
+          {hasVariants && variants.length > 1 && (
+            <Card className="p-4 bg-primary/5 border-primary/20">
+              <div className="mb-3">
+                <h3 className="font-semibold text-sm flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  3 Varianten wurden generiert
+                </h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Wählen Sie die Variante, die am besten zu Ihren Anforderungen passt
+                </p>
+              </div>
+              
+              <Tabs value={String(selectedVariant)} onValueChange={(v) => handleVariantSelect(Number(v))}>
+                <TabsList className="grid w-full grid-cols-3">
+                  {variantLabels.map((label, idx) => (
+                    <TabsTrigger 
+                      key={idx} 
+                      value={String(idx)}
+                      className="flex flex-col gap-0.5 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                    >
+                      <span className="text-sm font-medium">{label.icon} {label.name}</span>
+                      <span className="text-xs opacity-80 hidden sm:inline">{label.description}</span>
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+              
+              <div className="mt-3 flex items-center gap-2">
+                <Badge variant="outline" className="text-xs">
+                  Ausgewählt: {variantLabels[selectedVariant].name}
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  {variantLabels[selectedVariant].description}
+                </span>
+              </div>
+            </Card>
+          )}
+
+          {/* Content Preview */}
           <Card className="p-4 max-h-[500px] overflow-y-auto">
-            <div className="prose max-w-none">
-              <h3 className="text-lg font-semibold mb-2">{generatedContent.title || ''}</h3>
-              <p className="text-sm text-muted-foreground mb-4">{generatedContent.metaDescription || ''}</p>
-              <div 
-                className="whitespace-pre-wrap" 
-                dangerouslySetInnerHTML={{ 
-                  __html: typeof generatedContent.seoText === 'string' 
-                    ? generatedContent.seoText 
-                    : (typeof generatedContent.text === 'string' ? generatedContent.text : '') 
-                }} 
-              />
-            </div>
+            {renderContentPreview(currentContent)}
           </Card>
 
           {/* Quick Changes Section */}
@@ -289,8 +355,9 @@ export const Step4Preview = ({
         <Button variant="outline" onClick={onBack}>
           Zurück
         </Button>
-        <Button onClick={onNext}>
-          Weiter zum SEO-Check
+        <Button onClick={onNext} className="gap-2">
+          <Check className="h-4 w-4" />
+          {hasVariants ? `${variantLabels[selectedVariant].name} übernehmen` : "Weiter zum SEO-Check"}
         </Button>
       </div>
     </div>

@@ -94,11 +94,21 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
     },
   });
   const [generatedContent, setGeneratedContent] = useState<any>(null);
+  const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
   const [isRefining, setIsRefining] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
   const { toast } = useToast();
+
+  // Get the currently selected content (handles both variants and single content)
+  const getSelectedContent = () => {
+    if (!generatedContent) return null;
+    if (generatedContent.variants && Array.isArray(generatedContent.variants)) {
+      return generatedContent.variants[selectedVariantIndex] || generatedContent.variants[0];
+    }
+    return generatedContent;
+  };
 
   const updateFormData = (data: Partial<FormData>) => {
     setFormData({ ...formData, ...data });
@@ -112,9 +122,9 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
     const progressInterval = setInterval(() => {
       setGenerationProgress(prev => {
         if (prev >= 90) return prev;
-        return prev + Math.random() * 15;
+        return prev + Math.random() * 10;
       });
-    }, 800);
+    }, 1000);
 
     try {
       const { data, error } = await supabase.functions.invoke("generate-seo-content", {
@@ -125,6 +135,7 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
 
       setGenerationProgress(100);
       setGeneratedContent(data);
+      setSelectedVariantIndex(0); // Reset to first variant
       
       setTimeout(() => {
         setCurrentStep(4);
@@ -132,9 +143,10 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
         setGenerationProgress(0);
       }, 500);
       
+      const variantCount = data?.variants?.length || 1;
       toast({
         title: "Erfolgreich",
-        description: "SEO-Inhalt wurde generiert",
+        description: `${variantCount} SEO-Inhalt${variantCount > 1 ? '-Varianten wurden' : ' wurde'} generiert`,
       });
     } catch (error) {
       console.error("Generation error:", error);
@@ -153,17 +165,26 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
   const handleRefineContent = async (prompt: string) => {
     setIsRefining(true);
     try {
+      const currentContent = getSelectedContent();
+      
       const { data, error } = await supabase.functions.invoke("generate-seo-content", {
         body: {
           ...formData,
           refinementPrompt: prompt,
-          existingContent: generatedContent,
+          existingContent: currentContent,
         },
       });
 
       if (error) throw error;
 
-      setGeneratedContent(data);
+      // Update the selected variant or set as single content
+      if (generatedContent?.variants) {
+        const newVariants = [...generatedContent.variants];
+        newVariants[selectedVariantIndex] = data;
+        setGeneratedContent({ ...generatedContent, variants: newVariants });
+      } else {
+        setGeneratedContent(data);
+      }
       
       toast({
         title: "Erfolgreich",
@@ -184,24 +205,32 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
   const handleQuickChange = async (changes: any) => {
     setIsRefining(true);
     try {
-      // Update form data with changes
       const updatedFormData = {
         ...formData,
         ...changes,
       };
       setFormData(updatedFormData);
 
+      const currentContent = getSelectedContent();
+
       const { data, error } = await supabase.functions.invoke("generate-seo-content", {
         body: {
           ...updatedFormData,
           quickChange: true,
-          existingContent: generatedContent,
+          existingContent: currentContent,
         },
       });
 
       if (error) throw error;
 
-      setGeneratedContent(data);
+      // Update the selected variant or set as single content
+      if (generatedContent?.variants) {
+        const newVariants = [...generatedContent.variants];
+        newVariants[selectedVariantIndex] = data;
+        setGeneratedContent({ ...generatedContent, variants: newVariants });
+      } else {
+        setGeneratedContent(data);
+      }
       
       toast({
         title: "Erfolgreich",
@@ -226,6 +255,8 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
   const handleRegenerateWithImprovements = async () => {
     setIsRegenerating(true);
     try {
+      const currentContent = getSelectedContent();
+      
       const { data, error } = await supabase.functions.invoke("generate-seo-content", {
         body: {
           ...formData,
@@ -236,13 +267,20 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
             - Kürzere Sätze (max. 20 Wörter im Durchschnitt)
             - Weniger Passiv-Konstruktionen
             - Mehr konkrete Beispiele und Mehrwert`,
-          existingContent: generatedContent,
+          existingContent: currentContent,
         },
       });
 
       if (error) throw error;
 
-      setGeneratedContent(data);
+      // Update the selected variant or set as single content
+      if (generatedContent?.variants) {
+        const newVariants = [...generatedContent.variants];
+        newVariants[selectedVariantIndex] = data;
+        setGeneratedContent({ ...generatedContent, variants: newVariants });
+      } else {
+        setGeneratedContent(data);
+      }
       
       toast({
         title: "Erfolgreich",
@@ -300,10 +338,15 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
                   <Loader2 className="h-12 w-12 animate-spin text-primary" />
                 </div>
                 <div className="space-y-2 text-center">
-                  <h3 className="text-lg font-semibold">SEO-Content wird generiert...</h3>
+                  <h3 className="text-lg font-semibold">3 SEO-Content Varianten werden generiert...</h3>
                   <p className="text-sm text-muted-foreground">
-                    Dies kann 30-60 Sekunden dauern. Bitte warten Sie.
+                    Dies kann 60-90 Sekunden dauern. Bitte warten Sie.
                   </p>
+                  <div className="flex justify-center gap-2 mt-2">
+                    <span className="text-xs px-2 py-1 bg-primary/10 rounded">Variante A</span>
+                    <span className="text-xs px-2 py-1 bg-primary/10 rounded">Variante B</span>
+                    <span className="text-xs px-2 py-1 bg-primary/10 rounded">Variante C</span>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Progress value={generationProgress} />
@@ -389,12 +432,13 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
               includeFAQ: formData.includeFAQ,
               targetAudience: formData.targetAudience,
             }}
+            onSelectVariant={setSelectedVariantIndex}
           />
         )}
 
         {currentStep === 5 && (
           <Step5AfterCheck
-            generatedContent={generatedContent}
+            generatedContent={getSelectedContent()}
             formData={{
               focusKeyword: formData.focusKeyword,
               secondaryKeywords: formData.secondaryKeywords,
