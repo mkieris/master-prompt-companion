@@ -210,6 +210,7 @@ serve(async (req) => {
           body: JSON.stringify({
             model: 'google/gemini-2.5-flash',
             messages: messages,
+            temperature: 0.7, // Konsistentere, aber nicht zu deterministische Ergebnisse
           }),
         });
 
@@ -683,7 +684,13 @@ ${formData.checkStudies ? '- Studienprüfung: Prüfe Evidenz, Zitierweise, Extra
 
 # ZIELGRUPPE & TONALITÄT
 
-ZIELGRUPPE: ${formData.targetAudience === 'endCustomers' ? 'Endkunden - leichte Sprache, direkte Ansprache, praktischer Nutzen im Vordergrund' : 'Physiotherapeuten - fachlich präzise, Evidenz-basiert, Indikationen/Kontraindikationen beachten'}
+ZIELGRUPPE: ${
+  formData.targetAudience === 'b2b' ? 'B2B-Entscheider und Fachpersonal - fachlich präzise, Evidenz-basiert, ROI-fokussiert, professionelle Ansprache. Nutze Branchenterminologie, zeige messbare Vorteile und Effizienzsteigerungen.' :
+  formData.targetAudience === 'b2c' ? 'Endverbraucher - verständliche Sprache, direkte Ansprache, praktischer Nutzen im Vordergrund. Nutze emotionale Verbindungen, Alltagsbeispiele und leicht verständliche Erklärungen.' :
+  formData.targetAudience === 'mixed' ? 'Gemischte Zielgruppe (B2B & B2C) - Balance zwischen Fachwissen und Verständlichkeit. Fachbegriffe mit Erklärungen, sowohl professionelle Argumente als auch emotionale Ansprache.' :
+  formData.targetAudience === 'endCustomers' ? 'Endkunden - leichte Sprache, direkte Ansprache, praktischer Nutzen im Vordergrund' :
+  'Fachpersonal - fachlich präzise, Evidenz-basiert, professionelle Ansprache'
+}
 
 # TEXTLÄNGE
 
@@ -761,20 +768,27 @@ Antworte IMMER im JSON-Format mit dieser Struktur:
 }
 
 function buildUserPrompt(formData: any, briefingContent: string = ''): string {
-  const goalMap = {
+  const goalMap: Record<string, string> = {
     inform: 'Informieren und aufklären',
     advise: 'Beraten und Empfehlungen geben',
     preparePurchase: 'Kaufentscheidung vorbereiten',
     triggerPurchase: 'Direkten Kaufimpuls setzen'
   };
 
-  const addressMap = {
+  const addressMap: Record<string, string> = {
     du: 'Du-Form (persönlich und direkt)',
     sie: 'Sie-Form (höflich und förmlich)',
     neutral: 'Neutral (keine direkte Anrede, sachlich)'
   };
 
+  // KORRIGIERT: Tonality Labels müssen mit System-Prompt übereinstimmen!
   const tonalityLabels: Record<string, string> = {
+    'expert-mix': 'Expertenmix: 70% Fachwissen, 20% Lösungsorientierung, 10% Storytelling - wissenschaftlich-professionell für Fachpublikum',
+    'consultant-mix': 'Beratermix: 40% Fachwissen, 40% Lösungsorientierung, 20% Storytelling - beratend-partnerschaftlich',
+    'storytelling-mix': 'Storytelling-Mix: 30% Fachwissen, 30% Lösungsorientierung, 40% Storytelling - emotional und inspirierend',
+    'conversion-mix': 'Conversion-Mix: 20% Fachwissen, 60% Lösungsorientierung, 20% Storytelling - verkaufsstark und nutzenorientiert',
+    'balanced-mix': 'Balanced-Mix: je 33% Fachwissen, Lösungsorientierung, Storytelling - ausgewogen für breites Publikum',
+    // Legacy-Support für alte Werte
     professional: 'Professionell & Sachlich',
     scientific: 'Wissenschaftlich & Präzise',
     educational: 'Lehrreich & Verständlich',
@@ -787,6 +801,23 @@ function buildUserPrompt(formData: any, briefingContent: string = ''): string {
     premium: 'Premium & Exklusiv',
     storytelling: 'Storytelling & Emotional',
     innovative: 'Innovativ & Zukunftsorientiert'
+  };
+
+  // KORRIGIERT: Zielgruppen-Mapping erweitert
+  const audienceLabels: Record<string, string> = {
+    'b2b': 'B2B-Entscheider und Fachpersonal - fachlich präzise, Evidenz-basiert, ROI-fokussiert, professionelle Ansprache',
+    'b2c': 'Endverbraucher - verständliche Sprache, direkte Ansprache, praktischer Nutzen im Vordergrund, emotionale Verbindungen',
+    'mixed': 'Gemischte Zielgruppe (B2B & B2C) - Balance zwischen Fachwissen und Verständlichkeit, sowohl professionelle als auch emotionale Ansprache',
+    'endCustomers': 'Endkunden - leichte Sprache, direkte Ansprache, praktischer Nutzen im Vordergrund',
+    'professionals': 'Fachpersonal - fachlich präzise, Evidenz-basiert, Indikationen/Kontraindikationen beachten'
+  };
+
+  // KORRIGIERT: Word Count Mapping hinzugefügt
+  const wordCountMap: Record<string, string> = {
+    'short': '300-500 Wörter (kurz und prägnant)',
+    'medium': '500-800 Wörter (mittellang, ausgewogen)',
+    'long': '800-1200 Wörter (umfassend, detailliert)',
+    'very-long': '1200-1800 Wörter (sehr umfangreich, tiefgehend)'
   };
 
   // Page type specific labels
@@ -879,14 +910,31 @@ function buildUserPrompt(formData: any, briefingContent: string = ''): string {
     step1Info += `\n=== KONKURRENTEN-ANALYSE (BEST PRACTICES) ===\n${formData.competitorData}\n\nNUTZE DIESE ERKENNTNISSE:\n- Übernimm erfolgreiche Keyword-Strategien\n- Adaptiere bewährte Content-Strukturen\n- Integriere überzeugende Argumentationsmuster\n- Hebe dich gleichzeitig mit einzigartigen USPs ab\n`;
   }
 
+  // Resolve tonality label
+  const tonalityValue = formData.tonality || 'balanced-mix';
+  const resolvedTonality = tonalityLabels[tonalityValue] || tonalityValue;
+
+  // Resolve target audience label
+  const audienceValue = formData.targetAudience || 'mixed';
+  const resolvedAudience = audienceLabels[audienceValue] || audienceValue;
+
+  // Resolve word count
+  const wordCountValue = formData.wordCount || 'medium';
+  const resolvedWordCount = wordCountMap[wordCountValue] || wordCountValue;
+
   return `
 ${step1Info}
 
 === SCHRITT 2: ZIELGRUPPE & ANSPRACHE ===
-Zielgruppe: ${formData.targetAudience || 'Nicht angegeben'}
+Zielgruppe: ${resolvedAudience}
 Anrede: ${addressMap[formData.formOfAddress as keyof typeof addressMap] || 'Du-Form'}
 Sprache: ${formData.language || 'Deutsch'}
-Tonalität: ${tonalityLabels[formData.tonality] || formData.tonality || 'Beratend und vertrauensvoll'}
+Tonalität: ${resolvedTonality}
+
+WICHTIG - TONALITÄT EXAKT UMSETZEN:
+Die oben genannte Tonalität (${tonalityValue}) definiert die GEWICHTUNG der Textelemente.
+Du MUSST die im System-Prompt definierten Prozent-Vorgaben für diese Tonalität einhalten!
+Prüfe vor der Ausgabe: Entspricht die Verteilung von Fachwissen/Lösungsorientierung/Storytelling der Vorgabe?
 
 === SCHRITT 3: TEXTSTRUKTUR & SEO ===
 Fokus-Keyword: ${formData.focusKeyword}
@@ -911,7 +959,7 @@ ${formData.keywordDensity ? `KEYWORD-DICHTE: ${
 
 ${formData.wQuestions && formData.wQuestions.length > 0 ? `W-FRAGEN (MÜSSEN IM TEXT BEANTWORTET WERDEN):\n${formData.wQuestions.map((q: string) => `- ${q}`).join('\n')}\nDiese Fragen müssen im Text explizit behandelt und beantwortet werden!` : ''}
 ${layoutStructure}
-Wortanzahl: ${formData.wordCount || '800-1200'} Wörter
+Wortanzahl: ${resolvedWordCount}
 Überschriftenstruktur: ${formData.headingStructure || 'H1 > H2 > H3'}
 Ziel der Seite: ${goalMap[formData.pageGoal as keyof typeof goalMap] || 'Informieren'}
 ${formData.contentStructure ? `\nZusätzliche Struktur-Anforderungen:\n${formData.contentStructure}` : ''}
@@ -921,10 +969,11 @@ ${briefingContent ? `\n\n=== HOCHGELADENE BRIEFING-DOKUMENTE ===\nBerücksichtig
 Erstelle einen hochwertigen, SEO-optimierten ${pageType === 'product' ? 'Produkttext' : pageType === 'category' ? 'Kategorietext' : 'Ratgeberartikel'}, der:
 - Alle Keyword-Vorgaben natürlich integriert
 - Die definierte Seitenlayout-Struktur exakt umsetzt
-- Auf die Zielgruppe zugeschnitten ist
+- Auf die Zielgruppe (${audienceValue}) zugeschnitten ist
 - Das definierte Ziel der Seite erreicht
 - Überschriften und Text perfekt aufeinander abstimmt
-- Die gewählte Tonalität konsequent umsetzt
+- Die gewählte Tonalität (${tonalityValue}) mit der exakten Gewichtung konsequent umsetzt
+- Die vorgegebene Wortanzahl (${resolvedWordCount}) einhält
 `;
 }
 
