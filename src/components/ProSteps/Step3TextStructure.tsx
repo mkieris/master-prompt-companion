@@ -1,13 +1,15 @@
-import { useState } from "react";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
+import { Loader2, Plus, X, Info } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
-import { X, Info } from "lucide-react";
+import { useState, useEffect } from "react";
+import { validatePromptConsistency, type ValidationWarning } from "@/utils/promptValidation";
+import { ValidationWarnings } from "@/components/ValidationWarnings";
 
 interface Step3Data {
   focusKeyword: string;
@@ -37,12 +39,35 @@ interface Step3Props {
   onUpdate: (data: Partial<Step3Data>) => void;
   onNext: () => void;
   onBack: () => void;
+  formOfAddress?: string;
+  targetAudience?: string;
+  tonality?: string;
+  promptVersion?: string;
+  pageType?: string;
 }
 
-export const Step3TextStructure = ({ data, onUpdate, onNext, onBack }: Step3Props) => {
+export const Step3TextStructure = ({ data, onUpdate, onNext, onBack, formOfAddress, targetAudience, tonality, promptVersion, pageType }: Step3Props) => {
   const [keywordInput, setKeywordInput] = useState("");
   const [wQuestionInput, setWQuestionInput] = useState("");
   const [showLayoutPreview, setShowLayoutPreview] = useState(false);
+  const [validationWarnings, setValidationWarnings] = useState<ValidationWarning[]>([]);
+
+  useEffect(() => {
+    if (data.focusKeyword && tonality && targetAudience) {
+      const warnings = validatePromptConsistency({
+        promptVersion: promptVersion || 'v1-kompakt-seo',
+        pageType: pageType || 'product',
+        tonality: tonality,
+        targetAudience: targetAudience,
+        wordCount: data.wordCount,
+        maxParagraphLength: data.maxParagraphLength || '300',
+        includeFAQ: data.includeFAQ,
+        keywordDensity: data.keywordDensity,
+        complianceChecks: data.complianceChecks
+      });
+      setValidationWarnings(warnings);
+    }
+  }, [data.wordCount, data.maxParagraphLength, data.includeFAQ, data.keywordDensity, data.complianceChecks, tonality, targetAudience, promptVersion, pageType, data.focusKeyword]);
 
   const addWQuestion = () => {
     if (wQuestionInput.trim() && !data.wQuestions?.includes(wQuestionInput.trim())) {
@@ -85,6 +110,8 @@ export const Step3TextStructure = ({ data, onUpdate, onNext, onBack }: Step3Prop
           Definieren Sie den Aufbau und die Struktur des gewünschten Textes
         </p>
       </div>
+
+      <ValidationWarnings warnings={validationWarnings} />
 
       <div className="space-y-4">
         {/* Keywords */}

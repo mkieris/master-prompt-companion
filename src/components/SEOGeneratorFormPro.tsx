@@ -103,6 +103,7 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
+  const [savedProjectId, setSavedProjectId] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Get the currently selected content (handles both variants and single content)
@@ -172,14 +173,19 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
             description: formData.additionalInfo?.substring(0, 500) || null
           };
 
-          const { error: saveError } = await supabase
+          const { data: insertData, error: saveError } = await supabase
             .from('content_projects')
-            .insert([projectData]);
+            .insert([projectData])
+            .select()
+            .single();
 
           if (saveError) {
             console.error('Save error:', saveError);
           } else {
             console.log('✅ Content auto-saved to database');
+            if (insertData?.id) {
+              setSavedProjectId(insertData.id);
+            }
           }
         }
       } catch (saveErr) {
@@ -477,6 +483,11 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
             onUpdate={updateFormData}
             onNext={handleGenerateContent}
             onBack={() => setCurrentStep(2)}
+            formOfAddress={formData.formOfAddress}
+            targetAudience={formData.targetAudience}
+            tonality={formData.tonality}
+            promptVersion={formData.promptVersion}
+            pageType={formData.pageType}
           />
         )}
 
@@ -494,8 +505,13 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
               wordCount: formData.wordCount,
               includeFAQ: formData.includeFAQ,
               targetAudience: formData.targetAudience,
+              promptVersion: formData.promptVersion,
+              focusKeyword: formData.focusKeyword,
+              pageType: formData.pageType,
             }}
             onSelectVariant={setSelectedVariantIndex}
+            projectId={savedProjectId || undefined}
+            formData={formData}
           />
         )}
 

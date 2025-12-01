@@ -230,6 +230,63 @@ export type Database = {
           },
         ]
       }
+      content_ratings: {
+        Row: {
+          created_at: string
+          feedback_categories: Json | null
+          feedback_text: string | null
+          form_data: Json | null
+          generated_content: Json | null
+          id: string
+          organization_id: string
+          project_id: string
+          prompt_version: string | null
+          rated_by: string
+          rating: number
+        }
+        Insert: {
+          created_at?: string
+          feedback_categories?: Json | null
+          feedback_text?: string | null
+          form_data?: Json | null
+          generated_content?: Json | null
+          id?: string
+          organization_id: string
+          project_id: string
+          prompt_version?: string | null
+          rated_by: string
+          rating: number
+        }
+        Update: {
+          created_at?: string
+          feedback_categories?: Json | null
+          feedback_text?: string | null
+          form_data?: Json | null
+          generated_content?: Json | null
+          id?: string
+          organization_id?: string
+          project_id?: string
+          prompt_version?: string | null
+          rated_by?: string
+          rating?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_ratings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_ratings_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "content_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_versions: {
         Row: {
           change_notes: string | null
@@ -492,6 +549,59 @@ export type Database = {
           {
             foreignKeyName: "profiles_current_organization_id_fkey"
             columns: ["current_organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prompt_insights: {
+        Row: {
+          average_rating: number | null
+          based_on_ratings_count: number
+          created_at: string
+          detailed_analysis: Json
+          id: string
+          insight_summary: string
+          insight_type: string
+          organization_id: string
+          prompt_version: string
+          status: string | null
+          suggestion_priority: string | null
+          updated_at: string
+        }
+        Insert: {
+          average_rating?: number | null
+          based_on_ratings_count?: number
+          created_at?: string
+          detailed_analysis: Json
+          id?: string
+          insight_summary: string
+          insight_type: string
+          organization_id: string
+          prompt_version: string
+          status?: string | null
+          suggestion_priority?: string | null
+          updated_at?: string
+        }
+        Update: {
+          average_rating?: number | null
+          based_on_ratings_count?: number
+          created_at?: string
+          detailed_analysis?: Json
+          id?: string
+          insight_summary?: string
+          insight_type?: string
+          organization_id?: string
+          prompt_version?: string
+          status?: string | null
+          suggestion_priority?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prompt_insights_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]

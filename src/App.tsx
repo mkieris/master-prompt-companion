@@ -21,6 +21,7 @@ import ContentPlanner from "./pages/ContentPlanner";
 import AIContentCreator from "./pages/AIContentCreator";
 import SEOTraining from "./pages/SEOTraining";
 import GenerationHistory from "./pages/GenerationHistory";
+import AdminInsights from "./pages/AdminInsights";
 
 const queryClient = new QueryClient();
 
@@ -64,6 +65,7 @@ const App = () => {
               <Route path="ai-content" element={<AIContentCreator session={session} />} />
               <Route path="seo-training" element={<SEOTraining session={session} />} />
               <Route path="history" element={<GenerationHistory />} />
+              <Route path="insights" element={<AdminInsights />} />
             </Route>
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
