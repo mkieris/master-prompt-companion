@@ -448,71 +448,121 @@ function buildUserPrompt(formData: any, briefingContent: string): string {
 function parseGeneratedContent(text: string, formData: any): any {
   const mainTopic = formData.mainTopic || formData.productName || formData.focusKeyword;
   
-  // Try to extract JSON from various formats
+  console.log('Parsing content, raw length:', text.length);
+  console.log('First 200 chars:', text.substring(0, 200));
+  
+  // Method 1: Direct JSON parse
   try {
-    // First try: direct JSON parse
     const parsed = JSON.parse(text);
     if (parsed.seoText || parsed.text) {
+      console.log('Successfully parsed direct JSON');
       return validateAndFixContent(parsed, mainTopic);
     }
   } catch (e) {
-    // Continue to next parsing method
+    // Continue to next method
   }
 
-  // Second try: find JSON in markdown code block
+  // Method 2: JSON in markdown code block (```json ... ```)
   try {
     const codeBlockMatch = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
     if (codeBlockMatch) {
+      console.log('Found JSON in code block');
       const parsed = JSON.parse(codeBlockMatch[1]);
       return validateAndFixContent(parsed, mainTopic);
     }
   } catch (e) {
-    console.error('Failed to parse JSON from code block:', e);
+    console.error('Code block parsing failed:', e);
   }
 
-  // Third try: find any JSON object in text
+  // Method 3: Find largest JSON object
+  const jsonMatches = Array.from(text.matchAll(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g));
+  if (jsonMatches.length > 0) {
+    // Try each match, starting with the largest
+    const sortedMatches = jsonMatches.sort((a, b) => b[0].length - a[0].length);
+    for (const match of sortedMatches) {
+      try {
+        const parsed = JSON.parse(match[0]);
+        if (parsed.seoText || parsed.text) {
+          console.log('Successfully parsed JSON object from text');
+          return validateAndFixContent(parsed, mainTopic);
+        }
+      } catch (e) {
+        // Try next match
+      }
+    }
+  }
+
+  // Method 4: Try to find nested JSON (sometimes AI wraps it)
   try {
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
+    const nestedMatch = text.match(/"(?:content|result|output)":\s*(\{[\s\S]*?\})\s*[,}]/);
+    if (nestedMatch) {
+      console.log('Found nested JSON');
+      const parsed = JSON.parse(nestedMatch[1]);
       return validateAndFixContent(parsed, mainTopic);
     }
   } catch (e) {
-    console.error('Failed to parse JSON:', e);
+    console.error('Nested JSON parsing failed:', e);
   }
 
-  // Fallback: create structured content from plain text
-  console.warn('No valid JSON found, creating fallback content');
+  // Fallback: AI may have returned HTML directly without JSON wrapper
+  if (text.includes('<h1>') && text.includes('</h1>') && text.length > 500) {
+    console.warn('No JSON found but HTML detected, using as seoText');
+    return {
+      seoText: text,
+      faq: [{ question: 'Was ist ' + mainTopic + '?', answer: 'Weitere Informationen folgen.' }],
+      title: mainTopic.substring(0, 60),
+      metaDescription: text.replace(/<[^>]*>/g, '').substring(0, 155),
+      internalLinks: [],
+      technicalHints: 'Schema.org Product/Article empfohlen',
+      qualityReport: { status: 'warning', flags: ['No JSON structure returned'], evidenceTable: [] }
+    };
+  }
+
+  // Last resort: Create minimal valid content
+  console.error('CRITICAL: All parsing methods failed, creating minimal fallback');
   return {
-    seoText: '<h1>' + mainTopic + '</h1>\n<p>' + text.substring(0, 2000) + '</p>',
-    faq: [{ question: 'Was ist ' + mainTopic + '?', answer: 'Weitere Informationen folgen.' }],
+    seoText: '',  // Empty to trigger retry
+    faq: [],
     title: mainTopic.substring(0, 60),
-    metaDescription: text.substring(0, 155),
+    metaDescription: '',
     internalLinks: [],
-    technicalHints: 'Schema.org Product/Article empfohlen',
-    qualityReport: { status: 'green', flags: [], evidenceTable: [] }
+    technicalHints: '',
+    qualityReport: { status: 'error', flags: ['Parsing failed'], evidenceTable: [] }
   };
 }
 
 function validateAndFixContent(content: any, mainTopic: string): any {
-  // Ensure all required fields exist
+  const seoText = content.seoText || content.text || '';
+  const faq = Array.isArray(content.faq) ? content.faq : [];
+  
+  // Strict validation
+  if (!seoText || seoText.length < 100) {
+    console.error('VALIDATION FAILED: seoText too short or empty:', seoText.length);
+    return {
+      seoText: '',  // Return empty to trigger retry
+      faq: [],
+      title: '',
+      metaDescription: '',
+      internalLinks: [],
+      technicalHints: '',
+      qualityReport: { status: 'error', flags: ['Content too short'], evidenceTable: [] }
+    };
+  }
+  
+  // Ensure minimum content quality
   const validated = {
-    seoText: content.seoText || content.text || '<h1>' + mainTopic + '</h1><p>Content konnte nicht generiert werden.</p>',
-    faq: Array.isArray(content.faq) ? content.faq : [{ question: 'Was ist ' + mainTopic + '?', answer: 'Weitere Informationen folgen.' }],
+    seoText: seoText,
+    faq: faq.length > 0 ? faq : [{ 
+      question: 'Was zeichnet ' + mainTopic + ' aus?', 
+      answer: 'Detaillierte Informationen finden Sie im Text oben.' 
+    }],
     title: content.title || mainTopic.substring(0, 60),
-    metaDescription: content.metaDescription || content.meta_description || mainTopic.substring(0, 155),
+    metaDescription: content.metaDescription || content.meta_description || seoText.replace(/<[^>]*>/g, '').substring(0, 155),
     internalLinks: Array.isArray(content.internalLinks) ? content.internalLinks : [],
-    technicalHints: content.technicalHints || 'Schema.org Product/Article empfohlen',
+    technicalHints: content.technicalHints || 'Schema.org Product/Article Markup empfohlen',
     qualityReport: content.qualityReport || { status: 'green', flags: [], evidenceTable: [] }
   };
-
-  // Log validation issues
-  if (!content.seoText && !content.text) {
-    console.error('CRITICAL: No seoText or text field in generated content');
-  }
-  if (!validated.seoText || validated.seoText.length < 100) {
-    console.error('WARNING: seoText is too short:', validated.seoText?.length || 0, 'chars');
-  }
-
+  
+  console.log('Content validated successfully. seoText length:', validated.seoText.length);
   return validated;
 }
