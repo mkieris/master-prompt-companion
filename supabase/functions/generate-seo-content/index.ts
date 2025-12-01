@@ -186,13 +186,96 @@ serve(async (req) => {
         { role: 'user', content: `Hier ist der aktuelle Text:\n\n${JSON.stringify(formData.existingContent, null, 2)}\n\nBitte überarbeite den Text wie folgt:\n${formData.refinementPrompt}\n\nGib den kompletten überarbeiteten Text im gleichen JSON-Format zurück.` }
       ];
     } else {
-      messages = [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ];
+      // Generate 3 variants in parallel for new content
+      console.log('Generating 3 content variants in parallel...');
+      
+      const generateVariant = async (variantIndex: number): Promise<any> => {
+        const variantPrompts = [
+          'Variante A: Fokussiere auf einen informativen, sachlichen Stil mit starkem Mehrwert.',
+          'Variante B: Fokussiere auf einen emotionalen, nutzerorientierten Stil mit mehr Storytelling.',
+          'Variante C: Fokussiere auf einen verkaufsorientierten Stil mit klaren Call-to-Actions.',
+        ];
+        
+        const variantMessages = [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `${variantPrompts[variantIndex]}\n\n${userPrompt}` }
+        ];
+        
+        const maxRetries = 3;
+        let lastError: Error | null = null;
+        
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            console.log(`Variant ${variantIndex + 1}: AI Gateway request attempt ${attempt}/${maxRetries}`);
+            
+            const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                model: 'google/gemini-2.5-flash',
+                messages: variantMessages,
+                temperature: 0.8, // Slightly higher for more variation between variants
+              }),
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              const generatedText = data.choices[0].message.content;
+              return parseGeneratedContent(generatedText, formData);
+            }
+            
+            const errorText = await response.text();
+            console.error(`Variant ${variantIndex + 1} error (attempt ${attempt}):`, response.status, errorText);
+            
+            if (response.status === 429 || response.status === 402) {
+              throw new Error(response.status === 429 
+                ? 'Rate limit exceeded. Please try again in a few minutes.'
+                : 'Payment required. Please add funds to your Lovable AI workspace.');
+            }
+            
+            if (response.status >= 500 && attempt < maxRetries) {
+              const waitTime = Math.pow(2, attempt) * 1000;
+              await new Promise(resolve => setTimeout(resolve, waitTime));
+              continue;
+            }
+            
+            lastError = new Error(`AI Gateway error: ${response.status}`);
+          } catch (fetchError) {
+            lastError = fetchError instanceof Error ? fetchError : new Error('Network error');
+            if (attempt < maxRetries) {
+              const waitTime = Math.pow(2, attempt) * 1000;
+              await new Promise(resolve => setTimeout(resolve, waitTime));
+            }
+          }
+        }
+        throw lastError || new Error(`Failed to generate variant ${variantIndex + 1}`);
+      };
+      
+      try {
+        const variants = await Promise.all([
+          generateVariant(0),
+          generateVariant(1),
+          generateVariant(2),
+        ]);
+        
+        console.log('Successfully generated 3 SEO content variants');
+        
+        return new Response(JSON.stringify({ 
+          variants,
+          selectedVariant: 0 
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } catch (variantError) {
+        console.error('Error generating variants:', variantError);
+        throw variantError;
+      }
     }
 
-    // Retry logic for transient failures
+    // For refinement/quick change - single generation
     const maxRetries = 3;
     let lastError: Error | null = null;
     let response: Response | null = null;
@@ -210,18 +293,17 @@ serve(async (req) => {
           body: JSON.stringify({
             model: 'google/gemini-2.5-flash',
             messages: messages,
-            temperature: 0.7, // Konsistentere, aber nicht zu deterministische Ergebnisse
+            temperature: 0.7,
           }),
         });
 
         if (response.ok) {
-          break; // Success, exit retry loop
+          break;
         }
         
         const errorText = await response.text();
         console.error(`AI gateway error (attempt ${attempt}):`, response.status, errorText);
         
-        // Handle non-retryable errors immediately
         if (response.status === 429) {
           return new Response(
             JSON.stringify({ error: 'Rate limit exceeded. Please try again in a few minutes.' }),
@@ -236,9 +318,8 @@ serve(async (req) => {
           );
         }
         
-        // For 5xx errors, retry with exponential backoff
         if (response.status >= 500 && attempt < maxRetries) {
-          const waitTime = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+          const waitTime = Math.pow(2, attempt) * 1000;
           console.log(`Retrying in ${waitTime}ms due to ${response.status} error...`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
           continue;
@@ -263,8 +344,6 @@ serve(async (req) => {
 
     const data = await response.json();
     const generatedText = data.choices[0].message.content;
-
-    // Parse the generated content
     const parsedContent = parseGeneratedContent(generatedText, formData);
 
     console.log('Successfully generated SEO content');
