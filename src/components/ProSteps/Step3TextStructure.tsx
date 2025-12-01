@@ -20,6 +20,7 @@ interface Step3Data {
   imageTextBlocks: number;
   includeTabs: boolean;
   wordCount: string;
+  maxParagraphLength: string;
   headingStructure: string;
   includeIntro: boolean;
   includeFAQ: boolean;
@@ -383,6 +384,27 @@ export const Step3TextStructure = ({ data, onUpdate, onNext, onBack }: Step3Prop
               <SelectItem value="1500">Standard (ca. 1500 Wörter)</SelectItem>
               <SelectItem value="2000">Umfangreich (ca. 2000 Wörter)</SelectItem>
               <SelectItem value="3000">Ausführlich (ca. 3000+ Wörter)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Max. Absatzlänge */}
+        <div>
+          <Label htmlFor="maxParagraphLength">Max. Absatzlänge (Wörter pro Absatz)</Label>
+          <p className="text-xs text-muted-foreground mb-2">
+            Kürzere Absätze verbessern die Lesbarkeit (Evergreen Media Empfehlung: max. 300 Wörter)
+          </p>
+          <Select 
+            value={data.maxParagraphLength || "300"} 
+            onValueChange={(value) => onUpdate({ maxParagraphLength: value })}
+          >
+            <SelectTrigger id="maxParagraphLength">
+              <SelectValue placeholder="Max. Absatzlänge wählen" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="150">Kurz (max. 150 Wörter) - Sehr lesefreundlich</SelectItem>
+              <SelectItem value="300">Standard (max. 300 Wörter) - Empfohlen</SelectItem>
+              <SelectItem value="500">Lang (max. 500 Wörter) - Für Fachtexte</SelectItem>
             </SelectContent>
           </Select>
         </div>
