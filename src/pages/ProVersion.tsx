@@ -149,19 +149,39 @@ const ProVersion = ({ session }: ProVersionProps) => {
       });
 
       if (error) throw error;
+      
+      console.log('Raw response from edge function:', JSON.stringify(data).substring(0, 300));
 
       setGenerationProgress(100);
       
-      // Handle variants structure
+      // Handle both variant and single content responses
       if (data.variants && Array.isArray(data.variants)) {
-        console.log('Received variants:', data.variants.length);
-        setAllVariants(data.variants);
-        setSelectedVariantIndex(data.selectedVariant || 0);
-      } else {
-        // Single content, wrap in array for consistency
+        const validVariants = data.variants.filter((v: any) => v && v.seoText && v.seoText.length > 0);
+        console.log('Received', data.variants.length, 'variants,', validVariants.length, 'valid');
+        console.info('Received variants:', validVariants.length);
+        
+        if (validVariants.length === 0) {
+          throw new Error('Keine gültigen Content-Varianten generiert');
+        }
+        
+        setAllVariants(validVariants);
+        setSelectedVariantIndex(0);
+        
+        toast({
+          title: "Erfolg!",
+          description: `${validVariants.length} Content-Varianten generiert`,
+        });
+      } else if (data.seoText) {
         console.log('Received single content, wrapping in array');
         setAllVariants([data]);
         setSelectedVariantIndex(0);
+        
+        toast({
+          title: "Erfolgreich",
+          description: "SEO-Inhalt wurde generiert",
+        });
+      } else {
+        throw new Error('Ungültige Antwortstruktur vom Server');
       }
       
       setTimeout(() => {
@@ -170,15 +190,11 @@ const ProVersion = ({ session }: ProVersionProps) => {
         setGenerationProgress(0);
       }, 500);
       
-      toast({
-        title: "Erfolgreich",
-        description: "SEO-Inhalt wurde generiert",
-      });
     } catch (error) {
       console.error("Generation error:", error);
       toast({
         title: "Fehler",
-        description: "Fehler beim Generieren des Inhalts",
+        description: error instanceof Error ? error.message : "Fehler beim Generieren des Inhalts",
         variant: "destructive",
       });
       setIsGenerating(false);
@@ -325,13 +341,23 @@ const ProVersion = ({ session }: ProVersionProps) => {
   };
 
   const handleVariantSelect = (index: number) => {
-    console.log('Variant selected:', index);
-    setSelectedVariantIndex(index);
+    console.log('Variant selected:', index, 'Total variants:', allVariants.length);
+    if (index >= 0 && index < allVariants.length) {
+      setSelectedVariantIndex(index);
+      console.log('Selected variant content preview:', allVariants[index]?.seoText?.substring(0, 100));
+    } else {
+      console.error('Invalid variant index:', index, 'Available:', allVariants.length);
+    }
   };
 
   const getCurrentVariant = () => {
-    if (allVariants.length === 0) return null;
-    return allVariants[selectedVariantIndex] || allVariants[0];
+    if (allVariants.length === 0) {
+      console.warn('No variants available');
+      return null;
+    }
+    const variant = allVariants[selectedVariantIndex] || allVariants[0];
+    console.log('Getting current variant, index:', selectedVariantIndex, 'Has content:', !!variant?.seoText);
+    return variant;
   };
 
   const handleStepClick = (step: number) => {
@@ -499,7 +525,7 @@ const ProVersion = ({ session }: ProVersionProps) => {
 
                     {currentStep === 4 && (
                       <Step4Preview
-                        generatedContent={{ variants: allVariants, selectedVariant: selectedVariantIndex }}
+                        generatedContent={allVariants.length > 1 ? { variants: allVariants, selectedVariant: selectedVariantIndex } : allVariants[0]}
                         onRefine={handleRefineContent}
                         onQuickChange={handleQuickChange}
                         onBack={() => setCurrentStep(3)}
