@@ -39,6 +39,7 @@ export interface FormData {
   imageTextBlocks: number;
   includeTabs: boolean;
   wordCount: string;
+  maxParagraphLength: string;
   headingStructure: string;
   includeIntro: boolean;
   includeFAQ: boolean;
@@ -81,6 +82,7 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
     imageTextBlocks: 0,
     includeTabs: false,
     wordCount: "",
+    maxParagraphLength: "300",
     headingStructure: "",
     includeIntro: true,
     includeFAQ: true,
@@ -359,6 +361,7 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
               imageTextBlocks: formData.imageTextBlocks,
               includeTabs: formData.includeTabs,
               wordCount: formData.wordCount,
+              maxParagraphLength: formData.maxParagraphLength || "300",
               headingStructure: formData.headingStructure,
               includeIntro: formData.includeIntro,
               includeFAQ: formData.includeFAQ,

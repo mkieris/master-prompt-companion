@@ -43,6 +43,7 @@ export interface FormData {
   imageTextBlocks: number;
   includeTabs: boolean;
   wordCount: string;
+  maxParagraphLength: string;
   headingStructure: string;
   includeIntro: boolean;
   includeFAQ: boolean;
@@ -102,6 +103,7 @@ const ProVersion = ({ session }: ProVersionProps) => {
     imageTextBlocks: 0,
     includeTabs: false,
     wordCount: "",
+    maxParagraphLength: "300",
     headingStructure: "",
     includeIntro: true,
     includeFAQ: true,
@@ -437,6 +439,7 @@ const ProVersion = ({ session }: ProVersionProps) => {
                           imageTextBlocks: formData.imageTextBlocks,
                           includeTabs: formData.includeTabs,
                           wordCount: formData.wordCount,
+                          maxParagraphLength: formData.maxParagraphLength,
                           headingStructure: formData.headingStructure,
                           includeIntro: formData.includeIntro,
                           includeFAQ: formData.includeFAQ,

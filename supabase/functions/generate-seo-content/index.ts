@@ -652,6 +652,14 @@ ZUSAMMENFASSUNG & CTA:
 
 # LESERFREUNDLICHE GESTALTUNG
 
+**KRITISCH: MAX. ABSATZLÄNGE = ${formData.maxParagraphLength || 300} WÖRTER**
+**Quelle: Evergreen Media Best Practice**
+- JEDER Absatz darf MAXIMAL ${formData.maxParagraphLength || 300} Wörter haben
+- Ein Absatz = ein Gedanke (idealerweise 3-4 Sätze)
+- Bei längeren Themen: NEUEN Absatz mit Zwischenüberschrift beginnen
+- Kürzere Absätze = bessere Lesbarkeit = höheres Engagement
+- PRÜFE VOR AUSGABE: Zähle mental die Wörter pro Absatz!
+
 MULTIMEDIALE ELEMENTE (reichlich verwenden!):
 - **Bullet Points**: Mindestens 2-3 Listen pro Text für Vorteile, Features, Anwendungen
 - **Tabellen**: Für Vergleiche, technische Daten, "Auf einen Blick"-Zusammenfassungen
@@ -960,6 +968,7 @@ ${formData.keywordDensity ? `KEYWORD-DICHTE: ${
 ${formData.wQuestions && formData.wQuestions.length > 0 ? `W-FRAGEN (MÜSSEN IM TEXT BEANTWORTET WERDEN):\n${formData.wQuestions.map((q: string) => `- ${q}`).join('\n')}\nDiese Fragen müssen im Text explizit behandelt und beantwortet werden!` : ''}
 ${layoutStructure}
 Wortanzahl: ${resolvedWordCount}
+Max. Absatzlänge: ${formData.maxParagraphLength || 300} Wörter pro Absatz (STRIKT einhalten!)
 Überschriftenstruktur: ${formData.headingStructure || 'H1 > H2 > H3'}
 Ziel der Seite: ${goalMap[formData.pageGoal as keyof typeof goalMap] || 'Informieren'}
 ${formData.contentStructure ? `\nZusätzliche Struktur-Anforderungen:\n${formData.contentStructure}` : ''}
