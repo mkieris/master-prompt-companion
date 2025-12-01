@@ -342,10 +342,10 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
                   <p className="text-sm text-muted-foreground">
                     Die KI erstellt 3 eigenständige Umsetzungen. Dies kann 60-90 Sekunden dauern.
                   </p>
-                  <div className="flex justify-center gap-2 mt-2">
-                    <span className="text-xs px-2 py-1 bg-primary/10 rounded">✨ Variante A</span>
-                    <span className="text-xs px-2 py-1 bg-primary/10 rounded">💫 Variante B</span>
-                    <span className="text-xs px-2 py-1 bg-primary/10 rounded">🌟 Variante C</span>
+                  <div className="flex flex-col gap-1 mt-2">
+                    <span className="text-xs px-2 py-1 bg-primary/10 rounded">📋 A: Strukturiert & Umfassend</span>
+                    <span className="text-xs px-2 py-1 bg-primary/10 rounded">🎯 B: Nutzenorientiert & Überzeugend</span>
+                    <span className="text-xs px-2 py-1 bg-primary/10 rounded">💫 C: Emotional & Authentisch</span>
                   </div>
                 </div>
                 <div className="space-y-2">

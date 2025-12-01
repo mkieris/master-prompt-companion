@@ -187,15 +187,72 @@ serve(async (req) => {
       ];
     } else {
       // Generate 3 variants in parallel for new content
-      console.log('Generating 3 content variants in parallel...');
+      // Each variant has a DIFFERENT creative approach to maximize variety
+      console.log('Generating 3 content variants in parallel with distinct approaches...');
+      
+      const variantApproaches = [
+        {
+          name: 'Variante A',
+          description: 'Strukturiert & Umfassend',
+          instruction: `VARIANTE A - STRUKTURIERT & UMFASSEND:
+Fokussiere auf maximale Vollständigkeit und klare Struktur:
+- Beantworte ALLE möglichen Nutzerfragen zum Thema
+- Nutze besonders viele Zwischenüberschriften für Scanbarkeit
+- Integriere umfangreiche Listen und Bullet Points
+- Füge detaillierte technische Informationen ein wo relevant
+- Erstelle einen besonders ausführlichen FAQ-Bereich (6-8 Fragen)
+- Achte auf perfekte SEO-Struktur mit allen Keywords
+Ziel: Der umfassendste, informativste Text zum Thema`
+        },
+        {
+          name: 'Variante B', 
+          description: 'Nutzenorientiert & Überzeugend',
+          instruction: `VARIANTE B - NUTZENORIENTIERT & ÜBERZEUGEND:
+Fokussiere auf maximale Überzeugungskraft und Nutzenargumentation:
+- Starte JEDEN Abschnitt mit einem konkreten Nutzenversprechen
+- Nutze die AIDA-Formel (Attention, Interest, Desire, Action)
+- Integriere konkrete Zahlen, Fakten und Belege für jeden Nutzen
+- Verwende mehr Verben und aktive Sprache
+- Baue starke CTAs (Call-to-Actions) in den Text ein
+- Nutze "Vorher-Nachher" Szenarien wo möglich
+Ziel: Der überzeugendste, handlungsauslösende Text zum Thema`
+        },
+        {
+          name: 'Variante C',
+          description: 'Emotional & Authentisch',
+          instruction: `VARIANTE C - EMOTIONAL & AUTHENTISCH:
+Fokussiere auf emotionale Verbindung und Authentizität:
+- Beginne mit einem fesselnden Szenario oder einer Geschichte
+- Nutze bildhafte, sensorische Sprache (fühlen, erleben, spüren)
+- Integriere Praxisbeispiele und Use Cases aus dem echten Leben
+- Schreibe so, als würdest du einen Freund beraten
+- Verwende direkte Ansprache und rhetorische Fragen
+- Zeige echte Empathie für die Probleme der Zielgruppe
+Ziel: Der emotional ansprechendste, nahbarste Text zum Thema`
+        }
+      ];
       
       const generateVariant = async (variantIndex: number): Promise<any> => {
-        // All variants use the same prompt - variation comes from temperature/creativity
-        const variantLabels = ['A', 'B', 'C'];
+        const approach = variantApproaches[variantIndex];
+        
+        // Build variant-specific prompt with clear differentiation
+        const variantUserPrompt = `${approach.instruction}
+
+=== WICHTIG: QUALITÄTSKONTROLLE VOR AUSGABE ===
+Bevor du den Text ausgibst, prüfe:
+1. ✓ Ist das Fokus-Keyword in H1 und den ersten 100 Wörtern?
+2. ✓ Sind alle Absätze unter ${formData.maxParagraphLength || 300} Wörter?
+3. ✓ Entspricht die Tonalität exakt der Vorgabe?
+4. ✓ Sind alle W-Fragen beantwortet (falls vorgegeben)?
+5. ✓ Ist der Text für die Zielgruppe optimiert?
+6. ✓ Gibt es keine Passivkonstruktionen oder Füllwörter?
+
+=== BRIEFING ===
+${userPrompt}`;
         
         const variantMessages = [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Dies ist Variante ${variantLabels[variantIndex]}. Erstelle eine eigenständige, kreative Umsetzung des folgenden Briefings:\n\n${userPrompt}` }
+          { role: 'user', content: variantUserPrompt }
         ];
         
         const maxRetries = 3;
@@ -203,7 +260,7 @@ serve(async (req) => {
         
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           try {
-            console.log(`Variant ${variantIndex + 1}: AI Gateway request attempt ${attempt}/${maxRetries}`);
+            console.log(`Variant ${variantIndex + 1} (${approach.description}): AI Gateway request attempt ${attempt}/${maxRetries}`);
             
             const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
               method: 'POST',
@@ -212,16 +269,24 @@ serve(async (req) => {
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                model: 'google/gemini-2.5-flash',
+                // Use gemini-2.5-pro for better quality on complex SEO content
+                model: 'google/gemini-2.5-pro',
                 messages: variantMessages,
-                temperature: 0.8, // Slightly higher for more variation between variants
+                // Lower temperature for more consistent, high-quality output
+                temperature: 0.65,
               }),
             });
 
             if (response.ok) {
               const data = await response.json();
               const generatedText = data.choices[0].message.content;
-              return parseGeneratedContent(generatedText, formData);
+              const parsed = parseGeneratedContent(generatedText, formData);
+              // Add variant metadata
+              parsed._variantInfo = {
+                name: approach.name,
+                description: approach.description
+              };
+              return parsed;
             }
             
             const errorText = await response.text();
@@ -258,11 +323,12 @@ serve(async (req) => {
           generateVariant(2),
         ]);
         
-        console.log('Successfully generated 3 SEO content variants');
+        console.log('Successfully generated 3 distinct SEO content variants');
         
         return new Response(JSON.stringify({ 
           variants,
-          selectedVariant: 0 
+          selectedVariant: 0,
+          variantDescriptions: variantApproaches.map(a => ({ name: a.name, description: a.description }))
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -288,9 +354,11 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'google/gemini-2.5-flash',
+            // Use pro model for better refinement quality
+            model: 'google/gemini-2.5-pro',
             messages: messages,
-            temperature: 0.7,
+            // Moderate temperature for balanced refinement
+            temperature: 0.6,
           }),
         });
 
