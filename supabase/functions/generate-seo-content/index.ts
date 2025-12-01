@@ -157,29 +157,47 @@ serve(async (req) => {
       console.log('Generating 3 content variants in parallel...');
       
       const variantApproaches = [
-        { name: 'Variante A', description: 'Strukturiert & Umfassend', instruction: 'VARIANTE A - STRUKTURIERT & UMFASSEND: Fokussiere auf Vollstaendigkeit und klare Struktur. Beantworte ALLE Nutzerfragen, nutze viele Zwischenueberschriften, integriere Listen und Bullet Points.' },
-        { name: 'Variante B', description: 'Nutzenorientiert & Ueberzeugend', instruction: 'VARIANTE B - NUTZENORIENTIERT & UEBERZEUGEND: Fokussiere auf Ueberzeugungskraft. Starte jeden Abschnitt mit Nutzenversprechen, nutze AIDA-Formel, integriere Zahlen und Belege, baue starke CTAs ein.' },
-        { name: 'Variante C', description: 'Emotional & Authentisch', instruction: 'VARIANTE C - EMOTIONAL & AUTHENTISCH: Fokussiere auf emotionale Verbindung. Beginne mit Szenario, nutze sensorische Sprache, integriere Praxisbeispiele, zeige Empathie.' }
+        { 
+          name: 'Variante A', 
+          description: 'Strukturiert & Umfassend', 
+          instruction: '=== STRATEGISCHER ANSATZ FUER DIESE VARIANTE ===\n\nSTIL: STRUKTURIERT & UMFASSEND\n\nWICHTIG: Befolge ALLE SEO-Regeln aus dem System-Prompt! Diese Anweisung ergaenzt sie nur um den STIL.\n\nSTIL-FOKUS:\n- Maximal strukturiert mit vielen Zwischenueberschriften (H2, H3)\n- Nutze viele Listen, Bullet Points, Tabellen fuer Uebersichtlichkeit\n- Beantworte JEDE moegliche Nutzerfrage erschoepfend\n- Baue logische Abschnitte: Was ist X? → Wie funktioniert X? → Wozu nutzt man X? → Was sind Vorteile?\n- Zielgruppe: User die ALLE Details wissen wollen\n\nTON: Sachlich, professionell, enzyklopaedisch - aber trotzdem verstaendlich' 
+        },
+        { 
+          name: 'Variante B', 
+          description: 'Nutzenorientiert & Ueberzeugend', 
+          instruction: '=== STRATEGISCHER ANSATZ FUER DIESE VARIANTE ===\n\nSTIL: NUTZENORIENTIERT & UEBERZEUGEND\n\nWICHTIG: Befolge ALLE SEO-Regeln aus dem System-Prompt! Diese Anweisung ergaenzt sie nur um den STIL.\n\nSTIL-FOKUS:\n- Starte JEDEN Abschnitt mit Nutzenversprechen ("Du profitierst", "Das bringt dir")\n- Nutze AIDA-Formel: Attention (Hook) → Interest (Warum relevant?) → Desire (Benefits) → Action (CTA)\n- Integriere konkrete Zahlen, Fakten, Belege wo moeglich\n- Baue Mini-CTAs ein ("Probiere es aus", "Entdecke jetzt")\n- Zielgruppe: User die UEBERZEUGT werden wollen\n\nTON: Beratend, nutzenorientiert, ueberzeugend - aber nicht aufdringlich' 
+        },
+        { 
+          name: 'Variante C', 
+          description: 'Emotional & Authentisch', 
+          instruction: '=== STRATEGISCHER ANSATZ FUER DIESE VARIANTE ===\n\nSTIL: EMOTIONAL & AUTHENTISCH\n\nWICHTIG: Befolge ALLE SEO-Regeln aus dem System-Prompt! Diese Anweisung ergaenzt sie nur um den STIL.\n\nSTIL-FOKUS:\n- Beginne mit realem Szenario oder Beispiel aus dem Alltag\n- Nutze sensorische Sprache (sehen, fuehlen, erleben)\n- Integriere konkrete Praxisbeispiele und Anwendungsfaelle\n- Zeige Empathie fuer Probleme/Wuensche der Zielgruppe\n- Erzaehle Mini-Stories die zur Loesung fuehren\n- Zielgruppe: User die emotionale Verbindung suchen\n\nTON: Warm, authentisch, menschlich - aber professionell' 
+        }
       ];
       
       const generateVariant = async (variantIndex: number): Promise<any> => {
         const approach = variantApproaches[variantIndex];
         const maxPara = formData.maxParagraphLength || 300;
-        const variantUserPrompt = approach.instruction + '\n\n=== QUALITAETSKONTROLLE ===\nPruefe: Fokus-Keyword in H1 und ersten 100 Woertern? Absaetze unter ' + maxPara + ' Woerter? W-Fragen beantwortet?\n\n=== BRIEFING ===\n' + userPrompt;
+        
+        // Kombiniere System-Prompt-Anforderungen mit Varianten-Stil
+        const enhancedUserPrompt = approach.instruction + '\n\n' + userPrompt;
         
         const variantMessages = [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: variantUserPrompt }
+          { role: 'user', content: enhancedUserPrompt }
         ];
         
         const maxRetries = 3;
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           try {
-            console.log('Variant ' + (variantIndex + 1) + ' (${approach.name}): attempt ' + attempt);
+            console.log('Variant ' + (variantIndex + 1) + ' (' + approach.name + '): attempt ' + attempt);
             const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
               method: 'POST',
               headers: { 'Authorization': 'Bearer ' + LOVABLE_API_KEY, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ model: 'google/gemini-2.5-pro', messages: variantMessages, temperature: 0.65 }),
+              body: JSON.stringify({ 
+                model: 'google/gemini-2.5-pro', 
+                messages: variantMessages, 
+                temperature: 0.4  // Reduziert für höhere Konsistenz und Qualität
+              }),
             });
 
             if (response.ok) {
