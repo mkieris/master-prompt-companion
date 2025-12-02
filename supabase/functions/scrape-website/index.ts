@@ -99,8 +99,15 @@ async function scrapeSinglePage(url: string, apiKey: string) {
 
     console.log('Successfully scraped single page');
     const structuredData = extractStructuredInfo(data.data);
+    
+    // Add AI analysis for brand information
+    const analysis = await analyzeBrandInfo(structuredData.content);
 
-    return new Response(JSON.stringify(structuredData), {
+    return new Response(JSON.stringify({
+      ...structuredData,
+      success: true,
+      analysis
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
@@ -425,5 +432,69 @@ function extractProducts(markdown: string, metadata: any): any {
     detectedProducts: products.slice(0, 5), // Limit to top 5
     pageType: isCategoryPage ? 'category' : (products.length > 0 ? 'product' : 'general'),
   };
+}
+
+async function analyzeBrandInfo(content: string): Promise<any> {
+  try {
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      console.log('LOVABLE_API_KEY not found, skipping AI analysis');
+      return null;
+    }
+
+    const prompt = `Analysiere den folgenden Website-Content und extrahiere strukturierte Markeninformationen:
+
+${content.substring(0, 4000)}
+
+Gib ein JSON-Objekt zurück mit folgenden Feldern:
+- companyName: Der Firmenname (string)
+- industry: Die Branche (string)
+- targetAudience: Die Zielgruppe (string, kurz beschrieben)
+- uniqueSellingPoints: Array von 2-4 USPs (string[])
+- mainProducts: Array von 2-4 Hauptprodukten/Services (string[])
+- brandVoice: Beschreibung der Markenstimme (string, z.B. "professionell, innovativ, kundenorientiert")
+- existingClaims: Falls vorhanden, bestehende Claims/Slogans (string[])
+
+Antworte NUR mit dem JSON-Objekt, ohne zusätzlichen Text.`;
+
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: 'Du bist ein Experte für Markenanalyse. Extrahiere präzise Informationen aus Website-Content.' },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.3,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('AI analysis failed:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    const generatedText = data.choices[0].message.content;
+    
+    // Try to parse JSON from response
+    try {
+      const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]);
+      }
+      return JSON.parse(generatedText);
+    } catch (e) {
+      console.error('Failed to parse AI analysis:', e);
+      return null;
+    }
+  } catch (error) {
+    console.error('Error in analyzeBrandInfo:', error);
+    return null;
+  }
 }
 
