@@ -249,7 +249,8 @@ serve(async (req) => {
 
     const runData = await runResponse.json();
     const runId = runData.data.id;
-    console.log('Apify run started:', runId);
+    const defaultDatasetId = runData.data.defaultDatasetId;
+    console.log('Apify run started:', runId, 'Dataset ID:', defaultDatasetId);
 
     // Poll for completion with extended timeout
     let runStatus = 'RUNNING';
@@ -285,13 +286,14 @@ serve(async (req) => {
       );
     }
 
-    // Fetch results
-    const resultsResponse = await fetch(`https://api.apify.com/v2/acts/apify~website-content-crawler/runs/${runId}/dataset/items?token=${APIFY_API_KEY}`);
+    // Fetch results from dataset using correct endpoint
+    const resultsResponse = await fetch(`https://api.apify.com/v2/datasets/${defaultDatasetId}/items?token=${APIFY_API_KEY}`);
     
     if (!resultsResponse.ok) {
-      console.error('Failed to fetch results:', await resultsResponse.text());
+      const errorText = await resultsResponse.text();
+      console.error('Failed to fetch results:', errorText);
       return new Response(
-        JSON.stringify({ error: 'Failed to fetch crawl results' }),
+        JSON.stringify({ error: 'Failed to fetch crawl results', details: errorText }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
