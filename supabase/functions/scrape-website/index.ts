@@ -67,8 +67,8 @@ async function scrapeSinglePage(url: string, apiKey: string) {
         url: url,
         formats: ['markdown', 'html'],
         onlyMainContent: true,
-        waitFor: 5000,
-        timeout: 60000,
+        waitFor: 3000,
+        timeout: 45000,
       }),
     });
 
@@ -81,11 +81,23 @@ async function scrapeSinglePage(url: string, apiKey: string) {
       // Handle timeout specifically
       if (response.status === 408 || data.code === 'SCRAPE_TIMEOUT') {
         return new Response(JSON.stringify({ 
-          error: 'Website scraping timed out. Try a simpler page or use multi-page mode.',
+          error: 'Website scraping timed out. The website may be too complex or slow to respond.',
           code: 'TIMEOUT',
           url: url
         }), {
           status: 408,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      // Handle rate limiting
+      if (response.status === 429) {
+        return new Response(JSON.stringify({ 
+          error: 'Rate limit exceeded. Please try again in a few moments.',
+          code: 'RATE_LIMIT',
+          url: url
+        }), {
+          status: 429,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
@@ -100,8 +112,15 @@ async function scrapeSinglePage(url: string, apiKey: string) {
     console.log('Successfully scraped single page');
     const structuredData = extractStructuredInfo(data.data);
     
-    // Add AI analysis for brand information
-    const analysis = await analyzeBrandInfo(structuredData.content);
+    // Add AI analysis for brand information with error handling
+    let analysis = null;
+    try {
+      analysis = await analyzeBrandInfo(structuredData.content);
+      console.log('AI analysis completed:', analysis ? 'Success' : 'No analysis returned');
+    } catch (analysisError) {
+      console.error('AI analysis failed, continuing without it:', analysisError);
+      // Continue without analysis - don't fail the entire scrape
+    }
 
     return new Response(JSON.stringify({
       ...structuredData,
@@ -199,6 +218,8 @@ async function startCrawl(url: string, apiKey: string) {
 
 async function checkCrawlStatus(jobId: string, apiKey: string) {
   try {
+    console.log('Checking crawl status for job:', jobId);
+    
     const statusResponse = await fetch(`https://api.firecrawl.dev/v2/crawl/${jobId}`, {
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -206,6 +227,8 @@ async function checkCrawlStatus(jobId: string, apiKey: string) {
     });
 
     if (!statusResponse.ok) {
+      const errorText = await statusResponse.text();
+      console.error('Status check failed:', statusResponse.status, errorText);
       throw new Error(`Failed to check crawl status: ${statusResponse.status}`);
     }
 
@@ -219,11 +242,15 @@ async function checkCrawlStatus(jobId: string, apiKey: string) {
 
     // If completed, process and return the data
     if (statusData.status === 'completed') {
+      console.log('Crawl completed, processing data...');
+      
       if (!statusData.data || statusData.data.length === 0) {
+        console.error('Crawl completed but no data found');
         throw new Error('No pages were successfully crawled');
       }
       
       const allContent = combineMultiplePages(statusData.data);
+      console.log('Combined content from', statusData.data.length, 'pages');
       
       return new Response(JSON.stringify({
         success: true,
@@ -234,11 +261,12 @@ async function checkCrawlStatus(jobId: string, apiKey: string) {
       });
     }
 
-    // CRITICAL FIX: If we have partial data and it's taking too long,
-    // allow client to use partial results
+    // If we have partial data and it's taking too long, allow client to use partial results
     const hasPartialData = statusData.data && statusData.data.length > 0;
     const completed = statusData.completed || 0;
     const total = statusData.total || 0;
+    
+    console.log('Partial data available:', hasPartialData ? statusData.data.length : 0, 'pages');
     
     // Return current status with live URLs and partial data flag
     return new Response(JSON.stringify({
@@ -442,9 +470,12 @@ async function analyzeBrandInfo(content: string): Promise<any> {
       return null;
     }
 
+    // Limit content length to avoid token limits
+    const contentPreview = content.substring(0, 6000);
+    
     const prompt = `Analysiere den folgenden Website-Content und extrahiere strukturierte Markeninformationen:
 
-${content.substring(0, 4000)}
+${contentPreview}
 
 Gib ein JSON-Objekt zurück mit folgenden Feldern:
 - companyName: Der Firmenname (string)
@@ -457,6 +488,8 @@ Gib ein JSON-Objekt zurück mit folgenden Feldern:
 
 Antworte NUR mit dem JSON-Objekt, ohne zusätzlichen Text.`;
 
+    console.log('Sending AI analysis request...');
+    
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -466,7 +499,7 @@ Antworte NUR mit dem JSON-Objekt, ohne zusätzlichen Text.`;
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
         messages: [
-          { role: 'system', content: 'Du bist ein Experte für Markenanalyse. Extrahiere präzise Informationen aus Website-Content.' },
+          { role: 'system', content: 'Du bist ein Experte für Markenanalyse. Extrahiere präzise Informationen aus Website-Content und gib NUR valides JSON zurück.' },
           { role: 'user', content: prompt }
         ],
         temperature: 0.3,
@@ -474,22 +507,50 @@ Antworte NUR mit dem JSON-Objekt, ohne zusätzlichen Text.`;
     });
 
     if (!response.ok) {
-      console.error('AI analysis failed:', response.status);
+      const errorText = await response.text();
+      console.error('AI analysis failed:', response.status, errorText);
+      
+      // Handle rate limiting
+      if (response.status === 429) {
+        console.log('AI rate limit reached, skipping analysis');
+        return null;
+      }
+      
       return null;
     }
 
     const data = await response.json();
-    const generatedText = data.choices[0].message.content;
+    const generatedText = data.choices?.[0]?.message?.content;
+    
+    if (!generatedText) {
+      console.error('No content in AI response');
+      return null;
+    }
+    
+    console.log('AI response received, parsing JSON...');
     
     // Try to parse JSON from response
     try {
-      const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
+      // Remove markdown code blocks if present
+      let jsonText = generatedText.trim();
+      if (jsonText.startsWith('```')) {
+        jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
       }
-      return JSON.parse(generatedText);
+      
+      const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        console.log('AI analysis parsed successfully');
+        return parsed;
+      }
+      
+      // Try direct parse as fallback
+      const parsed = JSON.parse(jsonText);
+      console.log('AI analysis parsed successfully (direct)');
+      return parsed;
     } catch (e) {
-      console.error('Failed to parse AI analysis:', e);
+      console.error('Failed to parse AI analysis JSON:', e);
+      console.error('Raw response:', generatedText);
       return null;
     }
   } catch (error) {
