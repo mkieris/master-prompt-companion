@@ -23,6 +23,7 @@ import SEOTraining from "./pages/SEOTraining";
 import GenerationHistory from "./pages/GenerationHistory";
 import AdminInsights from "./pages/AdminInsights";
 import SystemPromptVersions from "./pages/SystemPromptVersions";
+import UserPromptVersions from "./pages/UserPromptVersions";
 
 const queryClient = new QueryClient();
 
@@ -68,6 +69,7 @@ const App = () => {
               <Route path="history" element={<GenerationHistory />} />
               <Route path="insights" element={<AdminInsights />} />
               <Route path="system-prompts" element={<SystemPromptVersions />} />
+              <Route path="user-prompts" element={<UserPromptVersions />} />
             </Route>
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
