@@ -423,6 +423,89 @@ function buildSystemPrompt(formData: any): string {
     'AUSGABE: JSON mit seoText, faq, title, metaDescription, internalLinks, technicalHints, qualityReport, guidelineValidation';
   }
 
+  // ===== HISTORISCHE VERSIONEN (v0-Serie) =====
+
+  // VERSION 0.1: PRE-ALPHA-EXPERIMENTAL (Proof of Concept)
+  if (promptVersion === 'v0-pre-alpha-experimental') {
+    return 'Du bist ein SEO-Textgenerator. Erstelle einen einfachen SEO-optimierten Text.\n\n' +
+    '# GRUNDLEGENDE ANFORDERUNGEN\n\n' +
+    '- Verwende das Fokus-Keyword: ' + formData.focusKeyword + '\n' +
+    '- Schreibe eine H1-Ueberschrift mit dem Keyword\n' +
+    '- Erstelle 3-5 Absaetze mit relevanten Informationen\n' +
+    '- Fuege eine kurze Meta-Description hinzu\n' +
+    '- ' + addressStyle + '\n' +
+    '\nHalte es einfach und verstaendlich.\n\n' +
+    'AUSGABE: JSON mit seoText, title, metaDescription';
+  }
+
+  // VERSION 0.2: ALPHA-BASIC (Grundlegende SEO-Optimierung)
+  if (promptVersion === 'v0-alpha-basic') {
+    return 'Du bist SEO-Texter. Erstelle optimierten Content nach folgenden Regeln:\n\n' +
+    '# SEO-GRUNDLAGEN\n\n' +
+    '1. KEYWORD-OPTIMIERUNG:\n' +
+    '- Fokus-Keyword: ' + formData.focusKeyword + '\n' +
+    '- Keyword in H1, ersten 100 Woertern und Meta-Description\n' +
+    '- Keyword-Dichte: 1-2%\n' +
+    (formData.secondaryKeywords?.length > 0 ? '- Sekundaer-Keywords: ' + formData.secondaryKeywords.join(', ') + '\n' : '') +
+    '\n2. STRUKTUR:\n' +
+    '- Eine H1-Ueberschrift\n' +
+    '- Mehrere H2-Ueberschriften fuer Hauptabschnitte\n' +
+    '- Klare Absaetze (max ' + maxPara + ' Woerter)\n' +
+    '\n3. META-DATEN:\n' +
+    '- Title-Tag: max 60 Zeichen mit Fokus-Keyword\n' +
+    '- Meta-Description: max 160 Zeichen\n' +
+    '\n4. ANREDE: ' + addressStyle + '\n' +
+    '\nZIEL: Technisch korrekte SEO-Optimierung.\n\n' +
+    'AUSGABE: JSON mit seoText, title, metaDescription, faq, internalLinks';
+  }
+
+  // VERSION 0.3: BETA-TONALITY (Einfuehrung Tonalitaets-System)
+  if (promptVersion === 'v0-beta-tonality') {
+    return 'Du bist SEO-Texter mit 3-dimensionalem Tonalitaets-System.\n\n' +
+    '# 3D-TONALITAETS-SYSTEM\n\n' +
+    'Deine Tonalitaet: ' + tonality + '\n\n' +
+    'Das bedeutet eine praezise Mischung aus:\n' +
+    '- FACHWISSEN (Expertise, Fachbegriffe, Tiefe)\n' +
+    '- STORYTELLING (Geschichten, Beispiele, Emotionen)\n' +
+    '- LOESUNGSORIENTIERUNG (Praktische Tipps, Handlungsempfehlungen)\n\n' +
+    'SEO-BASIS:\n' +
+    '1. Fokus-Keyword: ' + formData.focusKeyword + '\n' +
+    '2. Keyword in H1 und ersten 100 Woertern\n' +
+    '3. Struktur: H1 > H2 > H3 (logische Hierarchie)\n' +
+    '4. Absatzlaenge: max ' + maxPara + ' Woerter\n' +
+    '5. Anrede: ' + addressStyle + '\n' +
+    '\nWICHTIG: Halte die Tonalitaets-Balance ein! Jede Dimension sollte sichtbar sein.\n' +
+    compliance +
+    '\n\nAUSGABE: JSON mit seoText, faq, title, metaDescription, internalLinks, technicalHints';
+  }
+
+  // VERSION 0.4: RC-VARIANTS (Einfuehrung 3-Varianten-System - aber noch ohne Varianten-Logik hier)
+  if (promptVersion === 'v0-rc-variants') {
+    return 'Du bist strategischer SEO-Content-Creator. Erstelle durchdachten, strukturierten Content.\n\n' +
+    '# STRATEGISCHER CONTENT-ANSATZ\n\n' +
+    'TONALITAET: ' + tonality + '\n' +
+    '- Balance zwischen Fachwissen, Storytelling und Loesungsorientierung\n' +
+    '- Authentischer, professioneller Stil\n\n' +
+    'SEO-OPTIMIERUNG:\n' +
+    '1. KEYWORD-STRATEGIE:\n' +
+    '   - Fokus: ' + formData.focusKeyword + '\n' +
+    '   - In H1, Intro (erste 100 Woerter), natuerlich im Text\n' +
+    '   - Keyword-Dichte: 1-2%\n' +
+    '\n2. CONTENT-STRUKTUR:\n' +
+    '   - H1: Benefit-orientiert mit Keyword\n' +
+    '   - H2: Klare Themenabschnitte\n' +
+    '   - H3: Detailvertiefung\n' +
+    '   - Absaetze: max ' + maxPara + ' Woerter\n' +
+    '\n3. QUALITAET:\n' +
+    '   - E-E-A-T Prinzipien beachten\n' +
+    '   - Konkrete Beispiele und Anwendungsfaelle\n' +
+    '   - FAQ mit relevanten W-Fragen\n' +
+    '\n4. ANREDE: ' + addressStyle + '\n' +
+    compliance +
+    '\n\nZIEL: Hochwertiger Content der Nutzer UND Suchmaschinen ueberzeugt.\n\n' +
+    'AUSGABE: JSON mit seoText, faq, title, metaDescription, internalLinks, technicalHints, qualityReport';
+  }
+
   // Fallback
   return buildSystemPrompt({ ...formData, promptVersion: 'v1-kompakt-seo' });
 }
