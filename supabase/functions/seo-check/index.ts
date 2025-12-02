@@ -228,24 +228,36 @@ serve(async (req) => {
     const runId = runData.data.id;
     console.log('Apify run started:', runId);
 
-    // Poll for completion
+    // Poll for completion with extended timeout
     let runStatus = 'RUNNING';
     let attempts = 0;
-    const maxAttempts = 30;
+    const maxAttempts = 90; // 3 minutes total (90 * 2s = 180s)
 
     while (runStatus === 'RUNNING' && attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       const statusResponse = await fetch(`https://api.apify.com/v2/acts/apify~website-content-crawler/runs/${runId}?token=${APIFY_API_KEY}`);
+      
+      if (!statusResponse.ok) {
+        console.error('Failed to check run status:', await statusResponse.text());
+        break;
+      }
+      
       const statusData = await statusResponse.json();
       runStatus = statusData.data.status;
-      console.log('Run status:', runStatus);
+      console.log(`Run status: ${runStatus} (attempt ${attempts + 1}/${maxAttempts})`);
       attempts++;
     }
 
     if (runStatus !== 'SUCCEEDED') {
+      console.error(`Crawl did not complete successfully. Final status: ${runStatus}, Attempts: ${attempts}`);
       return new Response(
-        JSON.stringify({ error: 'Scraping failed or timed out', status: runStatus }),
+        JSON.stringify({ 
+          error: 'Scraping failed or timed out. The page may take longer to crawl.', 
+          status: runStatus,
+          attempts: attempts,
+          suggestion: 'Try again or use a simpler URL without complex JavaScript'
+        }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
