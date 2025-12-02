@@ -252,9 +252,19 @@ serve(async (req) => {
 
     // Fetch results
     const resultsResponse = await fetch(`https://api.apify.com/v2/acts/apify~website-content-crawler/runs/${runId}/dataset/items?token=${APIFY_API_KEY}`);
-    const results = await resultsResponse.json();
+    
+    if (!resultsResponse.ok) {
+      console.error('Failed to fetch results:', await resultsResponse.text());
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch crawl results' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    if (!results || results.length === 0) {
+    const results = await resultsResponse.json();
+    console.log('Results structure:', JSON.stringify(results).substring(0, 500));
+
+    if (!results || !Array.isArray(results) || results.length === 0) {
       return new Response(
         JSON.stringify({ error: 'No data retrieved from page' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -262,6 +272,14 @@ serve(async (req) => {
     }
 
     const pageData = results[0];
+    
+    if (!pageData) {
+      return new Response(
+        JSON.stringify({ error: 'Page data is empty' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const html = pageData.html || '';
     const markdown = pageData.text || pageData.markdown || '';
     const metadata = pageData.metadata || {};
