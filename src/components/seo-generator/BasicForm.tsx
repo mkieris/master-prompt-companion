@@ -36,6 +36,7 @@ export interface BasicFormData {
   checkMDR: boolean;
   checkHWG: boolean;
   checkStudies: boolean;
+  promptVersion?: string;
 }
 
 interface BasicFormProps {
@@ -70,6 +71,7 @@ export const BasicForm = ({ onGenerate, isLoading }: BasicFormProps) => {
     checkMDR: false,
     checkHWG: false,
     checkStudies: false,
+    promptVersion: "v1-kompakt-seo",
   });
 
   const handleAddKeyword = () => {
@@ -447,6 +449,82 @@ export const BasicForm = ({ onGenerate, isLoading }: BasicFormProps) => {
                     <SelectItem value="factual">Sachlich & Informativ</SelectItem>
                     <SelectItem value="advisory">Beratend & Hilfsbereit</SelectItem>
                     <SelectItem value="sales">Verkaufsorientiert</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium">Prompt-Version</Label>
+                <p className="text-xs text-muted-foreground mb-1.5">Wähle die Content-Generierungs-Strategie</p>
+                <Select 
+                  value={formData.promptVersion || "v1-kompakt-seo"} 
+                  onValueChange={(value) => setFormData({ ...formData, promptVersion: value })}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                      ✨ Aktive Versionen
+                    </div>
+                    <SelectItem value="v1-kompakt-seo">
+                      <div className="flex flex-col">
+                        <span className="font-medium">🎯 Kompakt-SEO</span>
+                        <span className="text-xs text-muted-foreground">Top 10 SEO-Faktoren, technisch präzise</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="v2-marketing-first">
+                      <div className="flex flex-col">
+                        <span className="font-medium">🚀 Marketing-First</span>
+                        <span className="text-xs text-muted-foreground">Emotionen &amp; Überzeugung statt Technik</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="v3-hybrid-intelligent">
+                      <div className="flex flex-col">
+                        <span className="font-medium">🧠 Hybrid-Intelligent</span>
+                        <span className="text-xs text-muted-foreground">Balance: SEO-Technik + Kreativität</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="v4-minimal-kreativ">
+                      <div className="flex flex-col">
+                        <span className="font-medium">✨ Minimal-Kreativ</span>
+                        <span className="text-xs text-muted-foreground">Nur 5 Regeln, maximale Freiheit</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="v5-ai-meta-optimiert">
+                      <div className="flex flex-col">
+                        <span className="font-medium">🤖 AI-Meta-Optimiert</span>
+                        <span className="text-xs text-muted-foreground">Durch AI-Analyse optimiert</span>
+                      </div>
+                    </SelectItem>
+                    
+                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mt-2 border-t">
+                      📚 Historische Versionen
+                    </div>
+                    <SelectItem value="v0-pre-alpha-experimental">
+                      <div className="flex flex-col">
+                        <span className="font-medium">v0.1 Pre-Alpha</span>
+                        <span className="text-xs text-muted-foreground">Experimentell, sehr einfach</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="v0-alpha-basic">
+                      <div className="flex flex-col">
+                        <span className="font-medium">v0.2 Alpha-Basic</span>
+                        <span className="text-xs text-muted-foreground">Grundlegende SEO-Optimierung</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="v0-beta-tonality">
+                      <div className="flex flex-col">
+                        <span className="font-medium">v0.3 Beta-Tonality</span>
+                        <span className="text-xs text-muted-foreground">Mit 3D-Tonalitäts-System</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="v0-rc-variants">
+                      <div className="flex flex-col">
+                        <span className="font-medium">v0.4 RC-Variants</span>
+                        <span className="text-xs text-muted-foreground">Strategischer Content-Ansatz</span>
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
