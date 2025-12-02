@@ -192,138 +192,154 @@ serve(async (req) => {
 
     console.log(`Starting SEO check for: ${url}, mode: ${mode}, keyword: ${keyword || 'none'}`);
 
-    const APIFY_API_KEY = Deno.env.get('APIFY_API_KEY');
-    if (!APIFY_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: 'APIFY_API_KEY not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Scrape the page with Apify - Enhanced configuration for maximum content extraction
-    const actorInput = {
-      startUrls: [{ url }],
-      maxCrawlDepth: 0,
-      maxCrawlPages: 1,
-      initialCookies: [],
-      proxyConfiguration: { useApifyProxy: true },
+    // For single page SEO checks, use direct fetch - much faster than crawler
+    // This is similar to how Firecrawl handles single URL scraping
+    console.log('Using fast direct fetch for single page analysis...');
+    
+    let html = '';
+    let responseHeaders: Record<string, string> = {};
+    
+    try {
+      const fetchResponse = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'de-DE,de;q=0.9,en;q=0.8',
+          'Cache-Control': 'no-cache',
+        },
+        redirect: 'follow',
+      });
       
-      // Enhanced content extraction
-      crawlerType: 'cheerio', // Better HTML parsing
-      htmlTransformer: 'readableText', // Extract readable content
-      readableTextCharThreshold: 100, // Minimum text length for extraction
-      
-      // Dynamic content handling
-      dynamicContentWaitSecs: 5, // Wait for JavaScript to load
-      maxScrollHeightPixels: 5000, // Scroll for lazy-loaded content
-      
-      // Remove noise elements for cleaner content
-      removeElementsCssSelector: 'nav, header, footer, .cookie-banner, .ad, .advertisement, .social-share',
-      
-      // Metadata extraction
-      includeMetadata: true,
-      includeHtmlContent: true,
-      includeText: true,
-      includeScreenshot: false,
-      
-      // Additional options for comprehensive extraction
-      maxRequestsPerCrawl: 10,
-      maxRequestRetries: 3,
-      requestTimeoutSecs: 60,
-    };
-
-    const runResponse = await fetch('https://api.apify.com/v2/acts/apify~website-content-crawler/runs?token=' + APIFY_API_KEY, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(actorInput),
-    });
-
-    if (!runResponse.ok) {
-      const errorText = await runResponse.text();
-      console.error('Apify start error:', errorText);
-      return new Response(
-        JSON.stringify({ error: 'Failed to start scraping', details: errorText }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const runData = await runResponse.json();
-    const runId = runData.data.id;
-    const defaultDatasetId = runData.data.defaultDatasetId;
-    console.log('Apify run started:', runId, 'Dataset ID:', defaultDatasetId);
-
-    // Poll for completion with extended timeout
-    let runStatus = 'RUNNING';
-    let attempts = 0;
-    const maxAttempts = 90; // 3 minutes total (90 * 2s = 180s)
-
-    while (runStatus === 'RUNNING' && attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const statusResponse = await fetch(`https://api.apify.com/v2/acts/apify~website-content-crawler/runs/${runId}?token=${APIFY_API_KEY}`);
-      
-      if (!statusResponse.ok) {
-        console.error('Failed to check run status:', await statusResponse.text());
-        break;
+      if (!fetchResponse.ok) {
+        console.error(`Failed to fetch URL: ${fetchResponse.status} ${fetchResponse.statusText}`);
+        return new Response(
+          JSON.stringify({ 
+            error: `Failed to fetch URL: ${fetchResponse.status} ${fetchResponse.statusText}`,
+            suggestion: 'Check if the URL is accessible and not blocked'
+          }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
       
-      const statusData = await statusResponse.json();
-      runStatus = statusData.data.status;
-      console.log(`Run status: ${runStatus} (attempt ${attempts + 1}/${maxAttempts})`);
-      attempts++;
-    }
+      html = await fetchResponse.text();
+      
+      // Capture response headers for security analysis
+      fetchResponse.headers.forEach((value, key) => {
+        responseHeaders[key.toLowerCase()] = value;
+      });
+      
+      console.log(`Direct fetch successful: HTML length=${html.length}, Headers captured=${Object.keys(responseHeaders).length}`);
+      
+    } catch (fetchError) {
+      console.error('Direct fetch failed, falling back to Apify:', fetchError);
+      
+      // Fallback to Apify for sites that block direct requests
+      const APIFY_API_KEY = Deno.env.get('APIFY_API_KEY');
+      if (!APIFY_API_KEY) {
+        return new Response(
+          JSON.stringify({ error: 'Direct fetch failed and APIFY_API_KEY not configured' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      console.log('Using Apify cheerio-scraper as fallback...');
+      
+      // Use simpler, faster cheerio-scraper instead of website-content-crawler
+      const actorInput = {
+        startUrls: [{ url }],
+        pageFunction: `async function pageFunction(context) {
+          const { $, request } = context;
+          return {
+            url: request.url,
+            html: $('html').html(),
+            title: $('title').text(),
+            metaDescription: $('meta[name="description"]').attr('content') || '',
+          };
+        }`,
+        proxyConfiguration: { useApifyProxy: true },
+        maxRequestsPerCrawl: 1,
+        maxConcurrency: 1,
+      };
 
-    if (runStatus !== 'SUCCEEDED') {
-      console.error(`Crawl did not complete successfully. Final status: ${runStatus}, Attempts: ${attempts}`);
-      return new Response(
-        JSON.stringify({ 
-          error: 'Scraping failed or timed out. The page may take longer to crawl.', 
-          status: runStatus,
-          attempts: attempts,
-          suggestion: 'Try again or use a simpler URL without complex JavaScript'
-        }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+      const runResponse = await fetch('https://api.apify.com/v2/acts/apify~cheerio-scraper/runs?token=' + APIFY_API_KEY, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(actorInput),
+      });
 
-    // Fetch results from dataset using correct endpoint
-    const resultsResponse = await fetch(`https://api.apify.com/v2/datasets/${defaultDatasetId}/items?token=${APIFY_API_KEY}`);
+      if (!runResponse.ok) {
+        const errorText = await runResponse.text();
+        console.error('Apify start error:', errorText);
+        return new Response(
+          JSON.stringify({ error: 'Failed to start scraping', details: errorText }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const runData = await runResponse.json();
+      const runId = runData.data.id;
+      const defaultDatasetId = runData.data.defaultDatasetId;
+      console.log('Apify cheerio-scraper run started:', runId);
+
+      // Poll for completion - cheerio-scraper is much faster
+      let runStatus = 'RUNNING';
+      let attempts = 0;
+      const maxAttempts = 30; // 1 minute max for cheerio-scraper
+
+      while (runStatus === 'RUNNING' && attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        const statusResponse = await fetch(`https://api.apify.com/v2/acts/apify~cheerio-scraper/runs/${runId}?token=${APIFY_API_KEY}`);
+        
+        if (statusResponse.ok) {
+          const statusData = await statusResponse.json();
+          runStatus = statusData.data.status;
+          console.log(`Cheerio-scraper status: ${runStatus} (attempt ${attempts + 1}/${maxAttempts})`);
+        }
+        attempts++;
+      }
+
+      if (runStatus !== 'SUCCEEDED') {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Scraping failed or timed out', 
+            status: runStatus,
+          }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const resultsResponse = await fetch(`https://api.apify.com/v2/datasets/${defaultDatasetId}/items?token=${APIFY_API_KEY}`);
+      
+      if (!resultsResponse.ok) {
+        return new Response(
+          JSON.stringify({ error: 'Failed to fetch results' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const results = await resultsResponse.json();
+      if (results && results.length > 0) {
+        html = results[0].html || '';
+      }
+      
+      console.log(`Apify fallback successful: HTML length=${html.length}`);
+    }
     
-    if (!resultsResponse.ok) {
-      const errorText = await resultsResponse.text();
-      console.error('Failed to fetch results:', errorText);
+    if (!html || html.length < 100) {
       return new Response(
-        JSON.stringify({ error: 'Failed to fetch crawl results', details: errorText }),
+        JSON.stringify({ error: 'No content retrieved from page' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const results = await resultsResponse.json();
-    console.log('Results structure:', JSON.stringify(results).substring(0, 500));
-
-    if (!results || !Array.isArray(results) || results.length === 0) {
-      return new Response(
-        JSON.stringify({ error: 'No data retrieved from page' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const pageData = results[0];
+    // Convert HTML to markdown-like text for analysis
+    const markdown = htmlToReadableText(html);
     
-    if (!pageData) {
-      return new Response(
-        JSON.stringify({ error: 'Page data is empty' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Extract comprehensive content from Apify response
-    const html = pageData.html || pageData.rawHtml || '';
-    const markdown = pageData.text || pageData.markdown || pageData.readableText || '';
-    const metadata = pageData.metadata || {};
-    const responseHeaders = {};
+    // Extract metadata from HTML
+    const metadata = extractMetadataFromHtml(html, url);
     
-    console.log(`Extracted content: HTML length=${html.length}, Markdown length=${markdown.length}, Metadata keys=${Object.keys(metadata).length}`);
+    console.log(`Content extracted: HTML=${html.length} chars, Text=${markdown.length} chars`);
 
     // Perform comprehensive SEO analysis
     const result = analyzeSEO(url, html, markdown, metadata, responseHeaders, keyword);
@@ -344,6 +360,109 @@ serve(async (req) => {
     );
   }
 });
+
+// Helper function to convert HTML to readable text (similar to Firecrawl's markdown output)
+function htmlToReadableText(html: string): string {
+  // Remove script and style tags completely
+  let text = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+  text = text.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+  
+  // Remove HTML comments
+  text = text.replace(/<!--[\s\S]*?-->/g, '');
+  
+  // Convert headings to markdown-style
+  text = text.replace(/<h1[^>]*>(.*?)<\/h1>/gi, '\n# $1\n');
+  text = text.replace(/<h2[^>]*>(.*?)<\/h2>/gi, '\n## $1\n');
+  text = text.replace(/<h3[^>]*>(.*?)<\/h3>/gi, '\n### $1\n');
+  text = text.replace(/<h4[^>]*>(.*?)<\/h4>/gi, '\n#### $1\n');
+  text = text.replace(/<h5[^>]*>(.*?)<\/h5>/gi, '\n##### $1\n');
+  text = text.replace(/<h6[^>]*>(.*?)<\/h6>/gi, '\n###### $1\n');
+  
+  // Convert paragraphs and divs to new lines
+  text = text.replace(/<\/p>/gi, '\n\n');
+  text = text.replace(/<\/div>/gi, '\n');
+  text = text.replace(/<br\s*\/?>/gi, '\n');
+  
+  // Convert list items
+  text = text.replace(/<li[^>]*>/gi, '\n• ');
+  text = text.replace(/<\/li>/gi, '');
+  
+  // Remove all remaining HTML tags
+  text = text.replace(/<[^>]+>/g, ' ');
+  
+  // Decode HTML entities
+  text = text.replace(/&nbsp;/g, ' ');
+  text = text.replace(/&amp;/g, '&');
+  text = text.replace(/&lt;/g, '<');
+  text = text.replace(/&gt;/g, '>');
+  text = text.replace(/&quot;/g, '"');
+  text = text.replace(/&#39;/g, "'");
+  text = text.replace(/&auml;/g, 'ä');
+  text = text.replace(/&ouml;/g, 'ö');
+  text = text.replace(/&uuml;/g, 'ü');
+  text = text.replace(/&Auml;/g, 'Ä');
+  text = text.replace(/&Ouml;/g, 'Ö');
+  text = text.replace(/&Uuml;/g, 'Ü');
+  text = text.replace(/&szlig;/g, 'ß');
+  text = text.replace(/&#(\d+);/g, (_, num) => String.fromCharCode(parseInt(num)));
+  
+  // Clean up whitespace
+  text = text.replace(/\s+/g, ' ');
+  text = text.replace(/\n\s+/g, '\n');
+  text = text.replace(/\n{3,}/g, '\n\n');
+  
+  return text.trim();
+}
+
+// Helper function to extract metadata from HTML
+function extractMetadataFromHtml(html: string, url: string): Record<string, string> {
+  const metadata: Record<string, string> = {};
+  
+  // Extract title
+  const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+  metadata.title = titleMatch ? titleMatch[1].trim() : '';
+  
+  // Extract meta description
+  const descMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["'][^>]*>/i) ||
+                    html.match(/<meta[^>]*content=["']([^"']*)["'][^>]*name=["']description["'][^>]*>/i);
+  metadata.description = descMatch ? descMatch[1].trim() : '';
+  
+  // Extract canonical URL
+  const canonicalMatch = html.match(/<link[^>]*rel=["']canonical["'][^>]*href=["']([^"']*)["'][^>]*>/i) ||
+                         html.match(/<link[^>]*href=["']([^"']*)["'][^>]*rel=["']canonical["'][^>]*>/i);
+  metadata.canonicalUrl = canonicalMatch ? canonicalMatch[1].trim() : '';
+  
+  // Extract robots meta
+  const robotsMatch = html.match(/<meta[^>]*name=["']robots["'][^>]*content=["']([^"']*)["'][^>]*>/i) ||
+                      html.match(/<meta[^>]*content=["']([^"']*)["'][^>]*name=["']robots["'][^>]*>/i);
+  metadata.robots = robotsMatch ? robotsMatch[1].trim() : '';
+  
+  // Extract Open Graph tags
+  const ogTitleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']*)["'][^>]*>/i);
+  metadata.ogTitle = ogTitleMatch ? ogTitleMatch[1].trim() : '';
+  
+  const ogDescMatch = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']*)["'][^>]*>/i);
+  metadata.ogDescription = ogDescMatch ? ogDescMatch[1].trim() : '';
+  
+  const ogImageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']*)["'][^>]*>/i);
+  metadata.ogImage = ogImageMatch ? ogImageMatch[1].trim() : '';
+  
+  // Extract language
+  const langMatch = html.match(/<html[^>]*lang=["']([^"']*)["'][^>]*>/i);
+  metadata.language = langMatch ? langMatch[1].trim() : '';
+  
+  // Extract viewport
+  const viewportMatch = html.match(/<meta[^>]*name=["']viewport["'][^>]*content=["']([^"']*)["'][^>]*>/i);
+  metadata.viewport = viewportMatch ? viewportMatch[1].trim() : '';
+  
+  // Extract charset
+  const charsetMatch = html.match(/<meta[^>]*charset=["']?([^"'\s>]*)["']?[^>]*>/i);
+  metadata.charset = charsetMatch ? charsetMatch[1].trim() : '';
+  
+  metadata.sourceURL = url;
+  
+  return metadata;
+}
 
 // Advanced German syllable counting
 function countGermanSyllables(word: string): number {
