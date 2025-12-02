@@ -40,6 +40,7 @@ const navigation = [
   { name: "KI Content Creator", href: "/dashboard/ai-content", icon: Bot, isNew: true },
   { name: "Content Basic", href: "/basic", icon: FileText },
   { name: "Content Pro", href: "/pro", icon: Sparkles },
+  { name: "Slogan Creator", href: "/dashboard/slogan-creator", icon: Sparkles },
   { name: "Verlauf", href: "/dashboard/history", icon: Clock },
   { name: "Projekte", href: "/dashboard/projects", icon: FolderOpen },
   { name: "Content Planner", href: "/dashboard/planner", icon: Calendar },

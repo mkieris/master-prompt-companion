@@ -24,6 +24,7 @@ import GenerationHistory from "./pages/GenerationHistory";
 import AdminInsights from "./pages/AdminInsights";
 import SystemPromptVersions from "./pages/SystemPromptVersions";
 import UserPromptVersions from "./pages/UserPromptVersions";
+import SloganCreator from "./pages/SloganCreator";
 
 const queryClient = new QueryClient();
 
@@ -66,6 +67,7 @@ const App = () => {
               <Route path="planner" element={<ContentPlanner session={session} />} />
               <Route path="ai-content" element={<AIContentCreator session={session} />} />
               <Route path="seo-training" element={<SEOTraining session={session} />} />
+              <Route path="slogan-creator" element={<SloganCreator />} />
               <Route path="history" element={<GenerationHistory />} />
               <Route path="insights" element={<AdminInsights />} />
               <Route path="system-prompts" element={<SystemPromptVersions />} />
