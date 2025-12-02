@@ -200,13 +200,36 @@ serve(async (req) => {
       );
     }
 
-    // Scrape the page with Apify
+    // Scrape the page with Apify - Enhanced configuration for maximum content extraction
     const actorInput = {
       startUrls: [{ url }],
       maxCrawlDepth: 0,
       maxCrawlPages: 1,
       initialCookies: [],
       proxyConfiguration: { useApifyProxy: true },
+      
+      // Enhanced content extraction
+      crawlerType: 'cheerio', // Better HTML parsing
+      htmlTransformer: 'readableText', // Extract readable content
+      readableTextCharThreshold: 100, // Minimum text length for extraction
+      
+      // Dynamic content handling
+      dynamicContentWaitSecs: 5, // Wait for JavaScript to load
+      maxScrollHeightPixels: 5000, // Scroll for lazy-loaded content
+      
+      // Remove noise elements for cleaner content
+      removeElementsCssSelector: 'nav, header, footer, .cookie-banner, .ad, .advertisement, .social-share',
+      
+      // Metadata extraction
+      includeMetadata: true,
+      includeHtmlContent: true,
+      includeText: true,
+      includeScreenshot: false,
+      
+      // Additional options for comprehensive extraction
+      maxRequestsPerCrawl: 10,
+      maxRequestRetries: 3,
+      requestTimeoutSecs: 60,
     };
 
     const runResponse = await fetch('https://api.apify.com/v2/acts/apify~website-content-crawler/runs?token=' + APIFY_API_KEY, {
@@ -292,10 +315,13 @@ serve(async (req) => {
       );
     }
 
-    const html = pageData.html || '';
-    const markdown = pageData.text || pageData.markdown || '';
+    // Extract comprehensive content from Apify response
+    const html = pageData.html || pageData.rawHtml || '';
+    const markdown = pageData.text || pageData.markdown || pageData.readableText || '';
     const metadata = pageData.metadata || {};
     const responseHeaders = {};
+    
+    console.log(`Extracted content: HTML length=${html.length}, Markdown length=${markdown.length}, Metadata keys=${Object.keys(metadata).length}`);
 
     // Perform comprehensive SEO analysis
     const result = analyzeSEO(url, html, markdown, metadata, responseHeaders, keyword);
