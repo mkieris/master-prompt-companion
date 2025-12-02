@@ -160,17 +160,17 @@ serve(async (req) => {
         { 
           name: 'Variante A', 
           description: 'Strukturiert & Umfassend', 
-          instruction: '=== STRATEGISCHER ANSATZ FUER DIESE VARIANTE ===\n\nSTIL: STRUKTURIERT & UMFASSEND\n\nWICHTIG: Befolge ALLE SEO-Regeln aus dem System-Prompt! Diese Anweisung ergaenzt sie nur um den STIL.\n\nSTIL-FOKUS:\n- Maximal strukturiert mit vielen Zwischenueberschriften (H2, H3)\n- Nutze viele Listen, Bullet Points, Tabellen fuer Uebersichtlichkeit\n- Beantworte JEDE moegliche Nutzerfrage erschoepfend\n- Baue logische Abschnitte: Was ist X? → Wie funktioniert X? → Wozu nutzt man X? → Was sind Vorteile?\n- Zielgruppe: User die ALLE Details wissen wollen\n\nTON: Sachlich, professionell, enzyklopaedisch - aber trotzdem verstaendlich' 
+          instruction: 'WICHTIG: Beachte alle SEO-Regeln aus dem System-Prompt!\n\nSTIL fuer diese Variante: STRUKTURIERT & UMFASSEND\n- Viele Zwischenueberschriften (H2, H3) fuer klare Struktur\n- Listen und Bullet Points fuer Uebersichtlichkeit\n- Beantworte alle relevanten Nutzerfragen\n- Logischer Aufbau: Was → Wie → Wozu → Vorteile\n\nTON: Sachlich, professionell, verstaendlich' 
         },
         { 
           name: 'Variante B', 
           description: 'Nutzenorientiert & Ueberzeugend', 
-          instruction: '=== STRATEGISCHER ANSATZ FUER DIESE VARIANTE ===\n\nSTIL: NUTZENORIENTIERT & UEBERZEUGEND\n\nWICHTIG: Befolge ALLE SEO-Regeln aus dem System-Prompt! Diese Anweisung ergaenzt sie nur um den STIL.\n\nSTIL-FOKUS:\n- Starte JEDEN Abschnitt mit Nutzenversprechen ("Du profitierst", "Das bringt dir")\n- Nutze AIDA-Formel: Attention (Hook) → Interest (Warum relevant?) → Desire (Benefits) → Action (CTA)\n- Integriere konkrete Zahlen, Fakten, Belege wo moeglich\n- Baue Mini-CTAs ein ("Probiere es aus", "Entdecke jetzt")\n- Zielgruppe: User die UEBERZEUGT werden wollen\n\nTON: Beratend, nutzenorientiert, ueberzeugend - aber nicht aufdringlich' 
+          instruction: 'WICHTIG: Beachte alle SEO-Regeln aus dem System-Prompt!\n\nSTIL fuer diese Variante: NUTZENORIENTIERT & UEBERZEUGEND\n- Starte Abschnitte mit Nutzenversprechen\n- Nutze konkrete Zahlen und Fakten\n- Integriere Call-to-Actions\n\nTON: Beratend, ueberzeugend, nutzenorientiert' 
         },
         { 
           name: 'Variante C', 
           description: 'Emotional & Authentisch', 
-          instruction: '=== STRATEGISCHER ANSATZ FUER DIESE VARIANTE ===\n\nSTIL: EMOTIONAL & AUTHENTISCH\n\nWICHTIG: Befolge ALLE SEO-Regeln aus dem System-Prompt! Diese Anweisung ergaenzt sie nur um den STIL.\n\nSTIL-FOKUS:\n- Beginne mit realem Szenario oder Beispiel aus dem Alltag\n- Nutze sensorische Sprache (sehen, fuehlen, erleben)\n- Integriere konkrete Praxisbeispiele und Anwendungsfaelle\n- Zeige Empathie fuer Probleme/Wuensche der Zielgruppe\n- Erzaehle Mini-Stories die zur Loesung fuehren\n- Zielgruppe: User die emotionale Verbindung suchen\n\nTON: Warm, authentisch, menschlich - aber professionell' 
+          instruction: 'WICHTIG: Beachte alle SEO-Regeln aus dem System-Prompt!\n\nSTIL fuer diese Variante: EMOTIONAL & AUTHENTISCH\n- Beginne mit realem Szenario aus dem Alltag\n- Nutze bildhafte, sensorische Sprache\n- Zeige Empathie fuer Nutzerbedürfnisse\n\nTON: Warm, authentisch, menschlich' 
         }
       ];
       
@@ -196,7 +196,7 @@ serve(async (req) => {
               body: JSON.stringify({ 
                 model: 'google/gemini-2.5-pro', 
                 messages: variantMessages, 
-                temperature: 0.4  // Reduziert für höhere Konsistenz und Qualität
+                temperature: 0.55  // Optimiert für Balance zwischen Konsistenz und Kreativität
               }),
             });
 
@@ -207,12 +207,12 @@ serve(async (req) => {
               
               const parsed = parseGeneratedContent(rawContent, formData);
               
-              // Validate the parsed content
-              if (!parsed.seoText || parsed.seoText.length < 100) {
+              // Validate the parsed content - nur bei wirklich kritischem Fehler retry
+              if (!parsed.seoText || parsed.seoText.length < 50) {
                 console.error('CRITICAL: Variant ' + (variantIndex + 1) + ' has empty or too short seoText:', parsed.seoText?.length || 0);
                 if (attempt < maxRetries) {
                   console.log('Retrying variant ' + (variantIndex + 1) + ' due to empty content...');
-                  await new Promise(resolve => setTimeout(resolve, 2000));
+                  await new Promise(resolve => setTimeout(resolve, 1000));
                   continue;
                 }
               }
