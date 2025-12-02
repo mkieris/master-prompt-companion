@@ -11,24 +11,22 @@ serve(async (req) => {
   }
 
   try {
-    const { url, mode = 'single', action = 'scrape', jobId } = await req.json();
-    const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
+    const { url, mode = 'single', action = 'scrape', runId } = await req.json();
+    const APIFY_API_KEY = Deno.env.get('APIFY_API_KEY');
     
-    if (!FIRECRAWL_API_KEY) {
-      throw new Error('FIRECRAWL_API_KEY is not configured');
+    if (!APIFY_API_KEY) {
+      throw new Error('APIFY_API_KEY is not configured');
     }
 
     // Handle different actions
-    if (action === 'check-status' && jobId) {
-      // Check status of existing crawl job
-      console.log('Checking status for job:', jobId);
-      return await checkCrawlStatus(jobId, FIRECRAWL_API_KEY);
+    if (action === 'check-status' && runId) {
+      console.log('Checking status for run:', runId);
+      return await checkCrawlStatus(runId, APIFY_API_KEY);
     }
 
-    if (action === 'use-partial' && jobId) {
-      // Force use of partial results
-      console.log('Using partial results for job:', jobId);
-      return await usePartialResults(jobId, FIRECRAWL_API_KEY);
+    if (action === 'use-partial' && runId) {
+      console.log('Using partial results for run:', runId);
+      return await usePartialResults(runId, APIFY_API_KEY);
     }
 
     if (!url) {
@@ -38,11 +36,9 @@ serve(async (req) => {
     console.log('Scraping website:', url, 'Mode:', mode);
 
     if (mode === 'multi') {
-      // Multi-page crawling: Start crawl job and return job ID
-      return await startCrawl(url, FIRECRAWL_API_KEY);
+      return await startCrawl(url, APIFY_API_KEY);
     } else {
-      // Single-page scraping
-      return await scrapeSinglePage(url, FIRECRAWL_API_KEY);
+      return await scrapeSinglePage(url, APIFY_API_KEY);
     }
   } catch (error) {
     console.error('Error in scrape-website function:', error);
@@ -57,78 +53,94 @@ async function scrapeSinglePage(url: string, apiKey: string) {
   console.log('Starting single-page scrape for:', url);
   
   try {
-    const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+    const urlObj = new URL(url);
+    const basePath = urlObj.pathname.endsWith('/') 
+      ? urlObj.pathname 
+      : urlObj.pathname + '/';
+    const includePattern = basePath + '*';
+
+    // Start Apify Website Content Crawler for single page
+    const response = await fetch('https://api.apify.com/v2/acts/apify~website-content-crawler/runs?token=' + apiKey, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        url: url,
-        formats: ['markdown', 'html'],
-        onlyMainContent: true,
-        waitFor: 3000,
-        timeout: 45000,
+        startUrls: [{ url }],
+        crawlerType: 'cheerio',
+        maxCrawlDepth: 0,
+        maxCrawlPages: 1,
+        initialCookies: [],
+        proxyConfiguration: { useApifyProxy: true },
+        readableTextCharThreshold: 100,
       }),
     });
 
-    const data = await response.json();
-    console.log('Firecrawl response status:', response.status, 'success:', data.success);
-    
     if (!response.ok) {
-      console.error('Firecrawl API error details:', data);
+      const errorData = await response.json();
+      console.error('Apify API error:', errorData);
+      throw new Error(`Apify API error: ${response.status} - ${errorData.error || 'Unknown error'}`);
+    }
+
+    const runData = await response.json();
+    console.log('Apify run started:', runData.data.id);
+
+    // Wait for completion (single page should be fast)
+    let attempts = 0;
+    const maxAttempts = 30;
+
+    while (attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Handle timeout specifically
-      if (response.status === 408 || data.code === 'SCRAPE_TIMEOUT') {
-        return new Response(JSON.stringify({ 
-          error: 'Website scraping timed out. The website may be too complex or slow to respond.',
-          code: 'TIMEOUT',
-          url: url
+      const statusResponse = await fetch(
+        `https://api.apify.com/v2/actor-runs/${runData.data.id}?token=${apiKey}`
+      );
+      const statusData = await statusResponse.json();
+
+      console.log('Run status:', statusData.data.status);
+
+      if (statusData.data.status === 'SUCCEEDED') {
+        // Get results
+        const resultsResponse = await fetch(
+          `https://api.apify.com/v2/actor-runs/${runData.data.id}/dataset/items?token=${apiKey}`
+        );
+        const results = await resultsResponse.json();
+
+        if (!results || results.length === 0) {
+          throw new Error('No data returned from crawl');
+        }
+
+        const pageData = results[0];
+        console.log('Successfully scraped single page');
+
+        const structuredData = extractStructuredInfo(pageData);
+        
+        // Add AI analysis for brand information
+        let analysis = null;
+        try {
+          analysis = await analyzeBrandInfo(structuredData.content);
+          console.log('AI analysis completed:', analysis ? 'Success' : 'No analysis returned');
+        } catch (analysisError) {
+          console.error('AI analysis failed, continuing without it:', analysisError);
+        }
+
+        return new Response(JSON.stringify({
+          ...structuredData,
+          success: true,
+          analysis
         }), {
-          status: 408,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      
-      // Handle rate limiting
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ 
-          error: 'Rate limit exceeded. Please try again in a few moments.',
-          code: 'RATE_LIMIT',
-          url: url
-        }), {
-          status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+
+      if (statusData.data.status === 'FAILED' || statusData.data.status === 'ABORTED') {
+        throw new Error(`Scrape ${statusData.data.status.toLowerCase()}`);
       }
-      
-      throw new Error(`Firecrawl API error: ${response.status} - ${data.error || 'Unknown error'}`);
-    }
-    
-    if (!data.success) {
-      throw new Error('Failed to scrape website: ' + (data.error || 'Unknown error'));
+
+      attempts++;
     }
 
-    console.log('Successfully scraped single page');
-    const structuredData = extractStructuredInfo(data.data);
-    
-    // Add AI analysis for brand information with error handling
-    let analysis = null;
-    try {
-      analysis = await analyzeBrandInfo(structuredData.content);
-      console.log('AI analysis completed:', analysis ? 'Success' : 'No analysis returned');
-    } catch (analysisError) {
-      console.error('AI analysis failed, continuing without it:', analysisError);
-      // Continue without analysis - don't fail the entire scrape
-    }
-
-    return new Response(JSON.stringify({
-      ...structuredData,
-      success: true,
-      analysis
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    throw new Error('Scrape timed out');
   } catch (error) {
     console.error('Error in scrapeSinglePage:', error);
     throw error;
@@ -139,27 +151,26 @@ async function startCrawl(url: string, apiKey: string) {
   console.log('Starting multi-page crawl for:', url);
   
   try {
-    // Extract the path from the URL to use as includePaths pattern
     const urlObj = new URL(url);
     const basePath = urlObj.pathname.endsWith('/') 
       ? urlObj.pathname 
       : urlObj.pathname + '/';
     
-    // Create include pattern: only crawl from this path downwards
-    const includePattern = basePath + '*';
+    const includePattern = basePath === '/' ? '.*' : basePath + '.*';
     
     console.log('Crawl restricted to path:', includePattern);
-    
-    const crawlResponse = await fetch('https://api.firecrawl.dev/v2/crawl', {
+
+    // Start Apify Website Content Crawler
+    const response = await fetch('https://api.apify.com/v2/acts/apify~website-content-crawler/runs?token=' + apiKey, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        url: url,
-        limit: 50,
-        maxDiscoveryDepth: 2,
+        startUrls: [{ url }],
+        crawlerType: 'cheerio',
+        maxCrawlDepth: 2,
+        maxCrawlPages: 50,
         includePaths: [includePattern],
         excludePaths: [
           'impressum',
@@ -175,38 +186,27 @@ async function startCrawl(url: string, apiKey: string) {
           'account',
           'login',
         ],
-        scrapeOptions: {
-          formats: ['markdown'],
-          onlyMainContent: true,
-          timeout: 30000, // Increased from 10000
-          waitFor: 2000,  // Changed from 0 to 2000ms
-        },
-        allowExternalLinks: false,
+        initialCookies: [],
+        proxyConfiguration: { useApifyProxy: true },
+        readableTextCharThreshold: 100,
       }),
     });
 
-    const crawlData = await crawlResponse.json();
-    
-    if (!crawlResponse.ok) {
-      console.error('Firecrawl v2 crawl error:', crawlResponse.status, JSON.stringify(crawlData));
-      throw new Error(`Failed to start crawl: ${crawlResponse.status} - ${crawlData.error || 'Unknown error'}`);
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Apify crawl error:', errorData);
+      throw new Error(`Failed to start crawl: ${response.status} - ${errorData.error || 'Unknown error'}`);
     }
 
-    console.log('Crawl response:', JSON.stringify(crawlData));
+    const runData = await response.json();
+    console.log('✅ Crawl started successfully. Run ID:', runData.data.id);
     
-    if (!crawlData.success || !crawlData.id) {
-      console.error('Invalid crawl response:', JSON.stringify(crawlData));
-      throw new Error('Failed to start crawl job: ' + (crawlData.error || 'No job ID returned'));
-    }
-
-    console.log('✅ Crawl started successfully. Job ID:', crawlData.id);
-    
-    // Return job ID immediately - client will poll for status
     return new Response(JSON.stringify({
       success: true,
-      jobId: crawlData.id,
+      jobId: runData.data.id,
+      runId: runData.data.id,
       status: 'started',
-      message: 'Crawl job started successfully. Use jobId to check status.'
+      message: 'Crawl job started successfully. Use runId to check status.'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -216,41 +216,44 @@ async function startCrawl(url: string, apiKey: string) {
   }
 }
 
-async function checkCrawlStatus(jobId: string, apiKey: string) {
+async function checkCrawlStatus(runId: string, apiKey: string) {
   try {
-    console.log('Checking crawl status for job:', jobId);
+    console.log('Checking crawl status for run:', runId);
     
-    const statusResponse = await fetch(`https://api.firecrawl.dev/v2/crawl/${jobId}`, {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-      },
-    });
+    const statusResponse = await fetch(
+      `https://api.apify.com/v2/actor-runs/${runId}?token=${apiKey}`
+    );
 
     if (!statusResponse.ok) {
-      const errorText = await statusResponse.text();
-      console.error('Status check failed:', statusResponse.status, errorText);
       throw new Error(`Failed to check crawl status: ${statusResponse.status}`);
     }
 
     const statusData = await statusResponse.json();
-    console.log('Crawl status:', statusData.status, `(${statusData.completed || 0}/${statusData.total || 0})`);
+    const status = statusData.data.status;
+    
+    console.log('Crawl status:', status);
 
-    // Extract URLs from current data
-    const crawledUrls = statusData.data?.map((page: any) => 
-      page.metadata?.sourceURL || page.url || ''
-    ).filter(Boolean) || [];
+    // Get partial results even if not completed
+    const resultsResponse = await fetch(
+      `https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${apiKey}`
+    );
+    const results = await resultsResponse.json();
+    
+    const crawledUrls = results.map((item: any) => item.url).filter(Boolean);
+    const completed = results.length;
+
+    console.log('Partial data available:', completed, 'pages');
 
     // If completed, process and return the data
-    if (statusData.status === 'completed') {
+    if (status === 'SUCCEEDED') {
       console.log('Crawl completed, processing data...');
       
-      if (!statusData.data || statusData.data.length === 0) {
-        console.error('Crawl completed but no data found');
+      if (results.length === 0) {
         throw new Error('No pages were successfully crawled');
       }
       
-      const allContent = combineMultiplePages(statusData.data);
-      console.log('Combined content from', statusData.data.length, 'pages');
+      const allContent = combineMultiplePages(results);
+      console.log('Combined content from', results.length, 'pages');
       
       return new Response(JSON.stringify({
         success: true,
@@ -261,23 +264,20 @@ async function checkCrawlStatus(jobId: string, apiKey: string) {
       });
     }
 
-    // If we have partial data and it's taking too long, allow client to use partial results
-    const hasPartialData = statusData.data && statusData.data.length > 0;
-    const completed = statusData.completed || 0;
-    const total = statusData.total || 0;
-    
-    console.log('Partial data available:', hasPartialData ? statusData.data.length : 0, 'pages');
-    
-    // Return current status with live URLs and partial data flag
+    if (status === 'FAILED' || status === 'ABORTED') {
+      throw new Error(`Crawl ${status.toLowerCase()}`);
+    }
+
+    // Return current status with partial data
     return new Response(JSON.stringify({
       success: true,
-      status: statusData.status,
+      status: 'running',
       completed: completed,
-      total: total,
+      total: 50, // maxCrawlPages
       crawledUrls: crawledUrls,
-      data: statusData.data || [],
-      hasPartialData: hasPartialData,
-      partialDataCount: statusData.data?.length || 0
+      data: results || [],
+      hasPartialData: results.length > 0,
+      partialDataCount: results.length
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -287,33 +287,30 @@ async function checkCrawlStatus(jobId: string, apiKey: string) {
   }
 }
 
-async function usePartialResults(jobId: string, apiKey: string) {
+async function usePartialResults(runId: string, apiKey: string) {
   try {
-    const statusResponse = await fetch(`https://api.firecrawl.dev/v2/crawl/${jobId}`, {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-      },
-    });
+    const resultsResponse = await fetch(
+      `https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${apiKey}`
+    );
 
-    if (!statusResponse.ok) {
-      throw new Error(`Failed to get crawl data: ${statusResponse.status}`);
+    if (!resultsResponse.ok) {
+      throw new Error(`Failed to get crawl data: ${resultsResponse.status}`);
     }
 
-    const statusData = await statusResponse.json();
-    console.log('Using partial results:', statusData.data?.length || 0, 'pages');
+    const results = await resultsResponse.json();
+    console.log('Using partial results:', results.length, 'pages');
 
-    if (!statusData.data || statusData.data.length === 0) {
+    if (results.length === 0) {
       throw new Error('No data available for partial results');
     }
 
-    // Combine whatever data we have
-    const combinedData = combineMultiplePages(statusData.data);
+    const combinedData = combineMultiplePages(results);
 
     return new Response(JSON.stringify({
       success: true,
       status: 'partial',
       data: combinedData,
-      pageCount: statusData.data.length
+      pageCount: results.length
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -330,40 +327,35 @@ function combineMultiplePages(pagesData: any[]): any {
 
   console.log(`Combining ${pagesData.length} pages`);
 
-  // Combine all markdown content from all pages
   let combinedMarkdown = '';
   const allSections: any[] = [];
   const allUrls: string[] = [];
   const allKeywords: string[] = [];
 
   pagesData.forEach((page, index) => {
-    const markdown = page.markdown || '';
-    const metadata = page.metadata || {};
+    const text = page.text || '';
+    const url = page.url || '';
+    const title = page.metadata?.title || url;
     
-    if (markdown) {
-      combinedMarkdown += `\n\n--- Seite ${index + 1}: ${metadata.title || metadata.sourceURL || page.url || 'Unbekannt'} ---\n\n`;
-      combinedMarkdown += markdown;
+    if (text) {
+      combinedMarkdown += `\n\n--- Seite ${index + 1}: ${title} ---\n\n`;
+      combinedMarkdown += text;
       
-      const pageSections = markdown.split('\n## ');
-      pageSections.forEach((section: string) => {
-        const lines = section.split('\n');
-        const heading = lines[0]?.replace(/^#+ /, '');
-        if (heading) {
-          allSections.push({
-            heading,
-            content: lines.slice(1).join('\n').trim(),
-            source: metadata.sourceURL || page.url || '',
-          });
-        }
+      // Extract sections from headings
+      const headings = page.metadata?.headings || [];
+      headings.forEach((heading: any) => {
+        allSections.push({
+          heading: heading.text,
+          content: '',
+          source: url,
+        });
       });
     }
 
-    if (metadata.sourceURL) allUrls.push(metadata.sourceURL);
-    else if (page.url) allUrls.push(page.url);
-    if (metadata.keywords) allKeywords.push(...metadata.keywords);
+    if (url) allUrls.push(url);
+    if (page.metadata?.keywords) allKeywords.push(...page.metadata.keywords);
   });
 
-  // Remove duplicate keywords
   const uniqueKeywords = [...new Set(allKeywords)];
 
   return {
@@ -383,72 +375,59 @@ function combineMultiplePages(pagesData: any[]): any {
 }
 
 function extractStructuredInfo(scrapedData: any): any {
-  const markdown = scrapedData.markdown || '';
+  const text = scrapedData.text || '';
   const metadata = scrapedData.metadata || {};
   
-  // Extract key information from the markdown content
-  const sections = markdown.split('\n## ');
+  // Extract sections from headings
+  const headings = metadata.headings || [];
+  const sections = headings.map((heading: any) => ({
+    heading: heading.text,
+    content: ''
+  }));
   
-  // Auto-detect products and categories
-  const detectedProducts = extractProducts(markdown, metadata);
+  const detectedProducts = extractProducts(text, metadata);
   
   return {
     title: metadata.title || '',
     description: metadata.description || '',
-    url: metadata.url || '',
-    content: markdown,
-    sections: sections.map((section: string) => {
-      const lines = section.split('\n');
-      return {
-        heading: lines[0]?.replace(/^#+ /, ''),
-        content: lines.slice(1).join('\n').trim()
-      };
-    }).filter((s: any) => s.heading),
+    url: scrapedData.url || '',
+    content: text,
+    sections: sections,
     metadata: {
-      language: metadata.language || 'de',
+      language: metadata.languageCode || 'de',
       keywords: metadata.keywords || [],
     },
     detectedProducts,
-    summary: markdown.substring(0, 500) + '...',
+    summary: text.substring(0, 500) + '...',
   };
 }
 
-function extractProducts(markdown: string, metadata: any): any {
+function extractProducts(text: string, metadata: any): any {
+  const lowerText = text.toLowerCase();
+  
+  const isCategoryPage = lowerText.includes('kategorie') || 
+                         lowerText.includes('category') || 
+                         lowerText.includes('produkte') ||
+                         lowerText.includes('products') ||
+                         lowerText.includes('sortiment') ||
+                         lowerText.includes('shop');
+  
+  const headings = metadata.headings || [];
   const products: any[] = [];
-  const text = markdown.toLowerCase();
   
-  // Check if it's a category/shop page
-  const isCategoryPage = text.includes('kategorie') || 
-                         text.includes('category') || 
-                         text.includes('produkte') ||
-                         text.includes('products') ||
-                         text.includes('sortiment') ||
-                         text.includes('shop');
-  
-  // Extract potential product names from headings
-  const headingRegex = /^#+\s+(.+)$/gm;
-  let match;
-  const headings: string[] = [];
-  
-  while ((match = headingRegex.exec(markdown)) !== null) {
-    headings.push(match[1]);
-  }
-  
-  // Extract category information
   let category = '';
   if (isCategoryPage) {
-    category = metadata.title || headings[0] || 'Shop-Kategorie';
+    category = metadata.title || headings[0]?.text || 'Shop-Kategorie';
   }
   
-  // Look for product indicators
   const productKeywords = ['produkt', 'product', 'artikel', 'item', 'modell', 'model', 'serie', 'series'];
-  headings.forEach(heading => {
-    const lowerHeading = heading.toLowerCase();
+  headings.forEach((heading: any) => {
+    const lowerHeading = heading.text.toLowerCase();
     const hasProductKeyword = productKeywords.some(kw => lowerHeading.includes(kw));
     
-    if (hasProductKeyword || (!isCategoryPage && heading.length < 100)) {
+    if (hasProductKeyword || (!isCategoryPage && heading.text.length < 100)) {
       products.push({
-        name: heading.trim(),
+        name: heading.text.trim(),
         confidence: hasProductKeyword ? 'high' : 'medium',
       });
     }
@@ -457,7 +436,7 @@ function extractProducts(markdown: string, metadata: any): any {
   return {
     isCategoryPage,
     category,
-    detectedProducts: products.slice(0, 5), // Limit to top 5
+    detectedProducts: products.slice(0, 5),
     pageType: isCategoryPage ? 'category' : (products.length > 0 ? 'product' : 'general'),
   };
 }
@@ -470,7 +449,6 @@ async function analyzeBrandInfo(content: string): Promise<any> {
       return null;
     }
 
-    // Limit content length to avoid token limits
     const contentPreview = content.substring(0, 6000);
     
     const prompt = `Analysiere den folgenden Website-Content und extrahiere strukturierte Markeninformationen:
@@ -499,7 +477,7 @@ Antworte NUR mit dem JSON-Objekt, ohne zusätzlichen Text.`;
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
         messages: [
-          { role: 'system', content: 'Du bist ein Experte für Markenanalyse. Extrahiere präzise Informationen aus Website-Content und gib NUR valides JSON zurück.' },
+          { role: 'system', content: 'Du bist ein Marketing-Analyst. Analysiere Website-Content und extrahiere Markeninformationen.' },
           { role: 'user', content: prompt }
         ],
         temperature: 0.3,
@@ -507,55 +485,25 @@ Antworte NUR mit dem JSON-Objekt, ohne zusätzlichen Text.`;
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('AI analysis failed:', response.status, errorText);
-      
-      // Handle rate limiting
-      if (response.status === 429) {
-        console.log('AI rate limit reached, skipping analysis');
-        return null;
-      }
-      
+      console.error('AI API error:', response.status);
       return null;
     }
 
     const data = await response.json();
-    const generatedText = data.choices?.[0]?.message?.content;
+    const aiContent = data.choices[0]?.message?.content || '';
     
-    if (!generatedText) {
-      console.error('No content in AI response');
-      return null;
-    }
-    
-    console.log('AI response received, parsing JSON...');
-    
-    // Try to parse JSON from response
     try {
-      // Remove markdown code blocks if present
-      let jsonText = generatedText.trim();
-      if (jsonText.startsWith('```')) {
-        jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-      }
-      
-      const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+      const jsonMatch = aiContent.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        console.log('AI analysis parsed successfully');
-        return parsed;
+        return JSON.parse(jsonMatch[0]);
       }
-      
-      // Try direct parse as fallback
-      const parsed = JSON.parse(jsonText);
-      console.log('AI analysis parsed successfully (direct)');
-      return parsed;
     } catch (e) {
-      console.error('Failed to parse AI analysis JSON:', e);
-      console.error('Raw response:', generatedText);
-      return null;
+      console.error('Failed to parse AI response:', e);
     }
+    
+    return null;
   } catch (error) {
     console.error('Error in analyzeBrandInfo:', error);
     return null;
   }
 }
-

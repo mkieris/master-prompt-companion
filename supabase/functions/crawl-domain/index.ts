@@ -14,13 +14,13 @@ serve(async (req) => {
   try {
     const { url, domainId, organizationId } = await req.json();
     
-    const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
+    const APIFY_API_KEY = Deno.env.get('APIFY_API_KEY');
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    if (!FIRECRAWL_API_KEY) {
-      throw new Error('FIRECRAWL_API_KEY is not configured');
+    if (!APIFY_API_KEY) {
+      throw new Error('APIFY_API_KEY is not configured');
     }
 
     if (!LOVABLE_API_KEY) {
@@ -31,44 +31,48 @@ serve(async (req) => {
 
     console.log('Starting domain crawl for:', url);
 
-    // Parse the URL to get the base path for focused crawling
     const parsedUrl = new URL(url);
     const basePath = parsedUrl.pathname !== '/' ? parsedUrl.pathname : undefined;
 
-    // Start the crawl with Firecrawl - like Screaming Frog, crawl all subpages
-    const crawlResponse = await fetch('https://api.firecrawl.dev/v1/crawl', {
+    // Start Apify Website Content Crawler
+    const crawlResponse = await fetch('https://api.apify.com/v2/acts/apify~website-content-crawler/runs?token=' + APIFY_API_KEY, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        url,
-        limit: 50, // Crawl up to 50 pages like Screaming Frog
-        maxDepth: 5, // Allow deeper crawling for comprehensive coverage
-        includePaths: basePath ? [`${basePath}*`] : undefined, // If subpage URL, only crawl that path and children
-        scrapeOptions: {
-          formats: ['markdown'],
-          onlyMainContent: true, // Focus on main content, ignore navigation/footer
-        }
+        startUrls: [{ url }],
+        crawlerType: 'cheerio',
+        maxCrawlDepth: 5,
+        maxCrawlPages: 50,
+        includePaths: basePath ? [`${basePath}.*`] : undefined,
+        excludePaths: [
+          'impressum',
+          'datenschutz',
+          'agb',
+          'kontakt',
+          'cart',
+          'checkout',
+          'privacy',
+          'imprint',
+          'legal',
+          'terms',
+          'account',
+          'login',
+        ],
+        initialCookies: [],
+        proxyConfiguration: { useApifyProxy: true },
+        readableTextCharThreshold: 100,
       }),
     });
 
     if (!crawlResponse.ok) {
-      const errorText = await crawlResponse.text();
-      console.error('Firecrawl error:', errorText);
+      const errorData = await crawlResponse.json();
+      console.error('Apify error:', errorData);
       
-      // Parse error for better messaging
       let errorMessage = 'Failed to start crawl';
-      try {
-        const errorData = JSON.parse(errorText);
-        if (errorData.error?.includes('Insufficient credits')) {
-          errorMessage = 'Firecrawl credits exhausted. Please check your Firecrawl plan.';
-        } else if (errorData.error) {
-          errorMessage = errorData.error;
-        }
-      } catch (e) {
-        // Keep default error message
+      if (errorData.error) {
+        errorMessage = errorData.error;
       }
       
       await supabase
@@ -80,39 +84,44 @@ serve(async (req) => {
     }
 
     const crawlData = await crawlResponse.json();
-    console.log('Crawl started:', crawlData);
+    const runId = crawlData.data.id;
+    console.log('Crawl started with run ID:', runId);
 
-    // Wait for crawl to complete (poll status)
+    // Poll for completion
     let crawlResult = null;
     let attempts = 0;
     const maxAttempts = 60;
 
     while (attempts < maxAttempts) {
-      const statusResponse = await fetch(`https://api.firecrawl.dev/v1/crawl/${crawlData.id}`, {
-        headers: {
-          'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
-        },
-      });
-
+      const statusResponse = await fetch(
+        `https://api.apify.com/v2/actor-runs/${runId}?token=${APIFY_API_KEY}`
+      );
       const statusData = await statusResponse.json();
-      console.log('Crawl status:', statusData.status, 'Pages:', statusData.completed || 0);
+      
+      // Get partial results
+      const resultsResponse = await fetch(
+        `https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${APIFY_API_KEY}`
+      );
+      const results = await resultsResponse.json();
+      
+      console.log('Crawl status:', statusData.data.status, 'Pages:', results.length);
 
-      // Update progress in database
+      // Update progress
       await supabase
         .from('domain_knowledge')
         .update({ 
-          pages_crawled: statusData.completed || 0,
-          total_pages: statusData.total || 0 
+          pages_crawled: results.length,
+          total_pages: results.length
         })
         .eq('id', domainId);
 
-      if (statusData.status === 'completed') {
-        crawlResult = statusData;
+      if (statusData.data.status === 'SUCCEEDED') {
+        crawlResult = results;
         break;
       }
 
-      if (statusData.status === 'failed') {
-        throw new Error('Crawl failed');
+      if (statusData.data.status === 'FAILED' || statusData.data.status === 'ABORTED') {
+        throw new Error(`Crawl ${statusData.data.status.toLowerCase()}`);
       }
 
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -123,13 +132,18 @@ serve(async (req) => {
       throw new Error('Crawl timed out');
     }
 
-    console.log('Crawl completed with', crawlResult.data?.length || 0, 'pages');
+    console.log('Crawl completed with', crawlResult.length, 'pages');
 
     // Combine all crawled content
-    const allContent = crawlResult.data
-      ?.map((page: any) => `### ${page.metadata?.title || 'Page'}\nURL: ${page.metadata?.sourceURL || ''}\n\n${page.markdown || ''}`)
+    const allContent = crawlResult
+      .map((page: any) => {
+        const title = page.metadata?.title || 'Page';
+        const url = page.url || '';
+        const text = page.text || '';
+        return `### ${title}\nURL: ${url}\n\n${text}`;
+      })
       .join('\n\n---\n\n')
-      .substring(0, 50000); // Limit content size
+      .substring(0, 50000);
 
     // Analyze with AI
     console.log('Analyzing content with AI...');
@@ -206,13 +220,13 @@ Wichtig:
 
     console.log('Analysis complete:', analysisResult.company_name);
 
-    // Update database with results
+    // Update database
     await supabase
       .from('domain_knowledge')
       .update({
         crawl_status: 'completed',
-        pages_crawled: crawlResult.data?.length || 0,
-        total_pages: crawlResult.data?.length || 0,
+        pages_crawled: crawlResult.length,
+        total_pages: crawlResult.length,
         company_name: analysisResult.company_name,
         company_description: analysisResult.company_description,
         industry: analysisResult.industry,
@@ -222,7 +236,7 @@ Wichtig:
         brand_voice: analysisResult.brand_voice,
         keywords: analysisResult.keywords,
         ai_summary: analysisResult.ai_summary,
-        crawl_data: crawlResult.data?.slice(0, 10) || [],
+        crawl_data: crawlResult.slice(0, 10),
         crawled_at: new Date().toISOString(),
       })
       .eq('id', domainId);
