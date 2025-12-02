@@ -192,54 +192,80 @@ serve(async (req) => {
 
     console.log(`Starting SEO check for: ${url}, mode: ${mode}, keyword: ${keyword || 'none'}`);
 
-    const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
-    if (!FIRECRAWL_API_KEY) {
+    const APIFY_API_KEY = Deno.env.get('APIFY_API_KEY');
+    if (!APIFY_API_KEY) {
       return new Response(
-        JSON.stringify({ error: 'FIRECRAWL_API_KEY not configured' }),
+        JSON.stringify({ error: 'APIFY_API_KEY not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Scrape the page with Firecrawl
-    const scrapeResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
+    // Scrape the page with Apify
+    const actorInput = {
+      startUrls: [{ url }],
+      maxCrawlDepth: 0,
+      maxCrawlPages: 1,
+      initialCookies: [],
+      proxyConfiguration: { useApifyProxy: true },
+    };
+
+    const runResponse = await fetch('https://api.apify.com/v2/acts/apify~website-content-crawler/runs?token=' + APIFY_API_KEY, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        url: url,
-        formats: ['markdown', 'html'],
-        onlyMainContent: false,
-        includeTags: ['title', 'meta', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'img', 'link', 'script'],
-        waitFor: 3000,
-      }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(actorInput),
     });
 
-    if (!scrapeResponse.ok) {
-      const errorText = await scrapeResponse.text();
-      console.error('Firecrawl error:', errorText);
+    if (!runResponse.ok) {
+      const errorText = await runResponse.text();
+      console.error('Apify start error:', errorText);
       return new Response(
-        JSON.stringify({ error: 'Failed to scrape website', details: errorText }),
+        JSON.stringify({ error: 'Failed to start scraping', details: errorText }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const scrapeData = await scrapeResponse.json();
-    console.log('Scrape successful, analyzing...');
+    const runData = await runResponse.json();
+    const runId = runData.data.id;
+    console.log('Apify run started:', runId);
 
-    if (!scrapeData.success || !scrapeData.data) {
+    // Poll for completion
+    let runStatus = 'RUNNING';
+    let attempts = 0;
+    const maxAttempts = 30;
+
+    while (runStatus === 'RUNNING' && attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const statusResponse = await fetch(`https://api.apify.com/v2/acts/apify~website-content-crawler/runs/${runId}?token=${APIFY_API_KEY}`);
+      const statusData = await statusResponse.json();
+      runStatus = statusData.data.status;
+      console.log('Run status:', runStatus);
+      attempts++;
+    }
+
+    if (runStatus !== 'SUCCEEDED') {
       return new Response(
-        JSON.stringify({ error: 'Failed to retrieve page data' }),
+        JSON.stringify({ error: 'Scraping failed or timed out', status: runStatus }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const pageData = scrapeData.data;
+    // Fetch results
+    const resultsResponse = await fetch(`https://api.apify.com/v2/acts/apify~website-content-crawler/runs/${runId}/dataset/items?token=${APIFY_API_KEY}`);
+    const results = await resultsResponse.json();
+
+    if (!results || results.length === 0) {
+      return new Response(
+        JSON.stringify({ error: 'No data retrieved from page' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const pageData = results[0];
     const html = pageData.html || '';
-    const markdown = pageData.markdown || '';
+    const markdown = pageData.text || pageData.markdown || '';
     const metadata = pageData.metadata || {};
-    const responseHeaders = scrapeData.data.headers || {};
+    const responseHeaders = {};
 
     // Perform comprehensive SEO analysis
     const result = analyzeSEO(url, html, markdown, metadata, responseHeaders, keyword);
