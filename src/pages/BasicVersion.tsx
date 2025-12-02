@@ -44,7 +44,15 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
         return;
       }
 
-      setGeneratedContent(data);
+      // Handle both old format (direct content) and new format (variants array)
+      let content = data;
+      if (data?.variants && Array.isArray(data.variants) && data.variants.length > 0) {
+        // New format with variants - use first variant
+        content = data.variants[0];
+        console.log('Using first variant from generated content');
+      }
+
+      setGeneratedContent(content);
       toast({
         title: "Erfolgreich",
         description: "SEO-Inhalt wurde erfolgreich generiert",
