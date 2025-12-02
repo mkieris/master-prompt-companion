@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2, Sparkles, Globe } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -22,6 +22,8 @@ interface GeneratedSlogans {
 
 const SloganCreator = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [isCrawling, setIsCrawling] = useState(false);
+  const [websiteUrl, setWebsiteUrl] = useState("");
   const [formData, setFormData] = useState({
     productService: "",
     targetAudience: "",
@@ -33,6 +35,57 @@ const SloganCreator = () => {
     additionalInfo: "",
   });
   const [generatedSlogans, setGeneratedSlogans] = useState<GeneratedSlogans | null>(null);
+
+  const handleAnalyzeWebsite = async () => {
+    if (!websiteUrl) {
+      toast.error("Bitte gib eine Website-URL ein");
+      return;
+    }
+
+    setIsCrawling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("scrape-website", {
+        body: { url: websiteUrl },
+      });
+
+      if (error) throw error;
+
+      if (data.success && data.analysis) {
+        const analysis = data.analysis;
+        
+        // Auto-fill form fields
+        if (analysis.companyName && !formData.productService) {
+          setFormData(prev => ({ ...prev, productService: analysis.companyName }));
+        }
+        
+        // Build additional info from crawled data
+        let additionalInfo = "";
+        if (analysis.companyName) additionalInfo += `Marke: ${analysis.companyName}\n`;
+        if (analysis.industry) additionalInfo += `Branche: ${analysis.industry}\n`;
+        if (analysis.uniqueSellingPoints?.length > 0) {
+          additionalInfo += `USPs: ${analysis.uniqueSellingPoints.join(", ")}\n`;
+        }
+        if (analysis.mainProducts?.length > 0) {
+          additionalInfo += `Produkte/Services: ${analysis.mainProducts.join(", ")}\n`;
+        }
+        if (analysis.brandVoice) additionalInfo += `Brand Voice: ${analysis.brandVoice}\n`;
+        if (analysis.targetAudience && !formData.targetAudience) {
+          setFormData(prev => ({ ...prev, targetAudience: analysis.targetAudience }));
+        }
+        
+        setFormData(prev => ({ ...prev, additionalInfo: additionalInfo.trim() }));
+        
+        toast.success("Website erfolgreich analysiert!");
+      } else {
+        toast.error("Website-Analyse fehlgeschlagen");
+      }
+    } catch (error) {
+      console.error("Error analyzing website:", error);
+      toast.error("Fehler beim Analysieren der Website");
+    } finally {
+      setIsCrawling(false);
+    }
+  };
 
   const handleGenerate = async () => {
     if (!formData.productService || !formData.targetAudience) {
@@ -174,14 +227,48 @@ const SloganCreator = () => {
               </Select>
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="websiteUrl">Website analysieren (optional)</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="websiteUrl"
+                  type="url"
+                  placeholder="https://deine-website.de"
+                  value={websiteUrl}
+                  onChange={(e) => setWebsiteUrl(e.target.value)}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleAnalyzeWebsite}
+                  disabled={isCrawling || !websiteUrl}
+                >
+                  {isCrawling ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Analysiere...
+                    </>
+                  ) : (
+                    <>
+                      <Globe className="mr-2 h-4 w-4" />
+                      Analysieren
+                    </>
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Wir extrahieren automatisch Markeninformationen, USPs und Brand Voice
+              </p>
+            </div>
+
             <div>
-              <Label htmlFor="additionalInfo">Zusätzliche Infos (optional)</Label>
+              <Label htmlFor="additionalInfo">Zusätzliche Infos</Label>
               <Textarea
                 id="additionalInfo"
                 placeholder="z.B. Markenname, bestehende Claims, No-Gos, wichtige Keywords..."
                 value={formData.additionalInfo}
                 onChange={(e) => setFormData({ ...formData, additionalInfo: e.target.value })}
-                rows={3}
+                rows={5}
               />
             </div>
 
