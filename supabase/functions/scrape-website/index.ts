@@ -170,29 +170,54 @@ async function scrapeSinglePage(url: string, apiKey: string) {
 
 async function scrapeWithPuppeteer(url: string, apiKey: string): Promise<{ html: string } | null> {
   try {
+    // Use puppeteer-scraper for proper JS rendering (same as SEO-Check)
+    const actorInput = {
+      startUrls: [{ url }],
+      pageFunction: `async function pageFunction(context) {
+        const { page, request, Apify } = context;
+        
+        // Wait for page to be fully loaded
+        await page.waitForTimeout(3000);
+        
+        // Scroll to trigger lazy-loaded content
+        await page.evaluate(async () => {
+          await new Promise((resolve) => {
+            let totalHeight = 0;
+            const distance = 300;
+            const timer = setInterval(() => {
+              window.scrollBy(0, distance);
+              totalHeight += distance;
+              if (totalHeight >= document.body.scrollHeight) {
+                clearInterval(timer);
+                resolve();
+              }
+            }, 100);
+            setTimeout(resolve, 5000);
+          });
+        });
+        
+        await page.waitForTimeout(2000);
+        
+        // Get the fully rendered HTML
+        const html = await page.content();
+        const title = await page.title();
+        
+        // Push to dataset
+        await Apify.pushData({
+          url: request.url,
+          html: html,
+          title: title,
+        });
+      }`,
+      proxyConfiguration: { useApifyProxy: true },
+      maxRequestsPerCrawl: 1,
+      maxConcurrency: 1,
+    };
+
     const response = await fetch('https://api.apify.com/v2/acts/apify~puppeteer-scraper/runs?token=' + apiKey, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        startUrls: [{ url }],
-        pageFunction: `async function pageFunction(context) {
-          const { page, request } = context;
-          await page.waitForNetworkIdle({ timeout: 10000 }).catch(() => {});
-          await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-          await new Promise(r => setTimeout(r, 1000));
-          const html = await page.content();
-          return { url: request.url, html };
-        }`,
-        preNavigationHooks: `[async ({ page }) => { 
-          await page.setViewport({ width: 1920, height: 1080 }); 
-        }]`,
-        maxConcurrency: 1,
-        maxRequestsPerCrawl: 1,
-        proxyConfiguration: { useApifyProxy: true },
-        launchContext: {
-          launchOptions: { headless: true }
-        }
-      }),
+      body: JSON.stringify(actorInput),
     });
 
     if (!response.ok) {
@@ -202,38 +227,41 @@ async function scrapeWithPuppeteer(url: string, apiKey: string): Promise<{ html:
 
     const runData = await response.json();
     const runId = runData.data?.id;
+    const defaultDatasetId = runData.data?.defaultDatasetId;
     if (!runId) return null;
+    
+    console.log('Apify puppeteer-scraper run started:', runId);
 
-    // Poll for completion
+    // Poll for completion (same as SEO-Check: 60 attempts, 2s interval = 2 min max)
+    let runStatus = 'RUNNING';
     let attempts = 0;
-    const maxAttempts = 45;
+    const maxAttempts = 60;
 
-    while (attempts < maxAttempts) {
+    while ((runStatus === 'RUNNING' || runStatus === 'READY') && attempts < maxAttempts) {
       await new Promise(r => setTimeout(r, 2000));
       
-      const statusResponse = await fetch(`https://api.apify.com/v2/actor-runs/${runId}?token=${apiKey}`);
-      const statusData = await statusResponse.json();
+      const statusResponse = await fetch(`https://api.apify.com/v2/acts/apify~puppeteer-scraper/runs/${runId}?token=${apiKey}`);
       
-      if (statusData.data?.status === 'SUCCEEDED') {
-        const resultsResponse = await fetch(
-          `https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${apiKey}`
-        );
-        
-        if (resultsResponse.ok) {
-          const results = await resultsResponse.json();
-          if (results?.[0]?.html) {
-            return { html: results[0].html };
-          }
-        }
-        return null;
+      if (statusResponse.ok) {
+        const statusData = await statusResponse.json();
+        runStatus = statusData.data?.status;
+        console.log(`Puppeteer status: ${runStatus} (attempt ${attempts + 1}/${maxAttempts})`);
       }
-      
-      if (['FAILED', 'ABORTED', 'TIMED-OUT'].includes(statusData.data?.status)) {
-        console.log('Puppeteer scrape failed:', statusData.data?.status);
-        return null;
-      }
-      
       attempts++;
+    }
+
+    if (runStatus === 'SUCCEEDED') {
+      const resultsResponse = await fetch(`https://api.apify.com/v2/datasets/${defaultDatasetId}/items?token=${apiKey}`);
+      
+      if (resultsResponse.ok) {
+        const results = await resultsResponse.json();
+        if (results && results.length > 0 && results[0].html) {
+          console.log(`Apify Puppeteer successful: HTML length=${results[0].html.length}`);
+          return { html: results[0].html };
+        }
+      }
+    } else {
+      console.error(`Apify run ended with status: ${runStatus}`);
     }
     
     return null;
@@ -243,34 +271,110 @@ async function scrapeWithPuppeteer(url: string, apiKey: string): Promise<{ html:
   }
 }
 
+// Helper function to convert HTML to readable text - focused on main content (matches SEO-Check)
 function htmlToReadableText(html: string): string {
   if (!html) return '';
   
-  let text = html;
+  let workingHtml = html;
   
-  // Remove script, style, noscript, svg, form elements
-  text = text.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ');
-  text = text.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ' ');
-  text = text.replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, ' ');
-  text = text.replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, ' ');
-  text = text.replace(/<form\b[^<]*(?:(?!<\/form>)<[^<]*)*<\/form>/gi, ' ');
-  text = text.replace(/<!--[\s\S]*?-->/g, ' ');
+  // Step 1: Remove non-content elements completely
+  workingHtml = workingHtml.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+  workingHtml = workingHtml.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+  workingHtml = workingHtml.replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, '');
+  workingHtml = workingHtml.replace(/<!--[\s\S]*?-->/g, '');
+  workingHtml = workingHtml.replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, '');
+  workingHtml = workingHtml.replace(/<form\b[^<]*(?:(?!<\/form>)<[^<]*)*<\/form>/gi, '');
+  workingHtml = workingHtml.replace(/<input[^>]*>/gi, '');
+  workingHtml = workingHtml.replace(/<button\b[^<]*(?:(?!<\/button>)<[^<]*)*<\/button>/gi, '');
   
-  // Remove nav, header, footer, aside
-  text = text.replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, ' ');
-  text = text.replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, ' ');
-  text = text.replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, ' ');
-  text = text.replace(/<aside\b[^<]*(?:(?!<\/aside>)<[^<]*)*<\/aside>/gi, ' ');
+  // Step 2: Try to extract main content area first
+  let mainContent = '';
   
-  // Try to find main content
-  const mainMatch = text.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
-  const articleMatch = text.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
-  
-  if (mainMatch) {
-    text = mainMatch[1];
-  } else if (articleMatch) {
-    text = articleMatch[1];
+  // Priority 1: Look for <main> tag
+  const mainMatch = workingHtml.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
+  if (mainMatch && mainMatch[1].length > 500) {
+    mainContent = mainMatch[1];
   }
+  
+  // Priority 2: Look for <article> tag
+  if (!mainContent) {
+    const articleMatch = workingHtml.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+    if (articleMatch && articleMatch[1].length > 500) {
+      mainContent = articleMatch[1];
+    }
+  }
+  
+  // Priority 3: Look for content containers by class/id
+  if (!mainContent) {
+    const contentPatterns = [
+      /<div[^>]*(?:class|id)=["'][^"']*(?:content|main|article|post|entry|page-content|main-content)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
+      /<section[^>]*(?:class|id)=["'][^"']*(?:content|main|article)[^"']*["'][^>]*>([\s\S]*?)<\/section>/i,
+    ];
+    
+    for (const pattern of contentPatterns) {
+      const match = workingHtml.match(pattern);
+      if (match && match[1].length > 500) {
+        mainContent = match[1];
+        break;
+      }
+    }
+  }
+  
+  // Priority 4: Use full HTML if no main content found
+  if (!mainContent) {
+    mainContent = workingHtml;
+  }
+  
+  // Always remove navigation elements from the content
+  mainContent = mainContent.replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, '');
+  mainContent = mainContent.replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, '');
+  mainContent = mainContent.replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, '');
+  mainContent = mainContent.replace(/<aside\b[^<]*(?:(?!<\/aside>)<[^<]*)*<\/aside>/gi, '');
+  
+  // Remove common non-content elements by class
+  mainContent = mainContent.replace(/<[^>]*class=["'][^"']*(?:nav|menu|sidebar|footer|header|breadcrumb|cookie|popup|modal|advertisement|social-share|share-buttons|related-posts|newsletter)[^"']*["'][^>]*>[\s\S]*?<\/[^>]+>/gi, '');
+  
+  // Step 3: Convert remaining HTML to readable text
+  let text = mainContent;
+  
+  // Convert headings to markdown-style (preserve for analysis)
+  text = text.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, '\n\n# $1\n\n');
+  text = text.replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, '\n\n## $1\n\n');
+  text = text.replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, '\n\n### $1\n\n');
+  text = text.replace(/<h4[^>]*>([\s\S]*?)<\/h4>/gi, '\n\n#### $1\n\n');
+  text = text.replace(/<h5[^>]*>([\s\S]*?)<\/h5>/gi, '\n\n##### $1\n\n');
+  text = text.replace(/<h6[^>]*>([\s\S]*?)<\/h6>/gi, '\n\n###### $1\n\n');
+  
+  // Convert paragraphs and line breaks
+  text = text.replace(/<\/p>/gi, '\n\n');
+  text = text.replace(/<p[^>]*>/gi, '');
+  text = text.replace(/<br\s*\/?>/gi, '\n');
+  text = text.replace(/<\/div>/gi, '\n');
+  text = text.replace(/<div[^>]*>/gi, '');
+  
+  // Convert list items
+  text = text.replace(/<ul[^>]*>/gi, '\n');
+  text = text.replace(/<\/ul>/gi, '\n');
+  text = text.replace(/<ol[^>]*>/gi, '\n');
+  text = text.replace(/<\/ol>/gi, '\n');
+  text = text.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, '• $1\n');
+  
+  // Convert tables to simple text
+  text = text.replace(/<tr[^>]*>/gi, '\n');
+  text = text.replace(/<\/tr>/gi, '');
+  text = text.replace(/<td[^>]*>/gi, ' | ');
+  text = text.replace(/<\/td>/gi, '');
+  text = text.replace(/<th[^>]*>/gi, ' | ');
+  text = text.replace(/<\/th>/gi, '');
+  
+  // Extract link text
+  text = text.replace(/<a[^>]*>([\s\S]*?)<\/a>/gi, '$1');
+  
+  // Convert strong/bold
+  text = text.replace(/<(?:strong|b)[^>]*>([\s\S]*?)<\/(?:strong|b)>/gi, '**$1**');
+  
+  // Convert emphasis/italic  
+  text = text.replace(/<(?:em|i)[^>]*>([\s\S]*?)<\/(?:em|i)>/gi, '*$1*');
   
   // Remove all remaining HTML tags
   text = text.replace(/<[^>]+>/g, ' ');
@@ -284,8 +388,10 @@ function htmlToReadableText(html: string): string {
     .replace(/&#(\d+);/g, (_, num) => String.fromCharCode(parseInt(num)))
     .replace(/&[a-z]+;/gi, ' ');
   
-  // Clean whitespace
-  text = text.replace(/\s+/g, ' ').trim();
+  // Clean up whitespace while preserving paragraph breaks
+  text = text.replace(/[ \t]+/g, ' ');
+  text = text.replace(/\n\s*\n\s*\n/g, '\n\n');
+  text = text.trim();
   
   return text;
 }
