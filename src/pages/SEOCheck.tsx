@@ -1311,7 +1311,7 @@ const SEOCheck = ({ session }: IndexProps) => {
                 {renderContentTab()}
               </TabsContent>
               <TabsContent value="textanalyse" className="mt-4">
-                <TextAnalysisEditor initialText={result.contentData?.markdown?.replace(/[#*\[\]()_`]/g, '').substring(0, 5000) || ''} />
+                <TextAnalysisEditor initialText={result.contentData?.markdown?.replace(/[#*\[\]()_`]/g, '') || ''} />
               </TabsContent>
               <TabsContent value="technical" className="mt-4">
                 {renderCategoryCard('technical', result.categories.technical)}
