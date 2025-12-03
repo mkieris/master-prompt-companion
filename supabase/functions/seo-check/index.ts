@@ -1600,7 +1600,7 @@ function analyzeSEO(url: string, html: string, markdown: string, metadata: any, 
     issues,
     recommendations,
     contentData: {
-      markdown: markdown.substring(0, 10000),
+      markdown: markdown.substring(0, 50000),
       wordCount,
       headings: headingsList,
       readability,
