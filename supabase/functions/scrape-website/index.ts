@@ -55,42 +55,124 @@ serve(async (req) => {
   }
 });
 
-// NEW APPROACH: Extract content directly in browser with JavaScript
+// Single page scrape using Apify Web Scraper
 async function scrapeSinglePage(url: string, apiKey: string) {
   console.log('Starting single-page scrape for:', url);
   
   try {
-    // Use Puppeteer with in-browser content extraction
-    // This is more reliable than server-side regex parsing
-    const result = await scrapeWithBrowserExtraction(url, apiKey);
+    // Use the website-content-crawler for single page - it's more reliable
+    const actorInput = {
+      startUrls: [{ url }],
+      crawlerType: 'playwright:adaptive',
+      maxCrawlPages: 1,
+      maxCrawlDepth: 0,
+      proxyConfiguration: { useApifyProxy: true },
+      readableTextCharThreshold: 50,
+    };
+
+    console.log('Starting Apify website-content-crawler for single page...');
     
-    if (!result || !result.content || result.content.length < 50) {
-      throw new Error('No content retrieved from page');
+    const response = await fetch(
+      `https://api.apify.com/v2/acts/apify~website-content-crawler/runs?token=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(actorInput),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Apify start failed:', response.status, errorText);
+      throw new Error(`Failed to start scraper: ${response.status}`);
+    }
+
+    const runData = await response.json();
+    const runId = runData.data?.id;
+    const datasetId = runData.data?.defaultDatasetId;
+    
+    if (!runId) {
+      throw new Error('No run ID returned from Apify');
     }
     
-    console.log(`Content extracted: ${result.content.length} chars`);
+    console.log('Apify run started:', runId, 'Dataset:', datasetId);
+
+    // Poll for completion (max 90 seconds)
+    let runStatus = 'RUNNING';
+    let attempts = 0;
+    const maxAttempts = 45; // 45 * 2s = 90s
+
+    while ((runStatus === 'RUNNING' || runStatus === 'READY') && attempts < maxAttempts) {
+      await new Promise(r => setTimeout(r, 2000));
+      
+      const statusResponse = await fetch(
+        `https://api.apify.com/v2/actor-runs/${runId}?token=${apiKey}`
+      );
+      
+      if (statusResponse.ok) {
+        const statusData = await statusResponse.json();
+        runStatus = statusData.data?.status;
+        console.log(`Status: ${runStatus} (attempt ${attempts + 1}/${maxAttempts})`);
+      }
+      attempts++;
+    }
+
+    if (runStatus !== 'SUCCEEDED') {
+      console.error('Run did not succeed:', runStatus);
+      throw new Error(`Scraping failed with status: ${runStatus}`);
+    }
+
+    // Get results
+    const resultsResponse = await fetch(
+      `https://api.apify.com/v2/datasets/${datasetId}/items?token=${apiKey}`
+    );
     
+    if (!resultsResponse.ok) {
+      throw new Error('Failed to get results from dataset');
+    }
+
+    const results = await resultsResponse.json();
+    console.log('Got results:', results.length, 'items');
+    
+    if (!results || results.length === 0) {
+      throw new Error('No content retrieved from page');
+    }
+
+    const pageData = results[0];
+    const content = pageData.text || pageData.markdown || '';
+    const title = pageData.metadata?.title || pageData.title || '';
+    const description = pageData.metadata?.description || '';
+    
+    console.log(`Content extracted: ${content.length} chars, Title: "${title}"`);
+
+    if (content.length < 50) {
+      throw new Error('Insufficient content extracted from page');
+    }
+
+    // Extract headings from content
+    const headings = extractHeadingsFromMarkdown(pageData.markdown || content);
+
     const structuredData = {
-      title: result.title || '',
-      description: result.description || '',
+      title,
+      description,
       url,
-      content: result.content,
-      sections: result.headings?.map((h: any) => ({ heading: h.text, content: '' })) || [],
+      content,
+      sections: headings.map(h => ({ heading: h.text, content: '' })),
       metadata: {
-        language: result.language || 'de',
+        language: pageData.metadata?.languageCode || 'de',
         keywords: [],
       },
-      detectedProducts: extractProducts(result.content, { title: result.title, headings: result.headings || [] }),
-      summary: result.content.substring(0, 500) + '...',
+      detectedProducts: extractProducts(content, { title, headings }),
+      summary: content.substring(0, 500) + '...',
     };
     
     // Add AI analysis for brand information
     let analysis = null;
     try {
-      analysis = await analyzeBrandInfo(result.content);
-      console.log('AI analysis completed:', analysis ? 'Success' : 'No analysis returned');
+      analysis = await analyzeBrandInfo(content);
+      console.log('AI analysis completed');
     } catch (analysisError) {
-      console.error('AI analysis failed, continuing without it:', analysisError);
+      console.error('AI analysis failed:', analysisError);
     }
 
     return new Response(JSON.stringify({
@@ -106,248 +188,22 @@ async function scrapeSinglePage(url: string, apiKey: string) {
   }
 }
 
-// NEW: In-browser content extraction with Puppeteer
-async function scrapeWithBrowserExtraction(url: string, apiKey: string): Promise<{
-  content: string;
-  title: string;
-  description: string;
-  language: string;
-  headings: { level: number; text: string }[];
-} | null> {
-  try {
-    console.log('Starting Puppeteer with in-browser extraction...');
-    
-    // The pageFunction runs IN THE BROWSER - no regex needed!
-    const pageFunction = `
-    async function pageFunction(context) {
-      const { page, request, Apify } = context;
-      
-      // Wait for initial load
-      await page.waitForTimeout(2000);
-      
-      // Scroll to trigger lazy-loading
-      await page.evaluate(async () => {
-        await new Promise((resolve) => {
-          let totalHeight = 0;
-          const distance = 400;
-          const maxScrolls = 20;
-          let scrollCount = 0;
-          
-          const timer = setInterval(() => {
-            window.scrollBy(0, distance);
-            totalHeight += distance;
-            scrollCount++;
-            
-            if (totalHeight >= document.body.scrollHeight || scrollCount >= maxScrolls) {
-              clearInterval(timer);
-              window.scrollTo(0, 0); // Scroll back to top
-              resolve();
-            }
-          }, 150);
-        });
+// Extract headings from markdown content
+function extractHeadingsFromMarkdown(markdown: string): { level: number; text: string }[] {
+  const headings: { level: number; text: string }[] = [];
+  const lines = markdown.split('\n');
+  
+  for (const line of lines) {
+    const match = line.match(/^(#{1,6})\s+(.+)$/);
+    if (match) {
+      headings.push({
+        level: match[1].length,
+        text: match[2].trim()
       });
-      
-      // Wait for any lazy content to load
-      await page.waitForTimeout(2000);
-      
-      // EXTRACT CONTENT DIRECTLY IN THE BROWSER
-      const extractedData = await page.evaluate(() => {
-        // Helper: Get text content without UI elements
-        function getCleanText(element) {
-          if (!element) return '';
-          
-          // Clone to avoid modifying the DOM
-          const clone = element.cloneNode(true);
-          
-          // Remove unwanted elements
-          const selectorsToRemove = [
-            'script', 'style', 'noscript', 'svg', 'iframe',
-            'nav', 'header', 'footer',
-            'form', 'select', 'input', 'button', 'textarea',
-            '[class*="nav"]', '[class*="menu"]', '[class*="sidebar"]',
-            '[class*="cookie"]', '[class*="modal"]', '[class*="popup"]',
-            '[class*="cart"]', '[class*="wishlist"]', '[class*="breadcrumb"]',
-            '[class*="pagination"]', '[class*="social"]', '[class*="share"]',
-            '[role="navigation"]', '[role="banner"]', '[role="contentinfo"]',
-            '[aria-hidden="true"]'
-          ];
-          
-          selectorsToRemove.forEach(selector => {
-            try {
-              clone.querySelectorAll(selector).forEach(el => el.remove());
-            } catch (e) {}
-          });
-          
-          // Get innerText (browser handles all HTML-to-text conversion)
-          return clone.innerText || clone.textContent || '';
-        }
-        
-        // Try to find the main content area
-        let mainContent = '';
-        
-        // Priority 1: main element
-        const main = document.querySelector('main');
-        if (main) {
-          mainContent = getCleanText(main);
-        }
-        
-        // Priority 2: article elements
-        if (!mainContent || mainContent.length < 500) {
-          const articles = document.querySelectorAll('article');
-          if (articles.length > 0) {
-            const articleText = Array.from(articles)
-              .map(a => getCleanText(a))
-              .join('\\n\\n');
-            if (articleText.length > mainContent.length) {
-              mainContent = articleText;
-            }
-          }
-        }
-        
-        // Priority 3: content containers
-        if (!mainContent || mainContent.length < 500) {
-          const contentSelectors = [
-            '[class*="content"]',
-            '[class*="product"]',
-            '[class*="description"]',
-            '[id*="content"]',
-            '.entry-content',
-            '.post-content',
-            '.page-content'
-          ];
-          
-          for (const selector of contentSelectors) {
-            try {
-              const elements = document.querySelectorAll(selector);
-              const combinedText = Array.from(elements)
-                .map(el => getCleanText(el))
-                .join('\\n\\n');
-              if (combinedText.length > mainContent.length) {
-                mainContent = combinedText;
-              }
-            } catch (e) {}
-          }
-        }
-        
-        // Priority 4: body fallback (but cleaned)
-        if (!mainContent || mainContent.length < 300) {
-          mainContent = getCleanText(document.body);
-        }
-        
-        // Extract metadata
-        const title = document.title || '';
-        const descMeta = document.querySelector('meta[name="description"]');
-        const description = descMeta ? descMeta.getAttribute('content') || '' : '';
-        const lang = document.documentElement.lang || 'de';
-        
-        // Extract headings
-        const headings = [];
-        document.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(h => {
-          const text = h.innerText?.trim();
-          if (text && text.length > 2 && text.length < 200) {
-            headings.push({
-              level: parseInt(h.tagName[1]),
-              text: text
-            });
-          }
-        });
-        
-        // Clean up the content
-        let cleanContent = mainContent
-          .replace(/\\t/g, ' ')
-          .replace(/  +/g, ' ')
-          .replace(/\\n\\s*\\n\\s*\\n/g, '\\n\\n')
-          .trim();
-        
-        return {
-          content: cleanContent,
-          title,
-          description,
-          language: lang,
-          headings
-        };
-      });
-      
-      console.log('Extracted content length:', extractedData.content?.length || 0);
-      
-      await Apify.pushData(extractedData);
     }
-    `;
-
-    const actorInput = {
-      startUrls: [{ url }],
-      pageFunction,
-      proxyConfiguration: { useApifyProxy: true },
-      maxRequestsPerCrawl: 1,
-      maxConcurrency: 1,
-    };
-
-    const response = await fetch('https://api.apify.com/v2/acts/apify~puppeteer-scraper/runs?token=' + apiKey, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(actorInput),
-    });
-
-    if (!response.ok) {
-      console.error('Puppeteer start failed:', response.status);
-      return null;
-    }
-
-    const runData = await response.json();
-    const runId = runData.data?.id;
-    const defaultDatasetId = runData.data?.defaultDatasetId;
-    
-    if (!runId) {
-      console.error('No run ID returned');
-      return null;
-    }
-    
-    console.log('Apify puppeteer-scraper run started:', runId);
-
-    // Poll for completion (max 2 minutes)
-    let runStatus = 'RUNNING';
-    let attempts = 0;
-    const maxAttempts = 60;
-
-    while ((runStatus === 'RUNNING' || runStatus === 'READY') && attempts < maxAttempts) {
-      await new Promise(r => setTimeout(r, 2000));
-      
-      const statusResponse = await fetch(`https://api.apify.com/v2/acts/apify~puppeteer-scraper/runs/${runId}?token=${apiKey}`);
-      
-      if (statusResponse.ok) {
-        const statusData = await statusResponse.json();
-        runStatus = statusData.data?.status;
-        console.log(`Puppeteer status: ${runStatus} (attempt ${attempts + 1}/${maxAttempts})`);
-      }
-      attempts++;
-    }
-
-    if (runStatus === 'SUCCEEDED') {
-      const resultsResponse = await fetch(`https://api.apify.com/v2/datasets/${defaultDatasetId}/items?token=${apiKey}`);
-      
-      if (resultsResponse.ok) {
-        const results = await resultsResponse.json();
-        if (results && results.length > 0) {
-          const data = results[0];
-          console.log(`Extraction successful: ${data.content?.length || 0} chars`);
-          return {
-            content: data.content || '',
-            title: data.title || '',
-            description: data.description || '',
-            language: data.language || 'de',
-            headings: data.headings || []
-          };
-        }
-      }
-    } else {
-      console.error(`Apify run ended with status: ${runStatus}`);
-    }
-    
-    return null;
-  } catch (error) {
-    console.error('Browser extraction error:', error);
-    return null;
   }
+  
+  return headings;
 }
 
 // Multi-page crawl
@@ -364,24 +220,27 @@ async function startCrawl(url: string, apiKey: string) {
     
     console.log('Crawl restricted to path:', includePattern);
 
-    const response = await fetch('https://api.apify.com/v2/acts/apify~website-content-crawler/runs?token=' + apiKey, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        startUrls: [{ url }],
-        crawlerType: 'playwright:adaptive',
-        maxCrawlDepth: 2,
-        maxCrawlPages: 50,
-        includePaths: [includePattern],
-        excludePaths: [
-          'impressum', 'datenschutz', 'agb', 'kontakt',
-          'cart', 'checkout', 'privacy', 'imprint',
-          'legal', 'terms', 'account', 'login',
-        ],
-        proxyConfiguration: { useApifyProxy: true },
-        readableTextCharThreshold: 100,
-      }),
-    });
+    const response = await fetch(
+      `https://api.apify.com/v2/acts/apify~website-content-crawler/runs?token=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startUrls: [{ url }],
+          crawlerType: 'playwright:adaptive',
+          maxCrawlDepth: 2,
+          maxCrawlPages: 50,
+          includePaths: [includePattern],
+          excludePaths: [
+            'impressum', 'datenschutz', 'agb', 'kontakt',
+            'cart', 'checkout', 'privacy', 'imprint',
+            'legal', 'terms', 'account', 'login',
+          ],
+          proxyConfiguration: { useApifyProxy: true },
+          readableTextCharThreshold: 100,
+        }),
+      }
+    );
 
     if (!response.ok) {
       const errorData = await response.json();
@@ -502,93 +361,107 @@ async function processCrawlResults(datasetId: string, apiKey: string) {
     success: true,
     status: 'SUCCEEDED',
     pagesFound: items.length,
-    content: combinedContent.substring(0, 20000),
-    pages: allPages.slice(0, 20),
+    pages: allPages,
+    combinedContent: combinedContent.substring(0, 50000),
     analysis,
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }
 
-// Helper functions
-function extractProducts(text: string, context: { title: string; headings: any[] }): string[] {
+// Helper function to extract products from content
+function extractProducts(content: string, metadata: { title: string; headings: { level: number; text: string }[] }) {
   const products: string[] = [];
   
-  // Extract from headings
-  context.headings?.forEach(h => {
+  // Look for product-like headings
+  for (const h of metadata.headings) {
     if (h.level <= 3 && h.text.length > 3 && h.text.length < 100) {
-      products.push(h.text);
+      // Exclude common non-product headings
+      const lowerText = h.text.toLowerCase();
+      if (!lowerText.includes('kontakt') && 
+          !lowerText.includes('impressum') &&
+          !lowerText.includes('über uns') &&
+          !lowerText.includes('datenschutz') &&
+          !lowerText.includes('warenkorb') &&
+          !lowerText.includes('menü')) {
+        products.push(h.text);
+      }
     }
-  });
+  }
   
   return products.slice(0, 10);
 }
 
+// AI Analysis for brand information
 async function analyzeBrandInfo(content: string) {
-  const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY');
-  
-  if (!OPENROUTER_API_KEY) {
-    console.log('No OpenRouter API key, skipping AI analysis');
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) {
+    console.log('No LOVABLE_API_KEY, skipping AI analysis');
     return null;
   }
 
-  console.log('Sending AI analysis request...');
-  
-  const truncatedContent = content.substring(0, 12000);
-  
-  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        {
-          role: 'system',
-          content: `Analysiere Website-Inhalte und extrahiere strukturierte Informationen.
-Antworte NUR mit validem JSON im folgenden Format:
+  try {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          {
+            role: 'system',
+            content: `Du bist ein SEO-Experte. Analysiere den Website-Content und extrahiere strukturierte Informationen.
+            
+Antworte NUR mit einem validen JSON-Objekt (ohne Markdown-Formatierung):
 {
-  "companyName": "Firmenname",
+  "companyName": "Name des Unternehmens",
   "industry": "Branche",
   "targetAudience": "Zielgruppe",
   "mainProducts": ["Produkt 1", "Produkt 2"],
   "usps": ["USP 1", "USP 2"],
-  "brandVoice": "Beschreibung des Tonfalls",
-  "claims": ["Slogan 1", "Claim 2"]
+  "brandVoice": "Beschreibung des Tons (z.B. professionell, freundlich)",
+  "claims": ["Claim oder Slogan 1"],
+  "summary": "Kurze Zusammenfassung des Unternehmens (2-3 Sätze)"
 }`
-        },
-        {
-          role: 'user',
-          content: `Analysiere diese Website-Inhalte:\n\n${truncatedContent}`
-        }
-      ],
-      temperature: 0.3,
-      max_tokens: 1500,
-    }),
-  });
+          },
+          {
+            role: 'user',
+            content: `Analysiere diesen Website-Content:\n\n${content.substring(0, 8000)}`
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 1000,
+      }),
+    });
 
-  if (!response.ok) {
-    throw new Error(`AI API error: ${response.status}`);
-  }
+    if (!response.ok) {
+      console.error('AI analysis request failed:', response.status);
+      return null;
+    }
 
-  const data = await response.json();
-  const aiResponse = data.choices?.[0]?.message?.content;
+    const data = await response.json();
+    const aiResponse = data.choices?.[0]?.message?.content;
+    
+    if (!aiResponse) {
+      return null;
+    }
 
-  if (!aiResponse) {
+    // Try to parse JSON from response
+    try {
+      // Remove markdown code blocks if present
+      let jsonStr = aiResponse.trim();
+      if (jsonStr.startsWith('```')) {
+        jsonStr = jsonStr.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+      }
+      return JSON.parse(jsonStr);
+    } catch (parseError) {
+      console.error('Failed to parse AI response as JSON:', parseError);
+      return { rawAnalysis: aiResponse };
+    }
+  } catch (error) {
+    console.error('AI analysis error:', error);
     return null;
   }
-
-  // Parse JSON response
-  try {
-    const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
-    }
-  } catch (e) {
-    console.error('JSON parse error:', e);
-  }
-
-  return null;
 }
