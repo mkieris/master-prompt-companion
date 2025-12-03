@@ -277,20 +277,37 @@ async function scrapeWithPuppeteer(url: string, apiKey: string): Promise<{ html:
   }
 }
 
-// Helper function to convert HTML to readable text - SIMPLE & COMPLETE extraction
+// Helper function to convert HTML to readable text - INTELLIGENT extraction
 function htmlToReadableText(html: string): string {
   if (!html) return '';
   
   let workingHtml = html;
   
-  // Step 1: Remove ONLY script/style/svg - nothing else
+  // Step 1: Remove non-content elements FIRST (before any text extraction)
+  // Remove scripts, styles, SVGs
   workingHtml = workingHtml.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
   workingHtml = workingHtml.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
   workingHtml = workingHtml.replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, '');
   workingHtml = workingHtml.replace(/<!--[\s\S]*?-->/g, '');
   workingHtml = workingHtml.replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, '');
   
-  // Step 2: Extract content from main/article/body - TAKE EVERYTHING
+  // Remove UI/form elements that pollute content
+  workingHtml = workingHtml.replace(/<select\b[^<]*(?:(?!<\/select>)<[^<]*)*<\/select>/gi, '');
+  workingHtml = workingHtml.replace(/<option\b[^>]*>[\s\S]*?<\/option>/gi, '');
+  workingHtml = workingHtml.replace(/<input\b[^>]*>/gi, '');
+  workingHtml = workingHtml.replace(/<button\b[^<]*(?:(?!<\/button>)<[^<]*)*<\/button>/gi, '');
+  workingHtml = workingHtml.replace(/<form\b[^<]*(?:(?!<\/form>)<[^<]*)*<\/form>/gi, '');
+  workingHtml = workingHtml.replace(/<textarea\b[^<]*(?:(?!<\/textarea>)<[^<]*)*<\/textarea>/gi, '');
+  
+  // Remove navigation elements
+  workingHtml = workingHtml.replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, '');
+  workingHtml = workingHtml.replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, '');
+  workingHtml = workingHtml.replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, '');
+  
+  // Remove elements with common navigation/UI class names
+  workingHtml = workingHtml.replace(/<[^>]*class="[^"]*(?:breadcrumb|navigation|nav-|menu|dropdown|modal|popup|cookie|cart|wishlist|sidebar)[^"]*"[^>]*>[\s\S]*?<\/[a-z]+>/gi, '');
+  
+  // Step 2: Extract content from main/article/body
   let mainContent = '';
   
   // Try main first
@@ -310,7 +327,7 @@ function htmlToReadableText(html: string): string {
     }
   }
   
-  // Fallback to body
+  // Fallback to body (but strip header/footer/nav again)
   if (!mainContent || mainContent.length < 1000) {
     const bodyMatch = workingHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i);
     if (bodyMatch) {
@@ -321,7 +338,7 @@ function htmlToReadableText(html: string): string {
     }
   }
   
-  // Step 3: Simple HTML to text conversion - PRESERVE ALL TEXT
+  // Step 3: Simple HTML to text conversion
   let text = mainContent;
   
   // Add newlines for block elements
@@ -363,6 +380,12 @@ function htmlToReadableText(html: string): string {
     .replace(/&Uuml;/g, 'Ü')
     .replace(/&#(\d+);/g, (_, num) => String.fromCharCode(parseInt(num)))
     .replace(/&[a-z]+;/gi, ' ');
+  
+  // Step 4: Post-processing cleanup
+  // Remove sequences of numbers (like dropdown options 1, 2, 3... 100)
+  text = text.replace(/(\d+\s*\n\s*){5,}/g, '');
+  // Remove repeated single-digit/double-digit numbers on their own lines
+  text = text.replace(/(\n\s*\d{1,3}\s*)+\n/g, '\n');
   
   // Clean up whitespace
   text = text.replace(/[ \t]+/g, ' ');
