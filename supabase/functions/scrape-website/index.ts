@@ -271,7 +271,7 @@ async function scrapeWithPuppeteer(url: string, apiKey: string): Promise<{ html:
   }
 }
 
-// Helper function to convert HTML to readable text - less restrictive approach
+// Helper function to convert HTML to readable text - balanced approach
 function htmlToReadableText(html: string): string {
   if (!html) return '';
   
@@ -289,16 +289,37 @@ function htmlToReadableText(html: string): string {
   workingHtml = workingHtml.replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, '');
   workingHtml = workingHtml.replace(/<!--[\s\S]*?-->/g, '');
   workingHtml = workingHtml.replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, '');
+  workingHtml = workingHtml.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
+  
+  // Remove form elements
+  workingHtml = workingHtml.replace(/<form\b[^<]*(?:(?!<\/form>)<[^<]*)*<\/form>/gi, '');
   workingHtml = workingHtml.replace(/<input[^>]*>/gi, '');
   workingHtml = workingHtml.replace(/<select\b[^<]*(?:(?!<\/select>)<[^<]*)*<\/select>/gi, '');
-  workingHtml = workingHtml.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
+  workingHtml = workingHtml.replace(/<button\b[^<]*(?:(?!<\/button>)<[^<]*)*<\/button>/gi, '');
   
   // Step 3: Remove navigation/boilerplate elements
   workingHtml = workingHtml.replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, '');
+  workingHtml = workingHtml.replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, '');
   workingHtml = workingHtml.replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, '');
+  workingHtml = workingHtml.replace(/<aside\b[^<]*(?:(?!<\/aside>)<[^<]*)*<\/aside>/gi, '');
   
-  // Step 4: Convert remaining HTML to readable text
-  let text = workingHtml;
+  // Step 4: Try to find main content area
+  let mainContent = workingHtml;
+  
+  // Check for <main> tag with substantial content
+  const mainMatch = workingHtml.match(/<main[^>]*>([\s\S]*)<\/main>/i);
+  if (mainMatch && mainMatch[1].length > 1000) {
+    mainContent = mainMatch[1];
+  } else {
+    // Check for <article> tag
+    const articleMatch = workingHtml.match(/<article[^>]*>([\s\S]*)<\/article>/i);
+    if (articleMatch && articleMatch[1].length > 1000) {
+      mainContent = articleMatch[1];
+    }
+  }
+  
+  // Step 5: Convert remaining HTML to readable text
+  let text = mainContent;
   
   // Convert headings to markdown-style (preserve structure)
   text = text.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, '\n\n# $1\n\n');
@@ -360,6 +381,15 @@ function htmlToReadableText(html: string): string {
   text = text.replace(/[ \t]+/g, ' ');
   text = text.replace(/\n\s*\n\s*\n/g, '\n\n');
   text = text.trim();
+  
+  // Remove obvious price patterns and cart elements
+  text = text.replace(/\d+[.,]\d{2}\s*€/g, '');
+  text = text.replace(/€\s*\d+[.,]\d{2}/g, '');
+  text = text.replace(/inkl\.\s*MwSt\.?/gi, '');
+  text = text.replace(/zzgl\.\s*Versand/gi, '');
+  text = text.replace(/In den Warenkorb/gi, '');
+  text = text.replace(/Auf die Merkliste/gi, '');
+  text = text.replace(/Sofort lieferbar/gi, '');
   
   return text;
 }
