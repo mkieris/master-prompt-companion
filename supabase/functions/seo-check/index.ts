@@ -192,76 +192,65 @@ serve(async (req) => {
 
     console.log(`Starting SEO check for: ${url}, mode: ${mode}, keyword: ${keyword || 'none'}`);
 
-    // For single page SEO checks, use direct fetch - much faster than crawler
-    // This is similar to how Firecrawl handles single URL scraping
-    console.log('Using fast direct fetch for single page analysis...');
+    // Use Apify web-scraper with Puppeteer for JavaScript rendering
+    // This renders the page like Google does (with full JS execution)
+    console.log('Using Apify Puppeteer for JavaScript rendering (like Googlebot)...');
     
     let html = '';
     let responseHeaders: Record<string, string> = {};
     
+    const APIFY_API_KEY = Deno.env.get('APIFY_API_KEY');
+    if (!APIFY_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: 'APIFY_API_KEY not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     try {
-      const fetchResponse = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-          'Accept-Language': 'de-DE,de;q=0.9,en;q=0.8',
-          'Cache-Control': 'no-cache',
-        },
-        redirect: 'follow',
-      });
-      
-      if (!fetchResponse.ok) {
-        console.error(`Failed to fetch URL: ${fetchResponse.status} ${fetchResponse.statusText}`);
-        return new Response(
-          JSON.stringify({ 
-            error: `Failed to fetch URL: ${fetchResponse.status} ${fetchResponse.statusText}`,
-            suggestion: 'Check if the URL is accessible and not blocked'
-          }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      html = await fetchResponse.text();
-      
-      // Capture response headers for security analysis
-      fetchResponse.headers.forEach((value, key) => {
-        responseHeaders[key.toLowerCase()] = value;
-      });
-      
-      console.log(`Direct fetch successful: HTML length=${html.length}, Headers captured=${Object.keys(responseHeaders).length}`);
-      
-    } catch (fetchError) {
-      console.error('Direct fetch failed, falling back to Apify:', fetchError);
-      
-      // Fallback to Apify for sites that block direct requests
-      const APIFY_API_KEY = Deno.env.get('APIFY_API_KEY');
-      if (!APIFY_API_KEY) {
-        return new Response(
-          JSON.stringify({ error: 'Direct fetch failed and APIFY_API_KEY not configured' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      console.log('Using Apify cheerio-scraper as fallback...');
-      
-      // Use simpler, faster cheerio-scraper instead of website-content-crawler
+      // Use web-scraper actor with Puppeteer (headless Chrome) - renders JS like Google
       const actorInput = {
         startUrls: [{ url }],
         pageFunction: `async function pageFunction(context) {
-          const { $, request } = context;
+          const { page, request } = context;
+          
+          // Wait for network to be idle (like Google does)
+          await page.waitForNetworkIdle({ timeout: 10000 }).catch(() => {});
+          
+          // Scroll to trigger lazy-loaded content
+          await page.evaluate(() => {
+            window.scrollTo(0, document.body.scrollHeight / 2);
+          });
+          await new Promise(r => setTimeout(r, 1000));
+          await page.evaluate(() => {
+            window.scrollTo(0, document.body.scrollHeight);
+          });
+          await new Promise(r => setTimeout(r, 1000));
+          
+          // Get the fully rendered HTML
+          const html = await page.content();
+          
           return {
             url: request.url,
-            html: $('html').html(),
-            title: $('title').text(),
-            metaDescription: $('meta[name="description"]').attr('content') || '',
+            html: html,
+            title: await page.title(),
           };
         }`,
         proxyConfiguration: { useApifyProxy: true },
         maxRequestsPerCrawl: 1,
         maxConcurrency: 1,
+        requestTimeoutSecs: 60,
+        navigationTimeoutSecs: 30,
+        // Use Puppeteer (headless Chrome) for JS rendering
+        browserPoolOptions: {
+          useFingerprints: true,
+          useLiveView: false,
+        },
       };
 
-      const runResponse = await fetch('https://api.apify.com/v2/acts/apify~cheerio-scraper/runs?token=' + APIFY_API_KEY, {
+      console.log('Starting Apify web-scraper with Puppeteer...');
+      
+      const runResponse = await fetch('https://api.apify.com/v2/acts/apify~web-scraper/runs?token=' + APIFY_API_KEY, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(actorInput),
@@ -270,60 +259,73 @@ serve(async (req) => {
       if (!runResponse.ok) {
         const errorText = await runResponse.text();
         console.error('Apify start error:', errorText);
-        return new Response(
-          JSON.stringify({ error: 'Failed to start scraping', details: errorText }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        throw new Error(`Failed to start Apify: ${errorText}`);
       }
 
       const runData = await runResponse.json();
       const runId = runData.data.id;
       const defaultDatasetId = runData.data.defaultDatasetId;
-      console.log('Apify cheerio-scraper run started:', runId);
+      console.log('Apify web-scraper run started:', runId);
 
-      // Poll for completion - cheerio-scraper is much faster
+      // Poll for completion
       let runStatus = 'RUNNING';
       let attempts = 0;
-      const maxAttempts = 30; // 1 minute max for cheerio-scraper
+      const maxAttempts = 45; // 90 seconds max
 
-      while (runStatus === 'RUNNING' && attempts < maxAttempts) {
+      while ((runStatus === 'RUNNING' || runStatus === 'READY') && attempts < maxAttempts) {
         await new Promise(resolve => setTimeout(resolve, 2000));
         
-        const statusResponse = await fetch(`https://api.apify.com/v2/acts/apify~cheerio-scraper/runs/${runId}?token=${APIFY_API_KEY}`);
+        const statusResponse = await fetch(`https://api.apify.com/v2/acts/apify~web-scraper/runs/${runId}?token=${APIFY_API_KEY}`);
         
         if (statusResponse.ok) {
           const statusData = await statusResponse.json();
           runStatus = statusData.data.status;
-          console.log(`Cheerio-scraper status: ${runStatus} (attempt ${attempts + 1}/${maxAttempts})`);
+          console.log(`Web-scraper status: ${runStatus} (attempt ${attempts + 1}/${maxAttempts})`);
         }
         attempts++;
       }
 
       if (runStatus !== 'SUCCEEDED') {
-        return new Response(
-          JSON.stringify({ 
-            error: 'Scraping failed or timed out', 
-            status: runStatus,
-          }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        console.error(`Apify run failed with status: ${runStatus}`);
+        throw new Error(`Apify run failed: ${runStatus}`);
       }
 
       const resultsResponse = await fetch(`https://api.apify.com/v2/datasets/${defaultDatasetId}/items?token=${APIFY_API_KEY}`);
       
       if (!resultsResponse.ok) {
-        return new Response(
-          JSON.stringify({ error: 'Failed to fetch results' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        throw new Error('Failed to fetch Apify results');
       }
 
       const results = await resultsResponse.json();
       if (results && results.length > 0) {
         html = results[0].html || '';
+        console.log(`Apify Puppeteer successful: HTML length=${html.length} (JS rendered)`);
       }
       
-      console.log(`Apify fallback successful: HTML length=${html.length}`);
+    } catch (apifyError) {
+      console.error('Apify Puppeteer failed, falling back to direct fetch:', apifyError);
+      
+      // Fallback to direct fetch for simple sites
+      try {
+        const fetchResponse = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'de-DE,de;q=0.9,en;q=0.8',
+          },
+          redirect: 'follow',
+        });
+        
+        if (fetchResponse.ok) {
+          html = await fetchResponse.text();
+          fetchResponse.headers.forEach((value, key) => {
+            responseHeaders[key.toLowerCase()] = value;
+          });
+          console.log(`Direct fetch fallback: HTML length=${html.length} (no JS rendering)`);
+        }
+      } catch (fetchError) {
+        console.error('Direct fetch also failed:', fetchError);
+      }
     }
     
     if (!html || html.length < 100) {
