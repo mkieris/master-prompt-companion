@@ -53,98 +53,266 @@ async function scrapeSinglePage(url: string, apiKey: string) {
   console.log('Starting single-page scrape for:', url);
   
   try {
-    const urlObj = new URL(url);
-    const basePath = urlObj.pathname.endsWith('/') 
-      ? urlObj.pathname 
-      : urlObj.pathname + '/';
-    const includePattern = basePath + '*';
-
-    // Start Apify Website Content Crawler for single page
-    const response = await fetch('https://api.apify.com/v2/acts/apify~website-content-crawler/runs?token=' + apiKey, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        startUrls: [{ url }],
-        crawlerType: 'cheerio',
-        maxCrawlDepth: 0,
-        maxCrawlPages: 1,
-        initialCookies: [],
-        proxyConfiguration: { useApifyProxy: true },
-        readableTextCharThreshold: 100,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Apify API error:', errorData);
-      throw new Error(`Apify API error: ${response.status} - ${errorData.error || 'Unknown error'}`);
-    }
-
-    const runData = await response.json();
-    console.log('Apify run started:', runData.data.id);
-
-    // Wait for completion (single page should be fast)
-    let attempts = 0;
-    const maxAttempts = 30;
-
-    while (attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 2000));
+    // Step 1: Try fast direct fetch first
+    console.log('Step 1: Trying fast direct fetch...');
+    let html = '';
+    let textContent = '';
+    
+    try {
+      const directResponse = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'de,en;q=0.9',
+        },
+      });
       
-      const statusResponse = await fetch(
-        `https://api.apify.com/v2/actor-runs/${runData.data.id}?token=${apiKey}`
-      );
-      const statusData = await statusResponse.json();
-
-      console.log('Run status:', statusData.data.status);
-
-      if (statusData.data.status === 'SUCCEEDED') {
-        // Get results
-        const resultsResponse = await fetch(
-          `https://api.apify.com/v2/actor-runs/${runData.data.id}/dataset/items?token=${apiKey}`
-        );
-        const results = await resultsResponse.json();
-
-        if (!results || results.length === 0) {
-          throw new Error('No data returned from crawl');
-        }
-
-        const pageData = results[0];
-        console.log('Successfully scraped single page');
-
-        const structuredData = extractStructuredInfo(pageData);
-        
-        // Add AI analysis for brand information
-        let analysis = null;
-        try {
-          analysis = await analyzeBrandInfo(structuredData.content);
-          console.log('AI analysis completed:', analysis ? 'Success' : 'No analysis returned');
-        } catch (analysisError) {
-          console.error('AI analysis failed, continuing without it:', analysisError);
-        }
-
-        return new Response(JSON.stringify({
-          ...structuredData,
-          success: true,
-          analysis
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      if (directResponse.ok) {
+        html = await directResponse.text();
+        textContent = htmlToReadableText(html);
+        console.log(`Direct fetch successful: HTML=${html.length}, Text=${textContent.length} chars`);
+      }
+    } catch (fetchError) {
+      console.log('Direct fetch failed:', fetchError);
+    }
+    
+    // Step 2: If content looks like SPA or is insufficient, use Puppeteer
+    const needsJsRendering = html.length < 1000 || textContent.length < 200 || 
+      (html.includes('__NEXT_DATA__') || html.includes('window.__INITIAL_STATE__') || 
+       html.includes('id="root"') || html.includes('id="app"'));
+    
+    if (needsJsRendering) {
+      console.log('Step 2: Content appears to need JS rendering, using Puppeteer...');
+      
+      const puppeteerResult = await scrapeWithPuppeteer(url, apiKey);
+      if (puppeteerResult) {
+        html = puppeteerResult.html;
+        textContent = htmlToReadableText(html);
+        console.log(`Puppeteer scrape successful: HTML=${html.length}, Text=${textContent.length} chars`);
+      }
+    } else {
+      console.log('Step 2: Skipping JS rendering - sufficient content found');
+    }
+    
+    // Step 3: Final fallback with Googlebot UA if still no content
+    if (textContent.length < 100) {
+      console.log('Step 3: Still insufficient content, trying Googlebot fallback...');
+      try {
+        const googlebotResponse = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          },
         });
+        
+        if (googlebotResponse.ok) {
+          html = await googlebotResponse.text();
+          textContent = htmlToReadableText(html);
+          console.log(`Googlebot fallback: HTML=${html.length}, Text=${textContent.length} chars`);
+        }
+      } catch (e) {
+        console.log('Googlebot fallback failed');
       }
-
-      if (statusData.data.status === 'FAILED' || statusData.data.status === 'ABORTED') {
-        throw new Error(`Scrape ${statusData.data.status.toLowerCase()}`);
-      }
-
-      attempts++;
+    }
+    
+    if (!html || textContent.length < 50) {
+      throw new Error('No content retrieved from page');
+    }
+    
+    console.log(`Content extracted: HTML=${html.length} chars, Text=${textContent.length} chars`);
+    
+    // Extract metadata
+    const title = extractMetaTag(html, 'title') || '';
+    const description = extractMetaTag(html, 'description') || '';
+    const headings = extractHeadings(html);
+    
+    const structuredData = {
+      title,
+      description,
+      url,
+      content: textContent,
+      sections: headings.map(h => ({ heading: h.text, content: '' })),
+      metadata: {
+        language: extractLang(html) || 'de',
+        keywords: [],
+      },
+      detectedProducts: extractProducts(textContent, { title, headings }),
+      summary: textContent.substring(0, 500) + '...',
+    };
+    
+    // Add AI analysis for brand information
+    let analysis = null;
+    try {
+      analysis = await analyzeBrandInfo(textContent);
+      console.log('AI analysis completed:', analysis ? 'Success' : 'No analysis returned');
+    } catch (analysisError) {
+      console.error('AI analysis failed, continuing without it:', analysisError);
     }
 
-    throw new Error('Scrape timed out');
+    return new Response(JSON.stringify({
+      ...structuredData,
+      success: true,
+      analysis
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   } catch (error) {
     console.error('Error in scrapeSinglePage:', error);
     throw error;
   }
+}
+
+async function scrapeWithPuppeteer(url: string, apiKey: string): Promise<{ html: string } | null> {
+  try {
+    const response = await fetch('https://api.apify.com/v2/acts/apify~puppeteer-scraper/runs?token=' + apiKey, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        startUrls: [{ url }],
+        pageFunction: `async function pageFunction(context) {
+          const { page, request } = context;
+          await page.waitForNetworkIdle({ timeout: 10000 }).catch(() => {});
+          await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+          await new Promise(r => setTimeout(r, 1000));
+          const html = await page.content();
+          return { url: request.url, html };
+        }`,
+        preNavigationHooks: `[async ({ page }) => { 
+          await page.setViewport({ width: 1920, height: 1080 }); 
+        }]`,
+        maxConcurrency: 1,
+        maxRequestsPerCrawl: 1,
+        proxyConfiguration: { useApifyProxy: true },
+        launchContext: {
+          launchOptions: { headless: true }
+        }
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Puppeteer start failed:', response.status);
+      return null;
+    }
+
+    const runData = await response.json();
+    const runId = runData.data?.id;
+    if (!runId) return null;
+
+    // Poll for completion
+    let attempts = 0;
+    const maxAttempts = 45;
+
+    while (attempts < maxAttempts) {
+      await new Promise(r => setTimeout(r, 2000));
+      
+      const statusResponse = await fetch(`https://api.apify.com/v2/actor-runs/${runId}?token=${apiKey}`);
+      const statusData = await statusResponse.json();
+      
+      if (statusData.data?.status === 'SUCCEEDED') {
+        const resultsResponse = await fetch(
+          `https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${apiKey}`
+        );
+        
+        if (resultsResponse.ok) {
+          const results = await resultsResponse.json();
+          if (results?.[0]?.html) {
+            return { html: results[0].html };
+          }
+        }
+        return null;
+      }
+      
+      if (['FAILED', 'ABORTED', 'TIMED-OUT'].includes(statusData.data?.status)) {
+        console.log('Puppeteer scrape failed:', statusData.data?.status);
+        return null;
+      }
+      
+      attempts++;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Puppeteer scrape error:', error);
+    return null;
+  }
+}
+
+function htmlToReadableText(html: string): string {
+  if (!html) return '';
+  
+  let text = html;
+  
+  // Remove script, style, noscript, svg, form elements
+  text = text.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ');
+  text = text.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ' ');
+  text = text.replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, ' ');
+  text = text.replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, ' ');
+  text = text.replace(/<form\b[^<]*(?:(?!<\/form>)<[^<]*)*<\/form>/gi, ' ');
+  text = text.replace(/<!--[\s\S]*?-->/g, ' ');
+  
+  // Remove nav, header, footer, aside
+  text = text.replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, ' ');
+  text = text.replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, ' ');
+  text = text.replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, ' ');
+  text = text.replace(/<aside\b[^<]*(?:(?!<\/aside>)<[^<]*)*<\/aside>/gi, ' ');
+  
+  // Try to find main content
+  const mainMatch = text.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
+  const articleMatch = text.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+  
+  if (mainMatch) {
+    text = mainMatch[1];
+  } else if (articleMatch) {
+    text = articleMatch[1];
+  }
+  
+  // Remove all remaining HTML tags
+  text = text.replace(/<[^>]+>/g, ' ');
+  
+  // Decode HTML entities
+  text = text.replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#(\d+);/g, (_, num) => String.fromCharCode(parseInt(num)))
+    .replace(/&[a-z]+;/gi, ' ');
+  
+  // Clean whitespace
+  text = text.replace(/\s+/g, ' ').trim();
+  
+  return text;
+}
+
+function extractMetaTag(html: string, name: string): string {
+  if (name === 'title') {
+    const match = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+    return match ? match[1].trim() : '';
+  }
+  
+  const metaMatch = html.match(new RegExp(`<meta[^>]*name=["']${name}["'][^>]*content=["']([^"']*)["']`, 'i')) ||
+                    html.match(new RegExp(`<meta[^>]*content=["']([^"']*)["'][^>]*name=["']${name}["']`, 'i'));
+  return metaMatch ? metaMatch[1].trim() : '';
+}
+
+function extractLang(html: string): string {
+  const match = html.match(/<html[^>]*lang=["']([^"']*)["']/i);
+  return match ? match[1] : '';
+}
+
+function extractHeadings(html: string): { level: number; text: string }[] {
+  const headings: { level: number; text: string }[] = [];
+  const regex = /<h([1-6])[^>]*>([^<]*(?:<[^>]*>[^<]*)*)<\/h[1-6]>/gi;
+  let match;
+  
+  while ((match = regex.exec(html)) !== null) {
+    const text = match[2].replace(/<[^>]+>/g, '').trim();
+    if (text) {
+      headings.push({ level: parseInt(match[1]), text });
+    }
+  }
+  
+  return headings;
 }
 
 async function startCrawl(url: string, apiKey: string) {
