@@ -271,73 +271,36 @@ async function scrapeWithPuppeteer(url: string, apiKey: string): Promise<{ html:
   }
 }
 
-// Helper function to convert HTML to readable text - focused on main content (matches SEO-Check)
+// Helper function to convert HTML to readable text - less restrictive approach
 function htmlToReadableText(html: string): string {
   if (!html) return '';
   
   let workingHtml = html;
   
-  // Step 1: Remove non-content elements completely
+  // Step 1: Extract body content if present
+  const bodyMatch = workingHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+  if (bodyMatch) {
+    workingHtml = bodyMatch[1];
+  }
+  
+  // Step 2: Remove non-content elements completely
   workingHtml = workingHtml.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
   workingHtml = workingHtml.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
   workingHtml = workingHtml.replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, '');
   workingHtml = workingHtml.replace(/<!--[\s\S]*?-->/g, '');
   workingHtml = workingHtml.replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, '');
-  workingHtml = workingHtml.replace(/<form\b[^<]*(?:(?!<\/form>)<[^<]*)*<\/form>/gi, '');
   workingHtml = workingHtml.replace(/<input[^>]*>/gi, '');
-  workingHtml = workingHtml.replace(/<button\b[^<]*(?:(?!<\/button>)<[^<]*)*<\/button>/gi, '');
+  workingHtml = workingHtml.replace(/<select\b[^<]*(?:(?!<\/select>)<[^<]*)*<\/select>/gi, '');
+  workingHtml = workingHtml.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
   
-  // Step 2: Try to extract main content area first
-  let mainContent = '';
+  // Step 3: Remove navigation/boilerplate elements
+  workingHtml = workingHtml.replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, '');
+  workingHtml = workingHtml.replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, '');
   
-  // Priority 1: Look for <main> tag
-  const mainMatch = workingHtml.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
-  if (mainMatch && mainMatch[1].length > 500) {
-    mainContent = mainMatch[1];
-  }
+  // Step 4: Convert remaining HTML to readable text
+  let text = workingHtml;
   
-  // Priority 2: Look for <article> tag
-  if (!mainContent) {
-    const articleMatch = workingHtml.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
-    if (articleMatch && articleMatch[1].length > 500) {
-      mainContent = articleMatch[1];
-    }
-  }
-  
-  // Priority 3: Look for content containers by class/id
-  if (!mainContent) {
-    const contentPatterns = [
-      /<div[^>]*(?:class|id)=["'][^"']*(?:content|main|article|post|entry|page-content|main-content)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
-      /<section[^>]*(?:class|id)=["'][^"']*(?:content|main|article)[^"']*["'][^>]*>([\s\S]*?)<\/section>/i,
-    ];
-    
-    for (const pattern of contentPatterns) {
-      const match = workingHtml.match(pattern);
-      if (match && match[1].length > 500) {
-        mainContent = match[1];
-        break;
-      }
-    }
-  }
-  
-  // Priority 4: Use full HTML if no main content found
-  if (!mainContent) {
-    mainContent = workingHtml;
-  }
-  
-  // Always remove navigation elements from the content
-  mainContent = mainContent.replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, '');
-  mainContent = mainContent.replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, '');
-  mainContent = mainContent.replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, '');
-  mainContent = mainContent.replace(/<aside\b[^<]*(?:(?!<\/aside>)<[^<]*)*<\/aside>/gi, '');
-  
-  // Remove common non-content elements by class
-  mainContent = mainContent.replace(/<[^>]*class=["'][^"']*(?:nav|menu|sidebar|footer|header|breadcrumb|cookie|popup|modal|advertisement|social-share|share-buttons|related-posts|newsletter)[^"']*["'][^>]*>[\s\S]*?<\/[^>]+>/gi, '');
-  
-  // Step 3: Convert remaining HTML to readable text
-  let text = mainContent;
-  
-  // Convert headings to markdown-style (preserve for analysis)
+  // Convert headings to markdown-style (preserve structure)
   text = text.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, '\n\n# $1\n\n');
   text = text.replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, '\n\n## $1\n\n');
   text = text.replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, '\n\n### $1\n\n');
@@ -351,6 +314,8 @@ function htmlToReadableText(html: string): string {
   text = text.replace(/<br\s*\/?>/gi, '\n');
   text = text.replace(/<\/div>/gi, '\n');
   text = text.replace(/<div[^>]*>/gi, '');
+  text = text.replace(/<\/section>/gi, '\n\n');
+  text = text.replace(/<section[^>]*>/gi, '');
   
   // Convert list items
   text = text.replace(/<ul[^>]*>/gi, '\n');
@@ -375,6 +340,9 @@ function htmlToReadableText(html: string): string {
   
   // Convert emphasis/italic  
   text = text.replace(/<(?:em|i)[^>]*>([\s\S]*?)<\/(?:em|i)>/gi, '*$1*');
+  
+  // Convert spans (just extract text)
+  text = text.replace(/<span[^>]*>([\s\S]*?)<\/span>/gi, '$1');
   
   // Remove all remaining HTML tags
   text = text.replace(/<[^>]+>/g, ' ');
