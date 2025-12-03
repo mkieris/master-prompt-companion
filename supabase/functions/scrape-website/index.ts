@@ -33,12 +33,18 @@ serve(async (req) => {
       throw new Error('URL is required');
     }
 
-    console.log('Scraping website:', url, 'Mode:', mode);
+    // Normalize URL - add https:// if no protocol specified
+    let normalizedUrl = url.trim();
+    if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
+      normalizedUrl = 'https://' + normalizedUrl;
+    }
+
+    console.log('Scraping website:', normalizedUrl, 'Mode:', mode);
 
     if (mode === 'multi') {
-      return await startCrawl(url, APIFY_API_KEY);
+      return await startCrawl(normalizedUrl, APIFY_API_KEY);
     } else {
-      return await scrapeSinglePage(url, APIFY_API_KEY);
+      return await scrapeSinglePage(normalizedUrl, APIFY_API_KEY);
     }
   } catch (error) {
     console.error('Error in scrape-website function:', error);
