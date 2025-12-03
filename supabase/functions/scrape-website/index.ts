@@ -277,95 +277,56 @@ async function scrapeWithPuppeteer(url: string, apiKey: string): Promise<{ html:
   }
 }
 
-// Helper function to convert HTML to readable text - MAXIMALE Content-Extraktion
+// Helper function to convert HTML to readable text - SIMPLE & COMPLETE extraction
 function htmlToReadableText(html: string): string {
   if (!html) return '';
   
   let workingHtml = html;
   
-  // Step 1: Remove ONLY truly non-content elements (minimal removal)
+  // Step 1: Remove ONLY script/style/svg - nothing else
   workingHtml = workingHtml.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
   workingHtml = workingHtml.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
   workingHtml = workingHtml.replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, '');
   workingHtml = workingHtml.replace(/<!--[\s\S]*?-->/g, '');
   workingHtml = workingHtml.replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, '');
-  workingHtml = workingHtml.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
   
-  // Remove only input elements, NOT buttons (they might have text) or forms (they contain descriptions)
-  workingHtml = workingHtml.replace(/<input[^>]*>/gi, '');
-  workingHtml = workingHtml.replace(/<select\b[^<]*(?:(?!<\/select>)<[^<]*)*<\/select>/gi, '');
-  
-  // Step 2: Extract ALL content from main areas - use GREEDY matching for complete content
+  // Step 2: Extract content from main/article/body - TAKE EVERYTHING
   let mainContent = '';
   
-  // Priority 1: Look for <main> tag - use GREEDY match to get everything
+  // Try main first
   const mainMatch = workingHtml.match(/<main[^>]*>([\s\S]*)<\/main>/i);
-  if (mainMatch && mainMatch[1].length > 500) {
+  if (mainMatch && mainMatch[1]) {
     mainContent = mainMatch[1];
-    console.log('Found <main> tag with FULL content:', mainContent.length, 'chars');
+    console.log('Using <main> content:', mainContent.length, 'chars');
   }
   
-  // Priority 2: Look for <article> tags - collect ALL of them
-  if (!mainContent || mainContent.length < 1000) {
-    const articleMatches = workingHtml.matchAll(/<article[^>]*>([\s\S]*?)<\/article>/gi);
-    let articles = '';
-    for (const match of articleMatches) {
-      articles += match[1] + '\n\n';
-    }
+  // Try article if main is too small
+  if (!mainContent || mainContent.length < 2000) {
+    const articleMatches = [...workingHtml.matchAll(/<article[^>]*>([\s\S]*?)<\/article>/gi)];
+    let articles = articleMatches.map(m => m[1]).join('\n\n');
     if (articles.length > (mainContent?.length || 0)) {
       mainContent = articles;
-      console.log('Found <article> tags with content:', mainContent.length, 'chars');
+      console.log('Using <article> content:', mainContent.length, 'chars');
     }
   }
   
-  // Priority 3: Look for multiple content sections - COLLECT ALL, don't stop at first
+  // Fallback to body
   if (!mainContent || mainContent.length < 1000) {
-    const contentSelectors = [
-      // Product page specific selectors
-      /class=["'][^"']*(?:product-description|cms-content|description-text|product-detail-description)[^"']*["']/gi,
-      /class=["'][^"']*(?:product-info|product-content|product-text)[^"']*["']/gi,
-      // Generic content selectors
-      /class=["'][^"']*(?:content-section|text-content|main-content|page-content)[^"']*["']/gi,
-    ];
-    
-    // Try to find all sections with these classes
-    let combinedContent = mainContent || '';
-    for (const selector of contentSelectors) {
-      const sectionRegex = new RegExp(`<(?:div|section)[^>]*${selector.source}[^>]*>([\\s\\S]*?)<\\/(?:div|section)>`, 'gi');
-      const matches = workingHtml.matchAll(sectionRegex);
-      for (const match of matches) {
-        if (match[1] && match[1].length > 100) {
-          combinedContent += '\n\n' + match[1];
-        }
-      }
-    }
-    if (combinedContent.length > (mainContent?.length || 0)) {
-      mainContent = combinedContent;
-    }
-  }
-  
-  // Priority 4: If still not enough, get BODY content
-  if (!mainContent || mainContent.length < 500) {
     const bodyMatch = workingHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-    mainContent = bodyMatch ? bodyMatch[1] : workingHtml;
-    console.log('Fallback to full body content:', mainContent.length, 'chars');
+    if (bodyMatch) {
+      mainContent = bodyMatch[1];
+      console.log('Using <body> content:', mainContent.length, 'chars');
+    } else {
+      mainContent = workingHtml;
+    }
   }
   
-  // Step 3: Remove ONLY navigation, NOT headers/footers (they might have useful info)
-  // Step 4: Convert remaining HTML to readable text
+  // Step 3: Simple HTML to text conversion - PRESERVE ALL TEXT
   let text = mainContent;
   
-  // Step 5: Convert HTML to readable text with structure preservation
-  
-  // Convert headings to markdown-style (preserve structure)
-  text = text.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, '\n\n# $1\n\n');
-  text = text.replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, '\n\n## $1\n\n');
-  text = text.replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, '\n\n### $1\n\n');
-  text = text.replace(/<h4[^>]*>([\s\S]*?)<\/h4>/gi, '\n\n#### $1\n\n');
-  text = text.replace(/<h5[^>]*>([\s\S]*?)<\/h5>/gi, '\n\n##### $1\n\n');
-  text = text.replace(/<h6[^>]*>([\s\S]*?)<\/h6>/gi, '\n\n###### $1\n\n');
-  
-  // Convert paragraphs and line breaks
+  // Add newlines for block elements
+  text = text.replace(/<\/h[1-6]>/gi, '\n\n');
+  text = text.replace(/<h[1-6][^>]*>/gi, '\n\n');
   text = text.replace(/<\/p>/gi, '\n\n');
   text = text.replace(/<p[^>]*>/gi, '');
   text = text.replace(/<br\s*\/?>/gi, '\n');
@@ -375,58 +336,20 @@ function htmlToReadableText(html: string): string {
   text = text.replace(/<section[^>]*>/gi, '');
   text = text.replace(/<\/article>/gi, '\n\n');
   text = text.replace(/<article[^>]*>/gi, '');
+  text = text.replace(/<\/li>/gi, '\n');
+  text = text.replace(/<li[^>]*>/gi, '• ');
+  text = text.replace(/<\/tr>/gi, '\n');
+  text = text.replace(/<\/td>/gi, ' | ');
+  text = text.replace(/<\/th>/gi, ' | ');
+  text = text.replace(/<\/dt>/gi, ': ');
+  text = text.replace(/<\/dd>/gi, '\n');
   
-  // Convert list items
-  text = text.replace(/<ul[^>]*>/gi, '\n');
-  text = text.replace(/<\/ul>/gi, '\n');
-  text = text.replace(/<ol[^>]*>/gi, '\n');
-  text = text.replace(/<\/ol>/gi, '\n');
-  text = text.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, '• $1\n');
-  
-  // Convert definition lists (often used for product specs)
-  text = text.replace(/<dl[^>]*>/gi, '\n');
-  text = text.replace(/<\/dl>/gi, '\n');
-  text = text.replace(/<dt[^>]*>([\s\S]*?)<\/dt>/gi, '\n**$1**: ');
-  text = text.replace(/<dd[^>]*>([\s\S]*?)<\/dd>/gi, '$1\n');
-  
-  // Convert tables to simple text
-  text = text.replace(/<table[^>]*>/gi, '\n');
-  text = text.replace(/<\/table>/gi, '\n');
-  text = text.replace(/<thead[^>]*>/gi, '');
-  text = text.replace(/<\/thead>/gi, '');
-  text = text.replace(/<tbody[^>]*>/gi, '');
-  text = text.replace(/<\/tbody>/gi, '');
-  text = text.replace(/<tr[^>]*>/gi, '\n');
-  text = text.replace(/<\/tr>/gi, '');
-  text = text.replace(/<td[^>]*>([\s\S]*?)<\/td>/gi, ' $1 |');
-  text = text.replace(/<th[^>]*>([\s\S]*?)<\/th>/gi, ' **$1** |');
-  
-  // Extract link text
-  text = text.replace(/<a[^>]*>([\s\S]*?)<\/a>/gi, '$1');
-  
-  // Convert strong/bold
-  text = text.replace(/<(?:strong|b)[^>]*>([\s\S]*?)<\/(?:strong|b)>/gi, '**$1**');
-  
-  // Convert emphasis/italic  
-  text = text.replace(/<(?:em|i)[^>]*>([\s\S]*?)<\/(?:em|i)>/gi, '*$1*');
-  
-  // Convert blockquotes
-  text = text.replace(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi, '\n> $1\n');
-  
-  // Convert spans (just extract text)
-  text = text.replace(/<span[^>]*>([\s\S]*?)<\/span>/gi, '$1');
-  
-  // Convert buttons (extract text, they often have important labels)
-  text = text.replace(/<button[^>]*>([\s\S]*?)<\/button>/gi, ' $1 ');
-  
-  // Convert labels
-  text = text.replace(/<label[^>]*>([\s\S]*?)<\/label>/gi, '$1');
-  
-  // Remove all remaining HTML tags
+  // Remove all remaining HTML tags but keep their text content
   text = text.replace(/<[^>]+>/g, ' ');
   
   // Decode HTML entities
-  text = text.replace(/&nbsp;/g, ' ')
+  text = text
+    .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
@@ -441,21 +364,12 @@ function htmlToReadableText(html: string): string {
     .replace(/&#(\d+);/g, (_, num) => String.fromCharCode(parseInt(num)))
     .replace(/&[a-z]+;/gi, ' ');
   
-  // Clean up whitespace while preserving paragraph breaks
+  // Clean up whitespace
   text = text.replace(/[ \t]+/g, ' ');
   text = text.replace(/\n\s*\n\s*\n/g, '\n\n');
   text = text.trim();
   
-  // Step 6: Light cleanup - remove only the most obvious UI garbage
-  // But keep product descriptions, prices can be useful context, etc.
-  text = text.replace(/In den Warenkorb/gi, '');
-  text = text.replace(/Auf die Merkliste/gi, '');
-  text = text.replace(/Zur Wunschliste hinzufügen/gi, '');
-  text = text.replace(/Jetzt kaufen/gi, '');
-  text = text.replace(/Weiterlesen/gi, '');
-  text = text.replace(/Mehr erfahren/gi, '');
-  text = text.replace(/Cookie.*?akzeptieren/gi, '');
-  text = text.replace(/Alle Cookies akzeptieren/gi, '');
+  console.log('Final text extraction:', text.length, 'chars');
   
   return text;
 }
