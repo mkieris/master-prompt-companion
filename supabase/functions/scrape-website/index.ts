@@ -83,9 +83,15 @@ async function scrapeSinglePage(url: string, apiKey: string) {
     }
     
     // Step 2: If content looks like SPA or is insufficient, use Puppeteer
-    const needsJsRendering = html.length < 1000 || textContent.length < 200 || 
+    // Higher threshold to ensure we get complete content
+    const needsJsRendering = html.length < 1000 || textContent.length < 500 || 
       (html.includes('__NEXT_DATA__') || html.includes('window.__INITIAL_STATE__') || 
-       html.includes('id="root"') || html.includes('id="app"'));
+       html.includes('id="root"') || html.includes('id="app"') ||
+       // Check for lazy-loaded content indicators
+       html.includes('data-lazy') || html.includes('loading="lazy"') ||
+       // Check for tabs/accordions that might have hidden content
+       html.includes('tab-content') || html.includes('accordion') ||
+       html.includes('collapse'));
     
     if (needsJsRendering) {
       console.log('Step 2: Content appears to need JS rendering, using Puppeteer...');
@@ -271,13 +277,13 @@ async function scrapeWithPuppeteer(url: string, apiKey: string): Promise<{ html:
   }
 }
 
-// Helper function to convert HTML to readable text - INTELLIGENTE Content-Extraktion (wie SEO-Check)
+// Helper function to convert HTML to readable text - MAXIMALE Content-Extraktion
 function htmlToReadableText(html: string): string {
   if (!html) return '';
   
   let workingHtml = html;
   
-  // Step 1: Remove non-content elements completely
+  // Step 1: Remove ONLY truly non-content elements (minimal removal)
   workingHtml = workingHtml.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
   workingHtml = workingHtml.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
   workingHtml = workingHtml.replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, '');
@@ -285,66 +291,68 @@ function htmlToReadableText(html: string): string {
   workingHtml = workingHtml.replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, '');
   workingHtml = workingHtml.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
   
-  // Remove form elements
-  workingHtml = workingHtml.replace(/<form\b[^<]*(?:(?!<\/form>)<[^<]*)*<\/form>/gi, '');
+  // Remove only input elements, NOT buttons (they might have text) or forms (they contain descriptions)
   workingHtml = workingHtml.replace(/<input[^>]*>/gi, '');
-  workingHtml = workingHtml.replace(/<button\b[^<]*(?:(?!<\/button>)<[^<]*)*<\/button>/gi, '');
   workingHtml = workingHtml.replace(/<select\b[^<]*(?:(?!<\/select>)<[^<]*)*<\/select>/gi, '');
   
-  // Step 2: Try to extract main content area first (SAME AS SEO-CHECK!)
+  // Step 2: Extract ALL content from main areas - use GREEDY matching for complete content
   let mainContent = '';
   
-  // Priority 1: Look for <main> tag
-  const mainMatch = workingHtml.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
+  // Priority 1: Look for <main> tag - use GREEDY match to get everything
+  const mainMatch = workingHtml.match(/<main[^>]*>([\s\S]*)<\/main>/i);
   if (mainMatch && mainMatch[1].length > 500) {
     mainContent = mainMatch[1];
-    console.log('Found <main> tag with content:', mainContent.length, 'chars');
+    console.log('Found <main> tag with FULL content:', mainContent.length, 'chars');
   }
   
-  // Priority 2: Look for <article> tag
-  if (!mainContent) {
-    const articleMatch = workingHtml.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
-    if (articleMatch && articleMatch[1].length > 500) {
-      mainContent = articleMatch[1];
-      console.log('Found <article> tag with content:', mainContent.length, 'chars');
+  // Priority 2: Look for <article> tags - collect ALL of them
+  if (!mainContent || mainContent.length < 1000) {
+    const articleMatches = workingHtml.matchAll(/<article[^>]*>([\s\S]*?)<\/article>/gi);
+    let articles = '';
+    for (const match of articleMatches) {
+      articles += match[1] + '\n\n';
+    }
+    if (articles.length > (mainContent?.length || 0)) {
+      mainContent = articles;
+      console.log('Found <article> tags with content:', mainContent.length, 'chars');
     }
   }
   
-  // Priority 3: Look for content containers by class/id
-  if (!mainContent) {
-    const contentPatterns = [
-      /<div[^>]*(?:class|id)=["'][^"']*(?:product-description|product-detail|product-info|product-content)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
-      /<div[^>]*(?:class|id)=["'][^"']*(?:content|main|article|post|entry|page-content|main-content)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
-      /<section[^>]*(?:class|id)=["'][^"']*(?:content|main|article|product)[^"']*["'][^>]*>([\s\S]*?)<\/section>/i,
+  // Priority 3: Look for multiple content sections - COLLECT ALL, don't stop at first
+  if (!mainContent || mainContent.length < 1000) {
+    const contentSelectors = [
+      // Product page specific selectors
+      /class=["'][^"']*(?:product-description|cms-content|description-text|product-detail-description)[^"']*["']/gi,
+      /class=["'][^"']*(?:product-info|product-content|product-text)[^"']*["']/gi,
+      // Generic content selectors
+      /class=["'][^"']*(?:content-section|text-content|main-content|page-content)[^"']*["']/gi,
     ];
     
-    for (const pattern of contentPatterns) {
-      const match = workingHtml.match(pattern);
-      if (match && match[1].length > 300) {
-        mainContent = match[1];
-        console.log('Found content container with:', mainContent.length, 'chars');
-        break;
+    // Try to find all sections with these classes
+    let combinedContent = mainContent || '';
+    for (const selector of contentSelectors) {
+      const sectionRegex = new RegExp(`<(?:div|section)[^>]*${selector.source}[^>]*>([\\s\\S]*?)<\\/(?:div|section)>`, 'gi');
+      const matches = workingHtml.matchAll(sectionRegex);
+      for (const match of matches) {
+        if (match[1] && match[1].length > 100) {
+          combinedContent += '\n\n' + match[1];
+        }
       }
+    }
+    if (combinedContent.length > (mainContent?.length || 0)) {
+      mainContent = combinedContent;
     }
   }
   
-  // Priority 4: Extract body and remove nav/header/footer/aside
-  if (!mainContent) {
+  // Priority 4: If still not enough, get BODY content
+  if (!mainContent || mainContent.length < 500) {
     const bodyMatch = workingHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i);
     mainContent = bodyMatch ? bodyMatch[1] : workingHtml;
-    console.log('Fallback to body content:', mainContent.length, 'chars');
+    console.log('Fallback to full body content:', mainContent.length, 'chars');
   }
   
-  // Always remove navigation elements from the content we're working with
-  mainContent = mainContent.replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, '');
-  mainContent = mainContent.replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, '');
-  mainContent = mainContent.replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, '');
-  mainContent = mainContent.replace(/<aside\b[^<]*(?:(?!<\/aside>)<[^<]*)*<\/aside>/gi, '');
-  
-  // Remove common non-content elements by class
-  mainContent = mainContent.replace(/<[^>]*class=["'][^"']*(?:nav|menu|sidebar|footer|header|breadcrumb|cookie|popup|modal|advertisement|social-share|share-buttons|related-posts|newsletter|cart|wishlist|toolbar)[^"']*["'][^>]*>[\s\S]*?<\/[^>]+>/gi, '');
-  
-  // Step 3: Convert remaining HTML to readable text
+  // Step 3: Remove ONLY navigation, NOT headers/footers (they might have useful info)
+  // Step 4: Convert remaining HTML to readable text
   let text = mainContent;
   
   // Step 5: Convert HTML to readable text with structure preservation
