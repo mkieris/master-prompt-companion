@@ -271,19 +271,13 @@ async function scrapeWithPuppeteer(url: string, apiKey: string): Promise<{ html:
   }
 }
 
-// Helper function to convert HTML to readable text - MAXIMALE Content-Extraktion
+// Helper function to convert HTML to readable text - INTELLIGENTE Content-Extraktion (wie SEO-Check)
 function htmlToReadableText(html: string): string {
   if (!html) return '';
   
   let workingHtml = html;
   
-  // Step 1: Extract body content if present
-  const bodyMatch = workingHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-  if (bodyMatch) {
-    workingHtml = bodyMatch[1];
-  }
-  
-  // Step 2: Remove ONLY truly non-content elements (be conservative!)
+  // Step 1: Remove non-content elements completely
   workingHtml = workingHtml.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
   workingHtml = workingHtml.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
   workingHtml = workingHtml.replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, '');
@@ -291,20 +285,67 @@ function htmlToReadableText(html: string): string {
   workingHtml = workingHtml.replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, '');
   workingHtml = workingHtml.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
   
-  // Remove only input elements, NOT forms (forms may contain important text)
+  // Remove form elements
+  workingHtml = workingHtml.replace(/<form\b[^<]*(?:(?!<\/form>)<[^<]*)*<\/form>/gi, '');
   workingHtml = workingHtml.replace(/<input[^>]*>/gi, '');
+  workingHtml = workingHtml.replace(/<button\b[^<]*(?:(?!<\/button>)<[^<]*)*<\/button>/gi, '');
   workingHtml = workingHtml.replace(/<select\b[^<]*(?:(?!<\/select>)<[^<]*)*<\/select>/gi, '');
-  workingHtml = workingHtml.replace(/<textarea\b[^<]*(?:(?!<\/textarea>)<[^<]*)*<\/textarea>/gi, '');
   
-  // Step 3: Remove ONLY navigation elements (NOT header/footer - they often contain important content!)
-  workingHtml = workingHtml.replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, '');
+  // Step 2: Try to extract main content area first (SAME AS SEO-CHECK!)
+  let mainContent = '';
   
-  // Remove elements by specific class names that are typically non-content
-  workingHtml = workingHtml.replace(/<[^>]*class=["'][^"']*(?:cookie-banner|cookie-consent|popup|modal|advertisement|ad-banner|social-share|share-buttons|newsletter-signup)[^"']*["'][^>]*>[\s\S]*?<\/[^>]+>/gi, '');
+  // Priority 1: Look for <main> tag
+  const mainMatch = workingHtml.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
+  if (mainMatch && mainMatch[1].length > 500) {
+    mainContent = mainMatch[1];
+    console.log('Found <main> tag with content:', mainContent.length, 'chars');
+  }
   
-  // Step 4: DO NOT filter to main/article - use ALL content from body
-  // This ensures we don't miss product descriptions, tabs, accordions, etc.
-  let text = workingHtml;
+  // Priority 2: Look for <article> tag
+  if (!mainContent) {
+    const articleMatch = workingHtml.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+    if (articleMatch && articleMatch[1].length > 500) {
+      mainContent = articleMatch[1];
+      console.log('Found <article> tag with content:', mainContent.length, 'chars');
+    }
+  }
+  
+  // Priority 3: Look for content containers by class/id
+  if (!mainContent) {
+    const contentPatterns = [
+      /<div[^>]*(?:class|id)=["'][^"']*(?:product-description|product-detail|product-info|product-content)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
+      /<div[^>]*(?:class|id)=["'][^"']*(?:content|main|article|post|entry|page-content|main-content)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
+      /<section[^>]*(?:class|id)=["'][^"']*(?:content|main|article|product)[^"']*["'][^>]*>([\s\S]*?)<\/section>/i,
+    ];
+    
+    for (const pattern of contentPatterns) {
+      const match = workingHtml.match(pattern);
+      if (match && match[1].length > 300) {
+        mainContent = match[1];
+        console.log('Found content container with:', mainContent.length, 'chars');
+        break;
+      }
+    }
+  }
+  
+  // Priority 4: Extract body and remove nav/header/footer/aside
+  if (!mainContent) {
+    const bodyMatch = workingHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+    mainContent = bodyMatch ? bodyMatch[1] : workingHtml;
+    console.log('Fallback to body content:', mainContent.length, 'chars');
+  }
+  
+  // Always remove navigation elements from the content we're working with
+  mainContent = mainContent.replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, '');
+  mainContent = mainContent.replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, '');
+  mainContent = mainContent.replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, '');
+  mainContent = mainContent.replace(/<aside\b[^<]*(?:(?!<\/aside>)<[^<]*)*<\/aside>/gi, '');
+  
+  // Remove common non-content elements by class
+  mainContent = mainContent.replace(/<[^>]*class=["'][^"']*(?:nav|menu|sidebar|footer|header|breadcrumb|cookie|popup|modal|advertisement|social-share|share-buttons|related-posts|newsletter|cart|wishlist|toolbar)[^"']*["'][^>]*>[\s\S]*?<\/[^>]+>/gi, '');
+  
+  // Step 3: Convert remaining HTML to readable text
+  let text = mainContent;
   
   // Step 5: Convert HTML to readable text with structure preservation
   
