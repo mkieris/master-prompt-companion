@@ -389,57 +389,160 @@ serve(async (req) => {
   }
 });
 
-// Helper function to convert HTML to readable text (similar to Firecrawl's markdown output)
+// Helper function to convert HTML to readable text - focused on main content
 function htmlToReadableText(html: string): string {
-  // Remove script and style tags completely
-  let text = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-  text = text.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+  let workingHtml = html;
+  
+  // Step 1: Remove non-content elements completely
+  // Remove script and style tags
+  workingHtml = workingHtml.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+  workingHtml = workingHtml.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+  workingHtml = workingHtml.replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, '');
   
   // Remove HTML comments
-  text = text.replace(/<!--[\s\S]*?-->/g, '');
+  workingHtml = workingHtml.replace(/<!--[\s\S]*?-->/g, '');
   
-  // Convert headings to markdown-style
-  text = text.replace(/<h1[^>]*>(.*?)<\/h1>/gi, '\n# $1\n');
-  text = text.replace(/<h2[^>]*>(.*?)<\/h2>/gi, '\n## $1\n');
-  text = text.replace(/<h3[^>]*>(.*?)<\/h3>/gi, '\n### $1\n');
-  text = text.replace(/<h4[^>]*>(.*?)<\/h4>/gi, '\n#### $1\n');
-  text = text.replace(/<h5[^>]*>(.*?)<\/h5>/gi, '\n##### $1\n');
-  text = text.replace(/<h6[^>]*>(.*?)<\/h6>/gi, '\n###### $1\n');
+  // Remove SVG elements (often icons/logos)
+  workingHtml = workingHtml.replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, '');
   
-  // Convert paragraphs and divs to new lines
+  // Remove form elements
+  workingHtml = workingHtml.replace(/<form\b[^<]*(?:(?!<\/form>)<[^<]*)*<\/form>/gi, '');
+  workingHtml = workingHtml.replace(/<input[^>]*>/gi, '');
+  workingHtml = workingHtml.replace(/<button\b[^<]*(?:(?!<\/button>)<[^<]*)*<\/button>/gi, '');
+  
+  // Step 2: Try to extract main content area first
+  let mainContent = '';
+  
+  // Priority 1: Look for <main> tag
+  const mainMatch = workingHtml.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
+  if (mainMatch && mainMatch[1].length > 500) {
+    mainContent = mainMatch[1];
+  }
+  
+  // Priority 2: Look for <article> tag
+  if (!mainContent) {
+    const articleMatch = workingHtml.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+    if (articleMatch && articleMatch[1].length > 500) {
+      mainContent = articleMatch[1];
+    }
+  }
+  
+  // Priority 3: Look for content containers by class/id
+  if (!mainContent) {
+    const contentPatterns = [
+      /<div[^>]*(?:class|id)=["'][^"']*(?:content|main|article|post|entry|page-content|main-content)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
+      /<section[^>]*(?:class|id)=["'][^"']*(?:content|main|article)[^"']*["'][^>]*>([\s\S]*?)<\/section>/i,
+    ];
+    
+    for (const pattern of contentPatterns) {
+      const match = workingHtml.match(pattern);
+      if (match && match[1].length > 500) {
+        mainContent = match[1];
+        break;
+      }
+    }
+  }
+  
+  // Priority 4: Remove nav/header/footer/aside and use what's left
+  if (!mainContent) {
+    mainContent = workingHtml;
+  }
+  
+  // Always remove navigation elements from the content we're working with
+  mainContent = mainContent.replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, '');
+  mainContent = mainContent.replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, '');
+  mainContent = mainContent.replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, '');
+  mainContent = mainContent.replace(/<aside\b[^<]*(?:(?!<\/aside>)<[^<]*)*<\/aside>/gi, '');
+  
+  // Remove common non-content elements by class
+  mainContent = mainContent.replace(/<[^>]*class=["'][^"']*(?:nav|menu|sidebar|footer|header|breadcrumb|cookie|popup|modal|advertisement|social-share|share-buttons|related-posts|newsletter)[^"']*["'][^>]*>[\s\S]*?<\/[^>]+>/gi, '');
+  
+  // Step 3: Convert remaining HTML to readable text
+  let text = mainContent;
+  
+  // Convert headings to markdown-style (preserve for analysis)
+  text = text.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, '\n\n# $1\n\n');
+  text = text.replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, '\n\n## $1\n\n');
+  text = text.replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, '\n\n### $1\n\n');
+  text = text.replace(/<h4[^>]*>([\s\S]*?)<\/h4>/gi, '\n\n#### $1\n\n');
+  text = text.replace(/<h5[^>]*>([\s\S]*?)<\/h5>/gi, '\n\n##### $1\n\n');
+  text = text.replace(/<h6[^>]*>([\s\S]*?)<\/h6>/gi, '\n\n###### $1\n\n');
+  
+  // Convert paragraphs and line breaks
   text = text.replace(/<\/p>/gi, '\n\n');
-  text = text.replace(/<\/div>/gi, '\n');
+  text = text.replace(/<p[^>]*>/gi, '');
   text = text.replace(/<br\s*\/?>/gi, '\n');
+  text = text.replace(/<\/div>/gi, '\n');
+  text = text.replace(/<div[^>]*>/gi, '');
   
   // Convert list items
-  text = text.replace(/<li[^>]*>/gi, '\n• ');
-  text = text.replace(/<\/li>/gi, '');
+  text = text.replace(/<ul[^>]*>/gi, '\n');
+  text = text.replace(/<\/ul>/gi, '\n');
+  text = text.replace(/<ol[^>]*>/gi, '\n');
+  text = text.replace(/<\/ol>/gi, '\n');
+  text = text.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, '• $1\n');
+  
+  // Convert tables to simple text
+  text = text.replace(/<tr[^>]*>/gi, '\n');
+  text = text.replace(/<\/tr>/gi, '');
+  text = text.replace(/<td[^>]*>/gi, ' | ');
+  text = text.replace(/<\/td>/gi, '');
+  text = text.replace(/<th[^>]*>/gi, ' | ');
+  text = text.replace(/<\/th>/gi, '');
+  
+  // Extract link text (keep link content, remove href)
+  text = text.replace(/<a[^>]*>([\s\S]*?)<\/a>/gi, '$1');
+  
+  // Convert strong/bold
+  text = text.replace(/<(?:strong|b)[^>]*>([\s\S]*?)<\/(?:strong|b)>/gi, '**$1**');
+  
+  // Convert emphasis/italic  
+  text = text.replace(/<(?:em|i)[^>]*>([\s\S]*?)<\/(?:em|i)>/gi, '*$1*');
   
   // Remove all remaining HTML tags
   text = text.replace(/<[^>]+>/g, ' ');
   
   // Decode HTML entities
-  text = text.replace(/&nbsp;/g, ' ');
-  text = text.replace(/&amp;/g, '&');
-  text = text.replace(/&lt;/g, '<');
-  text = text.replace(/&gt;/g, '>');
-  text = text.replace(/&quot;/g, '"');
-  text = text.replace(/&#39;/g, "'");
-  text = text.replace(/&auml;/g, 'ä');
-  text = text.replace(/&ouml;/g, 'ö');
-  text = text.replace(/&uuml;/g, 'ü');
-  text = text.replace(/&Auml;/g, 'Ä');
-  text = text.replace(/&Ouml;/g, 'Ö');
-  text = text.replace(/&Uuml;/g, 'Ü');
-  text = text.replace(/&szlig;/g, 'ß');
-  text = text.replace(/&#(\d+);/g, (_, num) => String.fromCharCode(parseInt(num)));
+  text = decodeHtmlEntities(text);
   
   // Clean up whitespace
-  text = text.replace(/\s+/g, ' ');
-  text = text.replace(/\n\s+/g, '\n');
-  text = text.replace(/\n{3,}/g, '\n\n');
+  text = text.replace(/[ \t]+/g, ' '); // Multiple spaces/tabs to single space
+  text = text.replace(/\n[ \t]+/g, '\n'); // Remove leading whitespace from lines
+  text = text.replace(/[ \t]+\n/g, '\n'); // Remove trailing whitespace from lines
+  text = text.replace(/\n{3,}/g, '\n\n'); // Max 2 newlines
+  text = text.replace(/^\s+|\s+$/g, ''); // Trim
   
-  return text.trim();
+  return text;
+}
+
+// Helper to decode HTML entities
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&auml;/g, 'ä')
+    .replace(/&ouml;/g, 'ö')
+    .replace(/&uuml;/g, 'ü')
+    .replace(/&Auml;/g, 'Ä')
+    .replace(/&Ouml;/g, 'Ö')
+    .replace(/&Uuml;/g, 'Ü')
+    .replace(/&szlig;/g, 'ß')
+    .replace(/&euro;/g, '€')
+    .replace(/&copy;/g, '©')
+    .replace(/&reg;/g, '®')
+    .replace(/&trade;/g, '™')
+    .replace(/&mdash;/g, '—')
+    .replace(/&ndash;/g, '–')
+    .replace(/&hellip;/g, '…')
+    .replace(/&laquo;/g, '«')
+    .replace(/&raquo;/g, '»')
+    .replace(/&#(\d+);/g, (_, num) => String.fromCharCode(parseInt(num)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
 }
 
 // Helper function to extract metadata from HTML
