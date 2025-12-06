@@ -84,6 +84,7 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
   const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
   const [showProcessFlow, setShowProcessFlow] = useState(true);
+  const [showDebugPrompt, setShowDebugPrompt] = useState(false);
   const [keywordInput, setKeywordInput] = useState("");
 
   const [formData, setFormData] = useState<FormData>({
@@ -154,6 +155,59 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
         ? formData.searchIntent.filter((i) => i !== intent)
         : [...formData.searchIntent, intent],
     });
+  };
+
+  // Build preview of User-Prompt (mirrors backend buildUserPrompt logic)
+  const buildUserPromptPreview = () => {
+    const intentMap: Record<string, string> = {
+      'know': 'Know (Informationssuche)',
+      'do': 'Do (Transaktional)',
+      'buy': 'Buy (Kaufabsicht)',
+      'go': 'Go (Navigation)'
+    };
+    const densityMap: Record<string, string> = {
+      'low': 'Niedrig (1-2%)',
+      'medium': 'Mittel (2-3%)',
+      'high': 'Hoch (3-4%)'
+    };
+    const lengthMap: Record<string, string> = {
+      'short': '~400 Wörter',
+      'medium': '~800 Wörter',
+      'long': '~1200 Wörter'
+    };
+
+    let prompt = '=== GRUNDINFORMATIONEN ===\n';
+    if (formData.manufacturerInfo) prompt += `Info: ${formData.manufacturerInfo.substring(0, 200)}...\n`;
+    if (formData.additionalInfo) prompt += `USPs: ${formData.additionalInfo}\n`;
+    
+    prompt += '\n=== ZIELGRUPPE ===\n';
+    prompt += `Audience: ${formData.targetAudience === 'endCustomers' ? 'B2C (Endkunden)' : 'B2B (Fachpersonal)'}\n`;
+    prompt += `Anrede: ${formData.formOfAddress}\n`;
+    prompt += `Tonalität: ${formData.tone}\n`;
+    
+    prompt += '\n=== SEO-STRUKTUR ===\n';
+    prompt += `Fokus-Keyword: ${formData.focusKeyword || '(nicht gesetzt)'}\n`;
+    if (formData.secondaryKeywords.length > 0) {
+      prompt += `Sekundär-Keywords: ${formData.secondaryKeywords.join(', ')}\n`;
+    }
+    if (formData.searchIntent.length > 0) {
+      prompt += `SUCHINTENTION: ${formData.searchIntent.map(i => intentMap[i] || i).join(', ')}\n`;
+      prompt += `WICHTIG: Struktur MUSS zur Suchintention passen!\n`;
+    }
+    prompt += `KEYWORD-DICHTE: ${densityMap[formData.keywordDensity]}\n`;
+    if (formData.wQuestions.length > 0) {
+      prompt += `W-FRAGEN (müssen beantwortet werden):\n${formData.wQuestions.map(q => `  - ${q}`).join('\n')}\n`;
+    }
+    prompt += `Wortanzahl: ${lengthMap[formData.contentLength]}\n`;
+    prompt += `Seitentyp: ${formData.pageType === 'product' ? 'Produktseite' : 'Kategorieseite'}\n`;
+    
+    prompt += '\n=== PROMPT-STRATEGIE ===\n';
+    prompt += `Version: ${formData.promptVersion}\n`;
+    
+    prompt += '\n=== AUFGABE ===\n';
+    prompt += 'Erstelle hochwertigen, SEO-optimierten Text der alle Vorgaben erfüllt.';
+    
+    return prompt;
   };
 
   const handleScrapeWebsite = async () => {
@@ -586,6 +640,36 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
                       rows={3}
                       className="text-sm"
                     />
+                  </CollapsibleContent>
+                </Collapsible>
+
+                {/* Debug Prompt Preview */}
+                <Collapsible open={showDebugPrompt} onOpenChange={setShowDebugPrompt}>
+                  <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+                    <Code className="h-4 w-4" />
+                    <span className="flex-1 text-left">Debug: User-Prompt Vorschau</span>
+                    <ChevronDown className={`h-4 w-4 transition-transform ${showDebugPrompt ? 'rotate-180' : ''}`} />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-3">
+                    <div className="bg-muted/50 border rounded-lg p-3 relative">
+                      <div className="absolute top-2 right-2 flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => copyToClipboard(buildUserPromptPreview(), "User-Prompt")}
+                        >
+                          {copiedSection === "User-Prompt" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                        </Button>
+                      </div>
+                      <pre className="text-xs font-mono whitespace-pre-wrap text-muted-foreground overflow-x-auto max-h-64 overflow-y-auto">
+                        {buildUserPromptPreview()}
+                      </pre>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                      <Info className="h-3 w-3" />
+                      Dies wird an die KI gesendet (+ System-Prompt je nach Strategie)
+                    </p>
                   </CollapsibleContent>
                 </Collapsible>
 
