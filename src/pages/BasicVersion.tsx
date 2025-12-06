@@ -172,6 +172,135 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
     });
   };
 
+  // Build preview of System-Prompt based on selected version
+  const buildSystemPromptPreview = () => {
+    const version = formData.promptVersion || 'v1-kompakt-seo';
+    
+    const systemPromptPreviews: Record<string, string> = {
+      'v1-kompakt-seo': `[v1-kompakt-seo: Technisch präzise]
+
+Du bist erfahrener SEO-Texter nach Google-Standards 2024/2025.
+
+TOP 10 KRITISCHE SEO-FAKTOREN:
+1. FOKUS-KEYWORD: MUSS in H1 und ersten 100 Wörtern
+2. H1-STRUKTUR: NUR EINE H1, max 60-70 Zeichen
+3. ABSATZLÄNGE: Max 300 Wörter pro Absatz
+4. E-E-A-T: Experience, Expertise, Authority, Trust
+5. TONALITÄT: ${formData.tone}
+6. ANREDEFORM: ${formData.formOfAddress}
+7. PEOPLE-FIRST: Echten Nutzen bieten
+8. HEADING-HIERARCHIE: H1→H2→H3
+9. AKTIVE SPRACHE: Max 15% Passiv
+10. FAQ: 5-8 relevante W-Fragen
+
+AUSGABE: JSON mit seoText, faq, title, metaDescription...`,
+
+      'v2-marketing-first': `[v2-marketing-first: Emotion > Technik]
+
+Du bist kreativer Marketing-Texter mit SEO-Kenntnissen.
+Priorität: BEGEISTERN, dann optimieren.
+
+MARKETING-FIRST PRINZIPIEN:
+1. HOOK: Emotionaler Aufhänger
+2. STORYTELLING: Geschichten & Szenarien
+3. NUTZEN-SPRACHE: "Du bekommst/profitierst"
+4. POWER-WORDS: revolutionär, erstaunlich, bewährt
+5. CONVERSATIONAL TONE: Authentisch, direkt
+6. VISUELLE SPRACHE: Metaphern, sensorische Details
+7. SOCIAL PROOF: Beispiele, Erfolgsgeschichten
+
+TONALITÄT: ${formData.tone} - aber IMMER fesselnd!`,
+
+      'v3-hybrid-intelligent': `[v3-hybrid-intelligent: Balance SEO + Marketing]
+
+Du kombinierst SEO-Expertise mit Marketing-Kreativität.
+
+ZWEI-SÄULEN-ANSATZ:
+SÄULE 1 - SEO-FUNDAMENT:
+- Keyword-Platzierung nach Best Practices
+- Strukturierte Überschriften-Hierarchie
+- E-E-A-T Signale
+
+SÄULE 2 - MARKETING-KREATIVITÄT:
+- Emotionale Hooks zum Einstieg
+- Nutzenorientierte Argumentation
+- Aktivierende CTAs
+
+TONALITÄT: ${formData.tone}`,
+
+      'v4-minimal-kreativ': `[v4-minimal-kreativ: Weniger Regeln, mehr Freiraum]
+
+Du bist erfahrener Content-Creator mit SEO-Verständnis.
+
+ESSENTIALS (nur das Wichtigste):
+- Fokus-Keyword natürlich integrieren
+- Klare Überschriften-Struktur
+- Leserfreundliche Absätze
+- TONALITÄT: ${formData.tone}
+
+KREATIVE FREIHEIT:
+- Experimentiere mit Formaten
+- Finde einzigartige Blickwinkel
+- Überrasche den Leser`,
+
+      'v5-ai-meta-optimiert': `[v5-ai-meta-optimiert: Selbstoptimierend]
+
+Du bist AI-Content-Spezialist mit Meta-Analyse-Fähigkeit.
+
+VOR DEM SCHREIBEN:
+1. Analysiere das Thema aus 3 Perspektiven
+2. Identifiziere die stärksten Argumente
+3. Plane die optimale Struktur
+
+WÄHREND DEM SCHREIBEN:
+- Prüfe jeden Absatz auf Mehrwert
+- Variiere Satzstrukturen bewusst
+- Integriere Keywords natürlich
+
+TONALITÄT: ${formData.tone}`,
+
+      'v6-quality-auditor': `[v6-quality-auditor: Anti-Fluff + AEO]
+
+Du bist "Senior SEO Editor & Quality Auditor".
+
+🚫 ANTI-FLUFF BLACKLIST (VERBOTEN!):
+- "In der heutigen digitalen Welt..."
+- "Es ist wichtig zu beachten..."
+- "Zusammenfassend lässt sich sagen..."
+- "Tauchen wir tiefer ein..."
+- "Ein entscheidender Faktor ist..."
+- "Es ist kein Geheimnis, dass..."
+- "Im Folgenden werden wir..."
+- "Abschließend lässt sich festhalten..."
+- "Bevor wir beginnen..."
+→ Jeden Satz ohne Mehrwert = LÖSCHEN!
+
+✅ AEO (Answer Engine Optimization):
+- Frage-H2? → Erster Satz = DIREKTE Antwort!
+- Featured Snippet Format: 40-60 Wörter
+
+📐 SKIMMABILITY:
+- Alle 3 Absätze: Bullets / Tabelle / Fettung
+- Wichtige Begriffe mit <b>-Tags
+- Variierte Satzlängen (Anti-KI-Monotonie)
+
+TONALITÄT: ${formData.tone}`,
+    };
+
+    // Check for historical versions
+    if (version.startsWith('v0-')) {
+      return `[${version}: Historische Version]
+
+⚠️ Historische Entwicklungsversion
+Diese Version wurde während der Entwicklungsphase erstellt.
+
+Hinweis: Im Backend wird auf v1-kompakt-seo zurückgefallen,
+da historische Versionen nicht vollständig implementiert sind.`;
+    }
+
+    return systemPromptPreviews[version] || systemPromptPreviews['v1-kompakt-seo'];
+  };
+
   // Build preview of User-Prompt (mirrors backend buildUserPrompt logic)
   const buildUserPromptPreview = () => {
     const intentMap: Record<string, string> = {
@@ -215,9 +344,6 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
     }
     prompt += `Wortanzahl: ${lengthMap[formData.contentLength]}\n`;
     prompt += `Seitentyp: ${formData.pageType === 'product' ? 'Produktseite' : 'Kategorieseite'}\n`;
-    
-    prompt += '\n=== PROMPT-STRATEGIE ===\n';
-    prompt += `Version: ${formData.promptVersion}\n`;
     
     prompt += '\n=== AUFGABE ===\n';
     prompt += 'Erstelle hochwertigen, SEO-optimierten Text der alle Vorgaben erfüllt.';
@@ -274,8 +400,9 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
     setIsLoading(true);
     setCurrentStep("generating");
     
-    // Log the complete form data and generated prompt
-    log('prompt', 'User-Prompt generiert', buildUserPromptPreview());
+    // Log the complete form data and both prompts
+    log('prompt', 'System-Prompt (Regeln & Rolle)', buildSystemPromptPreview());
+    log('prompt', 'User-Prompt (Auftrag & Inputs)', buildUserPromptPreview());
     log('form', 'Formular-Daten komplett', {
       focusKeyword: formData.focusKeyword,
       secondaryKeywords: formData.secondaryKeywords,
@@ -290,7 +417,10 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
     });
     
     const endTimer = logWithTimer('api', 'Content-Generierung');
-    log('api', 'generate-seo-content aufgerufen', { promptVersion: formData.promptVersion });
+    log('api', 'generate-seo-content aufgerufen', { 
+      promptVersion: formData.promptVersion,
+      hinweis: 'System-Prompt definiert WIE die AI arbeitet, User-Prompt definiert WAS generiert wird'
+    });
 
     try {
       const { data, error } = await supabase.functions.invoke("generate-seo-content", {
