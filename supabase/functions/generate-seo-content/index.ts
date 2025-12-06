@@ -532,8 +532,32 @@ function buildUserPrompt(formData: any, briefingContent: string): string {
   if (formData.secondaryKeywords && formData.secondaryKeywords.length > 0) {
     info += 'Sekundaer-Keywords: ' + formData.secondaryKeywords.join(', ') + '\n';
   }
+  
+  // Suchintention
+  if (formData.searchIntent && formData.searchIntent.length > 0) {
+    const intentMap: Record<string, string> = {
+      'know': 'Know (Informationssuche - Nutzer will lernen/verstehen)',
+      'do': 'Do (Transaktional - Nutzer will handeln/umsetzen)',
+      'buy': 'Buy (Kaufabsicht - Nutzer will kaufen)',
+      'go': 'Go (Navigation - Nutzer sucht bestimmte Seite/Ort)'
+    };
+    const intents = formData.searchIntent.map((i: string) => intentMap[i] || i).join(', ');
+    info += 'SUCHINTENTION: ' + intents + '\n';
+    info += 'WICHTIG: Struktur und Inhalt MUESSEN zur Suchintention passen!\n';
+  }
+  
+  // Keyword-Dichte
+  if (formData.keywordDensity) {
+    const densityMap: Record<string, string> = {
+      'low': 'Niedrig (1-2%) - natuerliche Integration',
+      'medium': 'Mittel (2-3%) - ausgewogene Praesenz',
+      'high': 'Hoch (3-4%) - starke Keyword-Praesenz'
+    };
+    info += 'KEYWORD-DICHTE: ' + (densityMap[formData.keywordDensity] || 'Mittel (2-3%)') + '\n';
+  }
+  
   if (formData.wQuestions && formData.wQuestions.length > 0) {
-    info += 'W-FRAGEN (MUESSEN beantwortet werden):\n' + formData.wQuestions.map((q: string) => '- ' + q).join('\n') + '\n';
+    info += 'W-FRAGEN (MUESSEN im Text beantwortet werden):\n' + formData.wQuestions.map((q: string) => '- ' + q).join('\n') + '\n';
   }
   info += 'Wortanzahl: ' + (formData.wordCount || 'medium') + '\n';
   info += 'Max Absatz: ' + maxPara + ' Woerter (STRIKT!)\n';
