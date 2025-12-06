@@ -65,12 +65,23 @@ interface FormData {
   promptVersion: string;
 }
 
+interface SeoTextContent {
+  type: string;
+  text?: string;
+  items?: string[];
+}
+
+interface SeoTextObject {
+  h1: string;
+  content: SeoTextContent[];
+}
+
 interface GeneratedContent {
-  seoText: string;
+  seoText: string | SeoTextObject;
   faq: Array<{ question: string; answer: string }>;
   title: string;
   metaDescription: string;
-  internalLinks: Array<{ url: string; anchorText: string }>;
+  internalLinks: Array<{ text: string; url: string } | { anchorText: string; url: string }>;
   technicalHints?: string;
   qualityReport?: any;
   guidelineValidation?: any;
@@ -340,8 +351,58 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
     return doc.body.textContent || '';
   };
 
+  // Convert seoText object to HTML string if needed
+  const getSeoTextHtml = (seoText: string | SeoTextObject): string => {
+    if (typeof seoText === 'string') {
+      return seoText;
+    }
+    
+    // Convert structured seoText object to HTML
+    let html = `<h1>${seoText.h1}</h1>\n`;
+    
+    for (const block of seoText.content || []) {
+      switch (block.type) {
+        case 'p':
+          html += `<p>${block.text || ''}</p>\n`;
+          break;
+        case 'h2':
+          html += `<h2>${block.text || ''}</h2>\n`;
+          break;
+        case 'h3':
+          html += `<h3>${block.text || ''}</h3>\n`;
+          break;
+        case 'ul':
+          html += '<ul>\n';
+          for (const item of block.items || []) {
+            html += `  <li>${item}</li>\n`;
+          }
+          html += '</ul>\n';
+          break;
+        case 'ol':
+          html += '<ol>\n';
+          for (const item of block.items || []) {
+            html += `  <li>${item}</li>\n`;
+          }
+          html += '</ol>\n';
+          break;
+        default:
+          if (block.text) {
+            html += `<p>${block.text}</p>\n`;
+          }
+      }
+    }
+    
+    return html;
+  };
+
+  // Get anchor text from link with either format
+  const getLinkAnchorText = (link: { text?: string; anchorText?: string; url: string }): string => {
+    return link.text || link.anchorText || '';
+  };
+
   const exportAsHtml = () => {
     if (!generatedContent) return;
+    const seoHtml = getSeoTextHtml(generatedContent.seoText);
     const htmlContent = `<!DOCTYPE html>
 <html lang="de">
 <head>
@@ -350,7 +411,7 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
   <meta name="description" content="${generatedContent.metaDescription}">
 </head>
 <body>
-  ${generatedContent.seoText}
+  ${seoHtml}
 </body>
 </html>`;
     
@@ -818,11 +879,11 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
                   <ScrollArea className="h-[calc(100vh-300px)] p-4">
                     <TabsContent value="text" className="mt-0">
                       <div className="flex justify-end mb-2">
-                        <CopyButton text={stripHtml(generatedContent.seoText)} section="SEO-Text" />
+                        <CopyButton text={stripHtml(getSeoTextHtml(generatedContent.seoText))} section="SEO-Text" />
                       </div>
                       <div 
                         className="prose prose-sm max-w-none dark:prose-invert"
-                        dangerouslySetInnerHTML={{ __html: generatedContent.seoText || '' }} 
+                        dangerouslySetInnerHTML={{ __html: getSeoTextHtml(generatedContent.seoText) }} 
                       />
                     </TabsContent>
 
@@ -866,20 +927,23 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
                     </TabsContent>
 
                     <TabsContent value="links" className="mt-0 space-y-3">
-                      {generatedContent.internalLinks?.map((link, index) => (
-                        <Card key={index} className="p-4">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <p className="font-medium text-sm">{link.anchorText}</p>
-                              <p className="text-xs text-muted-foreground mt-1">{link.url}</p>
+                      {generatedContent.internalLinks?.map((link, index) => {
+                        const anchorText = getLinkAnchorText(link);
+                        return (
+                          <Card key={index} className="p-4">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <p className="font-medium text-sm">{anchorText}</p>
+                                <p className="text-xs text-muted-foreground mt-1">{link.url}</p>
+                              </div>
+                              <CopyButton 
+                                text={`<a href="${link.url}">${anchorText}</a>`} 
+                                section={`Link ${index + 1}`} 
+                              />
                             </div>
-                            <CopyButton 
-                              text={`<a href="${link.url}">${link.anchorText}</a>`} 
-                              section={`Link ${index + 1}`} 
-                            />
-                          </div>
-                        </Card>
-                      ))}
+                          </Card>
+                        );
+                      })}
                       {(!generatedContent.internalLinks || generatedContent.internalLinks.length === 0) && (
                         <p className="text-sm text-muted-foreground text-center py-8">
                           Keine Link-Empfehlungen generiert
