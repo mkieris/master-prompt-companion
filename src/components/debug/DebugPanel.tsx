@@ -71,11 +71,15 @@ const EventItem = ({ event }: { event: DebugEvent }) => {
         )}
       </div>
       {hasDetails && isOpen && (
-        <pre className="mt-2 p-2 bg-muted/50 rounded text-[10px] overflow-x-auto max-h-40 overflow-y-auto">
-          {typeof event.details === 'string' 
-            ? event.details 
-            : JSON.stringify(event.details, null, 2)}
-        </pre>
+        <div className="mt-2 p-2 bg-muted/50 rounded border border-border/50">
+          <ScrollArea className="max-h-[300px] w-full">
+            <pre className="text-[11px] whitespace-pre-wrap break-words font-mono leading-relaxed">
+              {typeof event.details === 'string' 
+                ? event.details 
+                : JSON.stringify(event.details, null, 2)}
+            </pre>
+          </ScrollArea>
+        </div>
       )}
     </div>
   );
@@ -138,7 +142,7 @@ export const DebugPanel = () => {
 
   return (
     <div className="fixed bottom-4 right-4 z-50">
-      <Card className="bg-background/95 backdrop-blur-sm shadow-xl border-primary/20 w-96 max-h-[70vh] flex flex-col">
+      <Card className="bg-background/95 backdrop-blur-sm shadow-xl border-primary/20 w-[500px] max-h-[85vh] flex flex-col">
         <CardHeader className="p-3 border-b flex-row items-center justify-between">
           <div className="flex items-center gap-2">
             <Bug className="h-4 w-4 text-primary" />
@@ -186,7 +190,7 @@ export const DebugPanel = () => {
           })}
         </div>
 
-        <ScrollArea className="flex-1 max-h-80">
+        <ScrollArea className="flex-1 min-h-[200px] max-h-[60vh]">
           {filteredEvents.length === 0 ? (
             <div className="p-4 text-center text-muted-foreground text-sm">
               Keine Events protokolliert
