@@ -497,6 +497,12 @@ export const BasicForm = ({ onGenerate, isLoading }: BasicFormProps) => {
                         <span className="text-xs text-muted-foreground">Durch AI-Analyse optimiert</span>
                       </div>
                     </SelectItem>
+                    <SelectItem value="v6-quality-auditor">
+                      <div className="flex flex-col">
+                        <span className="font-medium">🔍 Quality-Auditor</span>
+                        <span className="text-xs text-muted-foreground">Anti-Fluff + AEO + Skimmability</span>
+                      </div>
+                    </SelectItem>
                     
                     <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mt-2 border-t">
                       📚 Historische Versionen

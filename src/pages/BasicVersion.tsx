@@ -699,6 +699,7 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
                       <SelectItem value="v3-hybrid-intelligent">v3: Hybrid (Balance)</SelectItem>
                       <SelectItem value="v4-minimal-kreativ">v4: Minimal-Kreativ</SelectItem>
                       <SelectItem value="v5-ai-meta-optimiert">v5: Meta-Optimiert</SelectItem>
+                      <SelectItem value="v6-quality-auditor">v6: Quality-Auditor (Anti-Fluff + AEO)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
