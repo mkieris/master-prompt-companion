@@ -14,13 +14,13 @@ serve(async (req) => {
   try {
     const { url, domainId, organizationId } = await req.json();
     
-    const APIFY_API_KEY = Deno.env.get('APIFY_API_KEY');
+    const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    if (!APIFY_API_KEY) {
-      throw new Error('APIFY_API_KEY is not configured');
+    if (!FIRECRAWL_API_KEY) {
+      throw new Error('FIRECRAWL_API_KEY is not configured');
     }
 
     if (!LOVABLE_API_KEY) {
@@ -29,99 +29,97 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    console.log('Starting domain crawl for:', url);
+    console.log('Starting domain crawl with Firecrawl for:', url);
 
     const parsedUrl = new URL(url);
     const basePath = parsedUrl.pathname !== '/' ? parsedUrl.pathname : undefined;
 
-    // Start Apify Website Content Crawler
-    const crawlResponse = await fetch('https://api.apify.com/v2/acts/apify~website-content-crawler/runs?token=' + APIFY_API_KEY, {
+    // Start Firecrawl crawl
+    const crawlResponse = await fetch('https://api.firecrawl.dev/v1/crawl', {
       method: 'POST',
       headers: {
+        'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        startUrls: [{ url }],
-        crawlerType: 'cheerio',
-        maxCrawlDepth: 5,
-        maxCrawlPages: 50,
-        includePaths: basePath ? [`${basePath}.*`] : undefined,
+        url: url,
+        limit: 50,
+        maxDepth: 5,
+        includePaths: basePath ? [basePath + '*'] : undefined,
         excludePaths: [
-          'impressum',
-          'datenschutz',
-          'agb',
-          'kontakt',
-          'cart',
-          'checkout',
-          'privacy',
-          'imprint',
-          'legal',
-          'terms',
-          'account',
-          'login',
+          '*impressum*', '*datenschutz*', '*agb*', '*kontakt*',
+          '*cart*', '*checkout*', '*privacy*', '*imprint*',
+          '*legal*', '*terms*', '*account*', '*login*',
         ],
-        initialCookies: [],
-        proxyConfiguration: { useApifyProxy: true },
-        readableTextCharThreshold: 100,
+        scrapeOptions: {
+          formats: ['markdown'],
+          onlyMainContent: true,
+        },
       }),
     });
 
     if (!crawlResponse.ok) {
       const errorData = await crawlResponse.json();
-      console.error('Apify error:', errorData);
-      
-      let errorMessage = 'Failed to start crawl';
-      if (errorData.error) {
-        errorMessage = errorData.error;
-      }
+      console.error('Firecrawl error:', errorData);
       
       await supabase
         .from('domain_knowledge')
         .update({ crawl_status: 'failed' })
         .eq('id', domainId);
 
-      throw new Error(errorMessage);
+      throw new Error(errorData.error || 'Failed to start crawl');
     }
 
     const crawlData = await crawlResponse.json();
-    const runId = crawlData.data.id;
-    console.log('Crawl started with run ID:', runId);
+    
+    if (!crawlData.success) {
+      throw new Error(crawlData.error || 'Failed to start crawl');
+    }
+
+    const jobId = crawlData.id;
+    console.log('Firecrawl crawl started with job ID:', jobId);
 
     // Poll for completion
     let crawlResult = null;
     let attempts = 0;
-    const maxAttempts = 60;
+    const maxAttempts = 90; // 3 minutes max
 
     while (attempts < maxAttempts) {
-      const statusResponse = await fetch(
-        `https://api.apify.com/v2/actor-runs/${runId}?token=${APIFY_API_KEY}`
-      );
-      const statusData = await statusResponse.json();
+      const statusResponse = await fetch(`https://api.firecrawl.dev/v1/crawl/${jobId}`, {
+        headers: {
+          'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
+        },
+      });
       
-      // Get partial results
-      const resultsResponse = await fetch(
-        `https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${APIFY_API_KEY}`
-      );
-      const results = await resultsResponse.json();
-      
-      console.log('Crawl status:', statusData.data.status, 'Pages:', results.length);
+      if (!statusResponse.ok) {
+        console.error('Status check failed:', statusResponse.status);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        attempts++;
+        continue;
+      }
 
-      // Update progress
+      const statusData = await statusResponse.json();
+      const pagesCompleted = statusData.completed || 0;
+      const totalPages = statusData.total || 0;
+      
+      console.log('Crawl status:', statusData.status, 'Pages:', pagesCompleted, '/', totalPages);
+
+      // Update progress in database
       await supabase
         .from('domain_knowledge')
         .update({ 
-          pages_crawled: results.length,
-          total_pages: results.length
+          pages_crawled: pagesCompleted,
+          total_pages: totalPages
         })
         .eq('id', domainId);
 
-      if (statusData.data.status === 'SUCCEEDED') {
-        crawlResult = results;
+      if (statusData.status === 'completed') {
+        crawlResult = statusData.data || [];
         break;
       }
 
-      if (statusData.data.status === 'FAILED' || statusData.data.status === 'ABORTED') {
-        throw new Error(`Crawl ${statusData.data.status.toLowerCase()}`);
+      if (statusData.status === 'failed') {
+        throw new Error('Crawl failed');
       }
 
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -138,9 +136,9 @@ serve(async (req) => {
     const allContent = crawlResult
       .map((page: any) => {
         const title = page.metadata?.title || 'Page';
-        const url = page.url || '';
-        const text = page.text || '';
-        return `### ${title}\nURL: ${url}\n\n${text}`;
+        const pageUrl = page.metadata?.sourceURL || page.url || '';
+        const text = page.markdown || '';
+        return `### ${title}\nURL: ${pageUrl}\n\n${text}`;
       })
       .join('\n\n---\n\n')
       .substring(0, 50000);
