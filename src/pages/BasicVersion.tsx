@@ -452,6 +452,23 @@ da historische Versionen nicht vollständig implementiert sind.`;
         hasMetaDescription: !!content?.metaDescription
       });
 
+      // Log the actual generated content for debugging
+      if (content?.title) {
+        log('response', 'Generierter Title', content.title);
+      }
+      if (content?.metaDescription) {
+        log('response', 'Generierte Meta-Description', content.metaDescription);
+      }
+      if (content?.seoText) {
+        const seoTextPreview = typeof content.seoText === 'string' 
+          ? content.seoText.substring(0, 500) + '...'
+          : JSON.stringify(content.seoText).substring(0, 500) + '...';
+        log('response', 'Generierter SEO-Text (Vorschau)', seoTextPreview);
+      }
+      if (content?.faq && content.faq.length > 0) {
+        log('response', 'Generierte FAQs', content.faq);
+      }
+
       setGeneratedContent(content);
       setCurrentStep("display");
       toast({ title: "Erfolgreich", description: "SEO-Content wurde generiert" });
