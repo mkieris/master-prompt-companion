@@ -15,6 +15,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ProcessFlowPanel } from "@/components/seo-generator/ProcessFlowPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useDebug } from "@/contexts/DebugContext";
 import type { Session } from "@supabase/supabase-js";
 import {
   ArrowLeft,
@@ -78,6 +79,7 @@ interface GeneratedContent {
 const BasicVersion = ({ session }: BasicVersionProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { log, logWithTimer } = useDebug();
   const [isLoading, setIsLoading] = useState(false);
   const [isScraping, setIsScraping] = useState(false);
   const [currentStep, setCurrentStep] = useState<string>("input");
@@ -116,9 +118,11 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
 
   const handleAddKeyword = () => {
     if (keywordInput.trim() && !formData.secondaryKeywords.includes(keywordInput.trim())) {
+      const newKeyword = keywordInput.trim();
+      log('form', 'Sekundär-Keyword hinzugefügt', { keyword: newKeyword });
       setFormData({
         ...formData,
-        secondaryKeywords: [...formData.secondaryKeywords, keywordInput.trim()],
+        secondaryKeywords: [...formData.secondaryKeywords, newKeyword],
       });
       setKeywordInput("");
     }
@@ -217,6 +221,9 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
     }
 
     setIsScraping(true);
+    const endTimer = logWithTimer('api', 'Website-Scraping');
+    log('api', 'scrape-website aufgerufen', { url: formData.manufacturerWebsite });
+    
     try {
       const { data, error } = await supabase.functions.invoke("scrape-website", {
         body: { url: formData.manufacturerWebsite, mode: "single" },
@@ -224,6 +231,12 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
 
       if (error) throw error;
 
+      log('response', 'scrape-website erfolgreich', { 
+        title: data.title, 
+        descriptionLength: data.description?.length,
+        contentLength: data.content?.length 
+      });
+      
       setFormData({
         ...formData,
         manufacturerInfo: `Titel: ${data.title || "N/A"}\n\nBeschreibung: ${data.description || "N/A"}\n\nInhalt:\n${data.content?.substring(0, 2000) || ""}`,
@@ -231,21 +244,42 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
 
       toast({ title: "Erfolgreich", description: "Website wurde analysiert" });
     } catch (error) {
+      log('error', 'scrape-website fehlgeschlagen', { error: String(error) });
       console.error("Scraping error:", error);
       toast({ title: "Fehler", description: "Website konnte nicht analysiert werden", variant: "destructive" });
     } finally {
+      endTimer();
       setIsScraping(false);
     }
   };
 
   const handleGenerate = async () => {
     if (!formData.focusKeyword.trim()) {
+      log('error', 'Validierung fehlgeschlagen', { reason: 'Fokus-Keyword fehlt' });
       toast({ title: "Fokus-Keyword erforderlich", variant: "destructive" });
       return;
     }
 
     setIsLoading(true);
     setCurrentStep("generating");
+    
+    // Log the complete form data and generated prompt
+    log('prompt', 'User-Prompt generiert', buildUserPromptPreview());
+    log('form', 'Formular-Daten komplett', {
+      focusKeyword: formData.focusKeyword,
+      secondaryKeywords: formData.secondaryKeywords,
+      wQuestions: formData.wQuestions,
+      searchIntent: formData.searchIntent,
+      keywordDensity: formData.keywordDensity,
+      pageType: formData.pageType,
+      targetAudience: formData.targetAudience,
+      formOfAddress: formData.formOfAddress,
+      contentLength: formData.contentLength,
+      promptVersion: formData.promptVersion,
+    });
+    
+    const endTimer = logWithTimer('api', 'Content-Generierung');
+    log('api', 'generate-seo-content aufgerufen', { promptVersion: formData.promptVersion });
 
     try {
       const { data, error } = await supabase.functions.invoke("generate-seo-content", {
@@ -253,22 +287,39 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
       });
 
       if (error) {
+        log('error', 'generate-seo-content Fehler', { error: error.message });
         toast({ title: "Fehler", description: error.message, variant: "destructive" });
         return;
       }
 
+      log('response', 'generate-seo-content erfolgreich', { 
+        hasVariants: !!data?.variants,
+        variantCount: data?.variants?.length,
+        selectedVariant: data?.selectedVariant 
+      });
+
       let content = data;
       if (data?.variants && Array.isArray(data.variants) && data.variants.length > 0) {
+        log('state', 'Variante ausgewählt', { index: 0, name: data.variants[0]?._variantInfo?.name });
         content = data.variants[0];
       }
+
+      log('response', 'Content-Struktur', { 
+        seoTextLength: content?.seoText?.length,
+        faqCount: content?.faq?.length,
+        hasTitle: !!content?.title,
+        hasMetaDescription: !!content?.metaDescription
+      });
 
       setGeneratedContent(content);
       setCurrentStep("display");
       toast({ title: "Erfolgreich", description: "SEO-Content wurde generiert" });
     } catch (error) {
+      log('error', 'generate-seo-content Exception', { error: String(error) });
       console.error("Error:", error);
       toast({ title: "Fehler", description: "Ein unerwarteter Fehler ist aufgetreten", variant: "destructive" });
     } finally {
+      endTimer();
       setIsLoading(false);
     }
   };
