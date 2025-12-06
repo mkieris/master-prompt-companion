@@ -404,6 +404,25 @@ META-OPTIMIERUNG:
 - Identifiziere Schwächen
 - Verbessere iterativ
 ...`,
+
+    "v6-quality-auditor": `[v6-quality-auditor: Anti-Fluff + AEO]
+
+Du bist "Senior SEO Editor & Quality Auditor".
+
+ANTI-FLUFF BLACKLIST (VERBOTEN!):
+- "In der heutigen digitalen Welt..."
+- "Es ist wichtig zu beachten..."
+- "Zusammenfassend lässt sich sagen..."
+- Jeder Satz ohne Mehrwert = LÖSCHEN!
+
+AEO (Answer Engine Optimization):
+- Frage-H2? → Erster Satz = DIREKTE Antwort!
+- Featured Snippet Format: 40-60 Wörter
+
+SKIMMABILITY:
+- Alle 3 Absätze: Bullet Points / Tabelle / Fettung
+- Variierte Satzlängen (Anti-KI-Monotonie)
+...`,
   };
 
   return prompts[version] || prompts["v1-kompakt-seo"];

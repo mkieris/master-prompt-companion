@@ -119,6 +119,12 @@ export const Step1InfoGathering = ({ data, onUpdate, onNext }: Step1Props) => {
       name: '🤖 AI-Meta-Optimiert',
       description: 'Durch AI-Analyse optimierte Content-Formel',
       emoji: '🤖'
+    },
+    {
+      id: 'v6-quality-auditor',
+      name: '🔍 Quality-Auditor',
+      description: 'Anti-Fluff Blacklist + AEO + Skimmability. Höchste Qualitätsstandards!',
+      emoji: '🔍'
     }
   ];
 

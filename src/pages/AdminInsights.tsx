@@ -37,7 +37,8 @@ const promptVersionNames: Record<string, string> = {
   'v2-marketing-first': '🚀 Marketing-First',
   'v3-hybrid-intelligent': '🧠 Hybrid-Intelligent',
   'v4-minimal-kreativ': '✨ Minimal-Kreativ',
-  'v5-ai-meta-optimiert': '🤖 AI-Meta-Optimiert'
+  'v5-ai-meta-optimiert': '🤖 AI-Meta-Optimiert',
+  'v6-quality-auditor': '🔍 Quality-Auditor'
 };
 
 export default function AdminInsights() {
