@@ -50,6 +50,9 @@ interface BasicVersionProps {
 interface FormData {
   focusKeyword: string;
   secondaryKeywords: string[];
+  wQuestions: string[];
+  searchIntent: ("know" | "do" | "buy" | "go")[];
+  keywordDensity: "low" | "medium" | "high";
   pageType: "product" | "category";
   targetAudience: "endCustomers" | "physiotherapists";
   formOfAddress: "du" | "sie" | "neutral";
@@ -86,6 +89,9 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
   const [formData, setFormData] = useState<FormData>({
     focusKeyword: "",
     secondaryKeywords: [],
+    wQuestions: [],
+    searchIntent: [],
+    keywordDensity: "medium",
     pageType: "product",
     targetAudience: "endCustomers",
     formOfAddress: "du",
@@ -96,6 +102,8 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
     additionalInfo: "",
     promptVersion: "v1-kompakt-seo",
   });
+  
+  const [wQuestionInput, setWQuestionInput] = useState("");
 
   useEffect(() => {
     if (!session) {
@@ -119,6 +127,32 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
     setFormData({
       ...formData,
       secondaryKeywords: formData.secondaryKeywords.filter((k) => k !== keyword),
+    });
+  };
+
+  const handleAddWQuestion = () => {
+    if (wQuestionInput.trim() && !formData.wQuestions.includes(wQuestionInput.trim())) {
+      setFormData({
+        ...formData,
+        wQuestions: [...formData.wQuestions, wQuestionInput.trim()],
+      });
+      setWQuestionInput("");
+    }
+  };
+
+  const handleRemoveWQuestion = (question: string) => {
+    setFormData({
+      ...formData,
+      wQuestions: formData.wQuestions.filter((q) => q !== question),
+    });
+  };
+
+  const toggleSearchIntent = (intent: "know" | "do" | "buy" | "go") => {
+    setFormData({
+      ...formData,
+      searchIntent: formData.searchIntent.includes(intent)
+        ? formData.searchIntent.filter((i) => i !== intent)
+        : [...formData.searchIntent, intent],
     });
   };
 
@@ -320,8 +354,71 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
                   )}
                 </div>
 
+                {/* W-Fragen */}
+                <div>
+                  <Label className="text-sm font-medium flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4" />
+                    W-Fragen
+                  </Label>
+                  <div className="flex gap-2 mt-1">
+                    <Input
+                      value={wQuestionInput}
+                      onChange={(e) => setWQuestionInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddWQuestion())}
+                      placeholder="z.B. Was ist Kinesiologie Tape?"
+                      className="flex-1"
+                    />
+                    <Button type="button" onClick={handleAddWQuestion} variant="outline" size="icon">
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {formData.wQuestions.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {formData.wQuestions.map((q) => (
+                        <Badge key={q} variant="outline" className="gap-1 pr-1 text-xs bg-accent/50">
+                          {q}
+                          <button onClick={() => handleRemoveWQuestion(q)} className="hover:text-destructive">
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Suchintention */}
+                <div>
+                  <Label className="text-sm font-medium">Suchintention</Label>
+                  <div className="grid grid-cols-4 gap-2 mt-1">
+                    {[
+                      { value: "know", label: "Know", icon: "📚" },
+                      { value: "do", label: "Do", icon: "⚡" },
+                      { value: "buy", label: "Buy", icon: "🛒" },
+                      { value: "go", label: "Go", icon: "📍" },
+                    ].map(({ value, label, icon }) => (
+                      <label
+                        key={value}
+                        className={`flex flex-col items-center justify-center p-2 border rounded-lg cursor-pointer transition-colors text-xs ${
+                          formData.searchIntent.includes(value as any)
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "hover:bg-muted"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="sr-only"
+                          checked={formData.searchIntent.includes(value as any)}
+                          onChange={() => toggleSearchIntent(value as any)}
+                        />
+                        <span className="text-base mb-0.5">{icon}</span>
+                        <span>{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Quick Settings Row */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <div>
                     <Label className="text-xs">Seitentyp</Label>
                     <Select 
@@ -350,6 +447,22 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
                         <SelectItem value="short">Kurz (~400)</SelectItem>
                         <SelectItem value="medium">Mittel (~800)</SelectItem>
                         <SelectItem value="long">Lang (~1200)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Keyword-Dichte</Label>
+                    <Select 
+                      value={formData.keywordDensity} 
+                      onValueChange={(v: "low" | "medium" | "high") => setFormData({ ...formData, keywordDensity: v })}
+                    >
+                      <SelectTrigger className="mt-1 h-9 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Niedrig (1-2%)</SelectItem>
+                        <SelectItem value="medium">Mittel (2-3%)</SelectItem>
+                        <SelectItem value="high">Hoch (3-4%)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
