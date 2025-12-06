@@ -71,14 +71,12 @@ const EventItem = ({ event }: { event: DebugEvent }) => {
         )}
       </div>
       {hasDetails && isOpen && (
-        <div className="mt-2 p-2 bg-muted/50 rounded border border-border/50">
-          <ScrollArea className="max-h-[300px] w-full">
-            <pre className="text-[11px] whitespace-pre-wrap break-words font-mono leading-relaxed">
-              {typeof event.details === 'string' 
-                ? event.details 
-                : JSON.stringify(event.details, null, 2)}
-            </pre>
-          </ScrollArea>
+        <div className="mt-2 p-2 bg-muted/50 rounded border border-border/50 max-h-[300px] overflow-y-auto">
+          <pre className="text-[11px] whitespace-pre-wrap break-words font-mono leading-relaxed">
+            {typeof event.details === 'string' 
+              ? event.details 
+              : JSON.stringify(event.details, null, 2)}
+          </pre>
         </div>
       )}
     </div>
@@ -142,8 +140,8 @@ export const DebugPanel = () => {
 
   return (
     <div className="fixed bottom-4 right-4 z-50">
-      <Card className="bg-background/95 backdrop-blur-sm shadow-xl border-primary/20 w-[500px] max-h-[85vh] flex flex-col">
-        <CardHeader className="p-3 border-b flex-row items-center justify-between">
+      <Card className="bg-background/95 backdrop-blur-sm shadow-xl border-primary/20 w-[500px] max-h-[85vh] flex flex-col overflow-hidden">
+        <CardHeader className="p-3 border-b flex-row items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-2">
             <Bug className="h-4 w-4 text-primary" />
             <CardTitle className="text-sm">Debug-Protokoll</CardTitle>
@@ -166,7 +164,7 @@ export const DebugPanel = () => {
         </CardHeader>
         
         {/* Filter Tabs */}
-        <div className="p-2 border-b flex gap-1 flex-wrap">
+        <div className="p-2 border-b flex gap-1 flex-wrap flex-shrink-0">
           <Badge 
             variant={filter === 'all' ? 'default' : 'outline'} 
             className="cursor-pointer text-[10px]"
@@ -190,7 +188,8 @@ export const DebugPanel = () => {
           })}
         </div>
 
-        <ScrollArea className="flex-1 min-h-[200px] max-h-[60vh]">
+        {/* Event List - Native scrolling */}
+        <div className="flex-1 overflow-y-auto min-h-[200px]">
           {filteredEvents.length === 0 ? (
             <div className="p-4 text-center text-muted-foreground text-sm">
               Keine Events protokolliert
@@ -202,7 +201,7 @@ export const DebugPanel = () => {
               ))}
             </div>
           )}
-        </ScrollArea>
+        </div>
       </Card>
     </div>
   );
