@@ -44,11 +44,16 @@ serve(async (req) => {
   }
 });
 
-// Single page scrape using Firecrawl
+// Single page scrape using Firecrawl with timeout
 async function scrapeSinglePage(url: string, apiKey: string) {
   console.log('Starting Firecrawl single-page scrape for:', url);
   
+  const TIMEOUT_MS = 30000; // 30 second timeout
+  
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    
     const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
       method: 'POST',
       headers: {
@@ -60,12 +65,15 @@ async function scrapeSinglePage(url: string, apiKey: string) {
         formats: ['markdown', 'html'],
         onlyMainContent: true,
       }),
+      signal: controller.signal,
     });
+    
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Firecrawl error:', response.status, errorText);
-      throw new Error(`Firecrawl scrape failed: ${response.status}`);
+      throw new Error(`Firecrawl scrape failed: ${response.status} - ${errorText.substring(0, 100)}`);
     }
 
     const result = await response.json();
@@ -118,6 +126,10 @@ async function scrapeSinglePage(url: string, apiKey: string) {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.error('Firecrawl request timed out after', TIMEOUT_MS, 'ms');
+      throw new Error(`Request timeout: Die Website reagiert nicht innerhalb von ${TIMEOUT_MS/1000} Sekunden`);
+    }
     console.error('Error in scrapeSinglePage:', error);
     throw error;
   }

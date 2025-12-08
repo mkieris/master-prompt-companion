@@ -36,36 +36,52 @@ export interface FileAnalysis {
   complexity: 'low' | 'medium' | 'high';
 }
 
+// Rule interface for analysis patterns
+interface AnalysisRule {
+  pattern: RegExp;
+  title: string;
+  description: string;
+  severity: 'critical' | 'warning' | 'info' | 'success';
+  suggestion: string;
+}
+
+interface AnalysisRules {
+  errorHandling: AnalysisRule[];
+  logic: AnalysisRule[];
+  quality: AnalysisRule[];
+  performance: AnalysisRule[];
+}
+
 // Analysis rules and patterns
-const analysisRules = {
+const analysisRules: AnalysisRules = {
   // Error Handling Patterns
   errorHandling: [
     {
       pattern: /catch\s*\(\s*\w*\s*\)\s*\{\s*\}/g,
       title: 'Leerer Catch-Block',
       description: 'Catch-Block ohne Fehlerbehandlung gefunden',
-      severity: 'critical' as const,
+      severity: 'critical',
       suggestion: 'Füge Fehlerlogging oder Benutzer-Feedback hinzu'
     },
     {
       pattern: /catch\s*\(\s*\w+\s*\)\s*\{\s*console\.log/g,
       title: 'Nur Console.log im Catch',
       description: 'Fehler wird nur geloggt, aber nicht behandelt',
-      severity: 'warning' as const,
+      severity: 'warning',
       suggestion: 'Erwäge toast() für Benutzer-Feedback und sinnvolle Fehlerbehandlung'
     },
     {
       pattern: /\.then\([^)]+\)(?!\s*\.catch)/g,
       title: 'Promise ohne Catch',
       description: 'Promise-Chain ohne Fehlerbehandlung',
-      severity: 'warning' as const,
+      severity: 'warning',
       suggestion: 'Füge .catch() oder try/catch mit async/await hinzu'
     },
     {
       pattern: /throw\s+new\s+Error\s*\(\s*['"`].*['"`]\s*\)/g,
       title: 'Generischer Error',
       description: 'Generische Error-Message ohne Kontext',
-      severity: 'info' as const,
+      severity: 'info',
       suggestion: 'Verwende spezifischere Fehlermeldungen mit Kontext'
     }
   ],
@@ -76,36 +92,37 @@ const analysisRules = {
       pattern: /if\s*\(\s*\w+\s*==\s*(?!null|undefined)/g,
       title: 'Lose Gleichheit (==)',
       description: 'Verwendung von == statt === kann zu unerwarteten Ergebnissen führen',
-      severity: 'warning' as const,
+      severity: 'warning',
       suggestion: 'Verwende === für strikte Gleichheit'
     },
     {
       pattern: /useState\s*<[^>]+>\s*\(\s*\[\s*\]\s*\)/g,
       title: 'Leeres Array als Initial-State',
       description: 'useState mit leerem Array initialisiert',
-      severity: 'info' as const,
+      severity: 'info',
       suggestion: 'Stelle sicher, dass Loading-States korrekt behandelt werden'
     },
     {
       pattern: /useEffect\s*\(\s*\(\s*\)\s*=>\s*\{[^}]*fetch[^}]*\}\s*,\s*\[\s*\]\s*\)/gs,
       title: 'Fetch in useEffect ohne Dependencies',
       description: 'API-Call in useEffect nur bei Mount - prüfe ob Refetch nötig',
-      severity: 'info' as const,
+      severity: 'info',
       suggestion: 'Erwäge React Query für besseres Data-Fetching'
     },
     {
       pattern: /&&\s*\w+\.map\s*\(/g,
       title: 'Conditional Rendering mit map',
       description: 'Array-Rendering mit &&-Operator',
-      severity: 'info' as const,
+      severity: 'info',
       suggestion: 'Prüfe ob Fallback für leeres Array nötig ist'
     },
+    // Note: This pattern will be context-checked in analyzeContent
     {
-      pattern: /JSON\.parse\s*\([^)]+\)(?!\s*(?:catch|\.catch))/g,
-      title: 'JSON.parse ohne Try-Catch',
-      description: 'JSON.parse kann bei ungültigem JSON crashen',
-      severity: 'critical' as const,
-      suggestion: 'Wrappe JSON.parse in try-catch Block'
+      pattern: /JSON\.parse\s*\(/g,
+      title: 'JSON.parse Verwendung',
+      description: 'JSON.parse gefunden - prüfe ob Try-Catch vorhanden',
+      severity: 'info',
+      suggestion: 'Stelle sicher dass JSON.parse in einem try-catch Block ist'
     }
   ],
   
@@ -115,42 +132,42 @@ const analysisRules = {
       pattern: /function\s+\w+\s*\([^)]*\)\s*\{[\s\S]{500,}/g,
       title: 'Große Funktion',
       description: 'Funktion mit mehr als 500 Zeichen - schwer wartbar',
-      severity: 'warning' as const,
+      severity: 'warning',
       suggestion: 'Refactore in kleinere, fokussierte Funktionen'
     },
     {
       pattern: /\/\/\s*TODO/gi,
       title: 'TODO Kommentar',
       description: 'Unerledigte Aufgabe im Code',
-      severity: 'info' as const,
+      severity: 'info',
       suggestion: 'Erledige TODO oder erstelle Issue'
     },
     {
       pattern: /\/\/\s*FIXME/gi,
       title: 'FIXME Kommentar',
       description: 'Bekanntes Problem im Code',
-      severity: 'warning' as const,
+      severity: 'warning',
       suggestion: 'Behebe das markierte Problem'
     },
     {
       pattern: /console\.(log|warn|error)\s*\(/g,
       title: 'Console Statement',
       description: 'Debug-Ausgabe im Produktionscode',
-      severity: 'info' as const,
+      severity: 'info',
       suggestion: 'Entferne oder ersetze durch Debug-System'
     },
     {
       pattern: /any(?:\s|,|\)|\]|>)/g,
       title: 'TypeScript "any" Type',
       description: 'Verwendung von "any" umgeht TypeScript-Prüfungen',
-      severity: 'warning' as const,
+      severity: 'warning',
       suggestion: 'Definiere spezifischen Typ oder verwende unknown'
     },
     {
       pattern: /!important/g,
       title: 'CSS !important',
       description: '!important überschreibt CSS-Kaskade',
-      severity: 'warning' as const,
+      severity: 'warning',
       suggestion: 'Verwende spezifischere Selektoren statt !important'
     }
   ],
@@ -161,48 +178,49 @@ const analysisRules = {
       pattern: /useEffect\s*\(\s*\(\s*\)\s*=>\s*\{[\s\S]*?\}\s*\)/g,
       title: 'useEffect ohne Dependencies',
       description: 'useEffect ohne Dependency-Array läuft bei jedem Render',
-      severity: 'critical' as const,
+      severity: 'critical',
       suggestion: 'Füge Dependency-Array hinzu um unnötige Ausführungen zu vermeiden'
     },
     {
       pattern: /new\s+Date\(\)/g,
       title: 'Date in Render',
       description: 'new Date() im Render kann Performance beeinträchtigen',
-      severity: 'info' as const,
+      severity: 'info',
       suggestion: 'Erwäge useMemo wenn häufig verwendet'
     },
     {
       pattern: /\.filter\([^)]+\)\.map\(/g,
       title: 'Chained Filter+Map',
       description: 'Array wird zweimal durchlaufen',
-      severity: 'info' as const,
+      severity: 'info',
       suggestion: 'Erwäge reduce() für einzelnen Durchlauf bei großen Arrays'
     },
     {
       pattern: /style=\{\{/g,
       title: 'Inline Style Object',
       description: 'Inline-Style-Objekt wird bei jedem Render neu erstellt',
-      severity: 'info' as const,
+      severity: 'info',
       suggestion: 'Verwende className mit Tailwind oder useMemo für Styles'
     },
     {
       pattern: /import\s+\*\s+as/g,
       title: 'Wildcard Import',
       description: 'Importiert gesamtes Modul - verhindert Tree-Shaking',
-      severity: 'warning' as const,
+      severity: 'warning',
       suggestion: 'Importiere nur benötigte Exports'
     }
   ]
 };
 
 // Edge Function specific rules
-const edgeFunctionRules = {
+// Edge Function specific rules
+const edgeFunctionRules: Pick<AnalysisRules, 'errorHandling' | 'logic'> = {
   errorHandling: [
     {
       pattern: /Deno\.env\.get\s*\([^)]+\)(?!\s*(?:\|\||&&|\?))/g,
       title: 'Env-Variable ohne Fallback',
       description: 'Umgebungsvariable ohne Default-Wert',
-      severity: 'warning' as const,
+      severity: 'warning',
       suggestion: 'Füge Fallback-Wert oder Fehlerprüfung hinzu'
     }
   ],
@@ -211,7 +229,7 @@ const edgeFunctionRules = {
       pattern: /fetch\s*\([^)]+\)(?!\s*\.then|\s*;[\s\S]*?catch)/g,
       title: 'Fetch ohne Fehlerbehandlung',
       description: 'HTTP-Request ohne Error-Handling',
-      severity: 'critical' as const,
+      severity: 'critical',
       suggestion: 'Wrappe fetch in try-catch und prüfe response.ok'
     }
   ]
@@ -224,7 +242,7 @@ function generateId(): string {
 function analyzeContent(
   content: string, 
   filePath: string,
-  rules: typeof analysisRules
+  rules: AnalysisRules
 ): AnalysisResult[] {
   const results: AnalysisResult[] = [];
   
@@ -235,6 +253,19 @@ function analyzeContent(
         // Find line number
         const beforeMatch = content.substring(0, match.index);
         const lineNumber = (beforeMatch.match(/\n/g) || []).length + 1;
+        
+        // Smart context check for JSON.parse - verify if it's in a try block
+        if (rule.title === 'JSON.parse Verwendung') {
+          // Look for 'try {' before the match within 500 chars
+          const contextBefore = content.substring(Math.max(0, (match.index || 0) - 500), match.index);
+          const tryCount = (contextBefore.match(/\btry\s*\{/g) || []).length;
+          const catchCount = (contextBefore.match(/\}\s*catch\s*\(/g) || []).length;
+          
+          // If there's an unmatched try (more tries than catches), it's likely in a try block
+          if (tryCount > catchCount) {
+            continue; // Skip this match - it's already in a try block
+          }
+        }
         
         // Extract code snippet (surrounding lines)
         const lines = content.split('\n');
@@ -274,9 +305,17 @@ function calculateComplexity(content: string): 'low' | 'medium' | 'high' {
 
 export function analyzeFile(content: string, filePath: string): FileAnalysis {
   const isEdgeFunction = filePath.includes('supabase/functions');
-  const rules = isEdgeFunction 
-    ? { ...analysisRules, ...edgeFunctionRules }
-    : analysisRules;
+  
+  // For edge functions, merge additional rules into the main categories
+  let rules = analysisRules;
+  if (isEdgeFunction) {
+    rules = {
+      errorHandling: [...analysisRules.errorHandling, ...edgeFunctionRules.errorHandling],
+      logic: [...analysisRules.logic, ...edgeFunctionRules.logic],
+      quality: analysisRules.quality,
+      performance: analysisRules.performance
+    };
+  }
   
   const issues = analyzeContent(content, filePath, rules);
   const lines = content.split('\n').length;
