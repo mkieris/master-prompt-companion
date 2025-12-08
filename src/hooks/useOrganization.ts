@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 import type { Session } from '@supabase/supabase-js';
 
 interface Organization {
@@ -56,6 +57,11 @@ export function useOrganization(session: Session | null) {
 
       if (profileError) {
         console.error('Error loading profile:', profileError);
+        toast({
+          title: 'Profil-Fehler',
+          description: 'Dein Profil konnte nicht geladen werden. Bitte versuche es erneut.',
+          variant: 'destructive',
+        });
       }
 
       // If no profile exists, create one
@@ -123,6 +129,11 @@ export function useOrganization(session: Session | null) {
       setNeedsOnboarding(false);
     } catch (error) {
       console.error('Error in loadUserData:', error);
+      toast({
+        title: 'Ladefehler',
+        description: 'Benutzerdaten konnten nicht geladen werden. Bitte Seite neu laden.',
+        variant: 'destructive',
+      });
     } finally {
       setIsLoading(false);
     }
