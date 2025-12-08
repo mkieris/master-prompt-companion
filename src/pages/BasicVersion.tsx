@@ -16,6 +16,7 @@ import { ProcessFlowPanel } from "@/components/seo-generator/ProcessFlowPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useDebug } from "@/contexts/DebugContext";
+import { useOrganization } from "@/hooks/useOrganization";
 import type { Session } from "@supabase/supabase-js";
 import {
   ArrowLeft,
@@ -91,10 +92,13 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { log, logWithTimer } = useDebug();
+  const { currentOrg } = useOrganization(session);
   const [isLoading, setIsLoading] = useState(false);
   const [isScraping, setIsScraping] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [currentStep, setCurrentStep] = useState<string>("input");
   const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
+  const [savedProjectId, setSavedProjectId] = useState<string | null>(null);
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
   const [showProcessFlow, setShowProcessFlow] = useState(true);
   const [showDebugPrompt, setShowDebugPrompt] = useState(false);
@@ -471,7 +475,15 @@ da historische Versionen nicht vollständig implementiert sind.`;
 
       setGeneratedContent(content);
       setCurrentStep("display");
-      toast({ title: "Erfolgreich", description: "SEO-Content wurde generiert" });
+      
+      // Automatisch in Datenbank speichern
+      const projectId = await saveProjectToDatabase(content);
+      if (projectId) {
+        setSavedProjectId(projectId);
+        toast({ title: "Erfolgreich", description: "SEO-Content wurde generiert und gespeichert" });
+      } else {
+        toast({ title: "Erfolgreich", description: "SEO-Content wurde generiert (nicht gespeichert)" });
+      }
     } catch (error) {
       log('error', 'generate-seo-content Exception', { error: String(error) });
       console.error("Error:", error);
@@ -479,6 +491,40 @@ da historische Versionen nicht vollständig implementiert sind.`;
     } finally {
       endTimer();
       setIsLoading(false);
+    }
+  };
+
+  // Auto-save project to database after successful generation
+  const saveProjectToDatabase = async (content: GeneratedContent): Promise<string | null> => {
+    if (!currentOrg || !session?.user) {
+      log('state', 'Speichern übersprungen - keine Organisation', { hasOrg: !!currentOrg, hasUser: !!session?.user });
+      return null;
+    }
+
+    try {
+      log('api', 'Projekt speichern...', { org: currentOrg.name });
+      
+      const projectTitle = formData.focusKeyword || 'SEO Projekt';
+      
+      const { data, error } = await supabase.from('content_projects').insert([{
+        organization_id: currentOrg.id,
+        created_by: session.user.id,
+        title: projectTitle,
+        page_type: formData.pageType,
+        focus_keyword: formData.focusKeyword,
+        form_data: formData as any,
+        generated_content: content as any,
+        status: 'draft',
+      }]).select('id').single();
+
+      if (error) throw error;
+
+      log('response', 'Projekt gespeichert', { id: data.id });
+      return data.id;
+    } catch (error) {
+      log('error', 'Speichern fehlgeschlagen', { error: String(error) });
+      console.error('Error saving project:', error);
+      return null;
     }
   };
 
