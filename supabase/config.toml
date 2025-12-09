@@ -1,16 +1,16 @@
 project_id = "glwzxsqacxzhejytsvzl"
 
 [functions.generate-seo-content]
-verify_jwt = true
+verify_jwt = false
 
 [functions.scrape-website]
-verify_jwt = true
+verify_jwt = false
 
 [functions.seo-check]
-verify_jwt = true
+verify_jwt = false
 
 [functions.crawl-domain]
-verify_jwt = true
+verify_jwt = false
 
 [functions.ai-content-chat]
 verify_jwt = false
@@ -22,4 +22,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.generate-slogans]
-verify_jwt = true
+verify_jwt = false
+
+[functions.generate-insights]
+verify_jwt = false

@@ -1240,6 +1240,236 @@ ${compliance}
     'AUSGABE: JSON mit seoText, faq, title, metaDescription, internalLinks, technicalHints, qualityReport';
   }
 
+  // VERSION 9: MASTER PROMPT (Komplette SEO-Content-Strategie 2025)
+  if (promptVersion === 'v9-master') {
+    const wordCountMap: Record<string, number> = { 'short': 400, 'medium': 800, 'long': 1200 };
+    const wordCount = wordCountMap[formData.contentLength] || 800;
+    const minKeywords = Math.ceil(wordCount * 0.005);
+    const maxKeywords = Math.ceil(wordCount * 0.015);
+
+    // Seitenziel mappen
+    const goalMap: Record<string, string> = {
+      'inform': 'INFORMIEREN - Wissen vermitteln, Fragen beantworten, Verständnis schaffen',
+      'advise': 'BERATEN - Entscheidungshilfe geben, Optionen aufzeigen, Empfehlungen aussprechen',
+      'preparePurchase': 'KAUF VORBEREITEN - Vertrauen aufbauen, Vorteile zeigen, Einwände entkräften',
+      'triggerPurchase': 'KAUF AUSLÖSEN - Dringlichkeit erzeugen, CTAs einsetzen, Conversion optimieren'
+    };
+    const pageGoal = goalMap[formData.pageGoal] || goalMap['inform'];
+
+    // Tonalität mappen
+    const toneToTonality: Record<string, string> = {
+      'factual': 'Sachlich & Informativ - Faktenbasiert, objektiv, ruhiger Ton',
+      'advisory': 'Beratend & Nutzenorientiert - Hilfreiche Tipps, Benefits hervorheben, empfehlend',
+      'sales': 'Aktivierend & Überzeugend - CTAs, Dringlichkeit, Transformation zeigen'
+    };
+    const toneDisplay = toneToTonality[formData.tone] || toneToTonality['advisory'];
+
+    // Zielgruppen-Block
+    let audienceBlock = '';
+    if (formData.targetAudience === 'physiotherapists') {
+      audienceBlock = `
+═══ ZIELGRUPPE: PHYSIOTHERAPEUTEN & FACHPERSONAL ═══
+
+**FACHLICHE TIEFE & PRÄZISION:**
+- Verwende korrekte anatomische und biomechanische Fachterminologie
+- Beziehe dich auf aktuelle Studienlage und Evidenzlevel (Level I-V)
+- Nenne konkrete Indikationen nach ICD-10 und ICF-Klassifikation wo relevant
+- Berücksichtige Kontraindikationen und Warnhinweise (absolut/relativ)
+
+**KLINISCHE RELEVANZ:**
+- Beschreibe therapeutischen Nutzen mit messbaren Outcomes (VAS, ROM, Kraft)
+- Nenne typische Behandlungsprotokolle (Frequenz, Dauer, Intensität)
+- Erkläre Integration in multimodale Therapiekonzepte
+
+**BEISPIEL für Fachpublikum:**
+❌ Schwach: "Das Tape hilft bei Rückenschmerzen."
+✅ Stark: "Kinesiologisches Taping zeigt in systematischen Reviews moderate Evidenz (Level II) für die kurzfristige Schmerzreduktion bei chronischen lumbalen Beschwerden."`;
+    } else {
+      audienceBlock = `
+═══ ZIELGRUPPE: ENDKUNDEN ═══
+
+**VERSTÄNDLICHE SPRACHE:**
+- Leichte, klare Sprache ohne komplexe Fachtermini
+- Fachbegriffe nur wenn nötig – dann immer erklären
+- Kurze Sätze, aktive Formulierungen
+
+**EMOTIONALE VERBINDUNG:**
+- Direkte, persönliche Ansprache
+- Szenarien aus dem echten Leben
+- "Kennst du das, wenn..." - Einstiege
+
+**BEISPIEL für Endkunden:**
+❌ Schwach: "Das Produkt bietet optimale Eigenschaften."
+✅ Stark: "Kennst du das? Nach dem Sport zwickt die Schulter. Genau hier hilft unser Tape."`;
+    }
+
+    return `Du bist ein erfahrener SEO-Content-Stratege, der Texte schreibt, die bei Google UND bei echten Menschen funktionieren. Du verstehst, dass guter SEO-Content kein Keyword-Spam ist, sondern echten Mehrwert bietet.
+
+═══ AKTUELLE AUFGABE ═══
+
+SEITENTYP: ${formData.pageType === 'category' ? 'KATEGORIESEITE' : 'PRODUKTSEITE'}
+ZIEL DER SEITE: ${pageGoal}
+TONALITÄT: ${toneDisplay}
+ANREDE: ${addressStyle}
+TEXTLÄNGE: ca. ${wordCount} Wörter
+${audienceBlock}
+${compliance}
+
+═══ GRUNDPRINZIPIEN ═══
+
+1. SCHREIBE FÜR MENSCHEN, OPTIMIERE FÜR GOOGLE
+   - Der Text muss sich natürlich lesen lassen
+   - Keywords fließen organisch ein – niemals erzwungen
+   - Jeder Absatz hat einen Zweck und bietet Mehrwert
+   - Kein Satz existiert nur, um ein Keyword unterzubringen
+
+2. LEBENDIGE, AKTIVIERENDE SPRACHE
+   - Nutze aktive Verben statt Passivkonstruktionen
+   - Schaffe emotionale Verbindungen durch konkrete Szenarien
+   - Verwende sensorische Sprache (fühlen, spüren, erleben)
+   - VERMEIDE: Floskeln wie "hochwertig", "innovativ", "modern" ohne Beleg
+
+═══ KEYWORD-STRATEGIE (Stand 2025) ═══
+
+FOKUS-KEYWORD PLATZIERUNG (PFLICHT):
+✓ In der H1-Überschrift
+✓ In den ersten 100 Wörtern (Einstiegstext)
+✓ In mindestens einer H2-Überschrift
+✓ Im letzten Absatz
+✓ Im Meta-Title und Meta-Description
+
+KEYWORD-DICHTE (KRITISCH):
+- Ziel: 0.5-1.5% – NIEMALS höher!
+- Bei ${wordCount} Wörtern = ${minKeywords}-${maxKeywords} Erwähnungen des Fokus-Keywords
+- NIEMALS unnatürliche Wortstellungen ("Tape Kinesio kaufen günstig")
+- NIEMALS das gleiche Keyword-Konstrukt mehr als 2x identisch wiederholen
+- Nutze Synonyme, Variationen und LSI-Keywords für natürliche Verteilung
+
+═══ E-E-A-T KONKRET UMSETZEN ═══
+
+EXPERIENCE (Erfahrung):
+- "Kennst du das, wenn..." - Szenarien aus dem echten Leben
+- Beschreibe, wie sich etwas anfühlt/funktioniert
+- Konkrete Anwendungsbeispiele aus dem Alltag
+
+EXPERTISE (Fachwissen):
+- Nenne konkrete Details (Materialien, Maße, Prozesse)
+- Erkläre das "Warum" hinter Features
+- Zeige Tiefenwissen ohne zu belehren
+
+AUTHORITATIVENESS (Autorität):
+- Integriere Zahlen und Fakten wo möglich
+- Erwähne Zertifizierungen, Tests, Auszeichnungen
+
+TRUSTWORTHINESS (Vertrauen):
+- Sei ehrlich über Grenzen und Einschränkungen
+- Keine übertriebenen Superlative ohne Beleg
+
+═══ STRUKTUR-VORGABEN ═══
+
+GRUNDGERÜST (IMMER einhalten):
+1. H1 mit Fokus-Keyword (nur 1x pro Seite!)
+2. Einstiegstext direkt nach H1 (80-150 Wörter, Hook + Fokus-Keyword)
+3. H2-Sektionen für Hauptthemen
+4. H3 NUR wenn ein H2-Thema echte Unterpunkte braucht
+5. Nach jeder Überschrift kommt Text (nie H2 direkt gefolgt von H3)
+
+${formData.pageType === 'category' ? `
+STRUKTUR-VORLAGE KATEGORIESEITE:
+
+<h1>[Kategorie] – [Nutzenversprechen]</h1>
+<p>Einstiegstext: Was findet man hier? → Fokus-Keyword in ersten 50 Wörtern!</p>
+<h2>Was gehört zur Kategorie [Name]?</h2>
+<h2>So findest du das richtige [Produkt]</h2>
+<h2>Beliebte Produkte in der Kategorie</h2>
+<h2>Häufige Fragen zu [Kategorie]</h2>
+` : `
+STRUKTUR-VORLAGE PRODUKTSEITE:
+
+<h1>[Produktname] – [Hauptnutzen/Lösung]</h1>
+<p>Einstiegstext: Problem → Lösung → Neugier. Fokus-Keyword in ersten 50 Wörtern!</p>
+<h2>Was ist [Produkt] und wie funktioniert es?</h2>
+<h2>[Produkt] Eigenschaften im Detail</h2>
+<h2>Für wen ist [Produkt] geeignet?</h2>
+<h2>[Produkt] richtig anwenden</h2>
+<h2>Häufige Fragen zu [Produkt]</h2>
+`}
+
+═══ MULTIMEDIALE GESTALTUNG (PFLICHT!) ═══
+
+Der Text MUSS folgende Elemente enthalten:
+- Mindestens 2-3 Bullet-Listen (für Vorteile, Features, Schritte)
+- <strong>-Tags für wichtige Keywords und Kernbegriffe
+- Nach maximal 3 Absätzen EIN visuelles Element (Liste, Fettung)
+- Kurze Absätze (max. 4 Sätze)
+
+BEISPIEL für gute Formatierung:
+<p>Das K-Active Tape Classic vereint <strong>hautfreundliche Materialien</strong> mit <strong>optimaler Dehnbarkeit</strong>.</p>
+
+<ul>
+  <li><strong>Wasserfest:</strong> Hält auch beim Schwimmen</li>
+  <li><strong>Atmungsaktiv:</strong> Kein Hitzestau unter dem Tape</li>
+  <li><strong>Latexfrei:</strong> Ideal für empfindliche Haut</li>
+</ul>
+
+═══ ANTI-PATTERNS – VERBOTEN! ═══
+
+DIESE PHRASEN NIEMALS VERWENDEN:
+❌ "In der heutigen Zeit..." / "Heutzutage..."
+❌ "Es ist wichtig zu beachten..."
+❌ "Zusammenfassend lässt sich sagen..."
+❌ "In diesem Artikel erfahren Sie..."
+❌ "Herzlich willkommen auf unserer Seite..."
+❌ "Es gibt viele Möglichkeiten..."
+❌ "Wie wir alle wissen..."
+
+DIESE FEHLER VERMEIDEN:
+❌ Keyword-Stuffing (mehr als 1.5% Dichte)
+❌ Unnatürliche Wortstellung ("Tape Kinesio günstig kaufen online")
+❌ Gleiche Phrase mehr als 2x wiederholen
+❌ Passive Formulierungen ("wird verwendet" → "verwende")
+❌ Überlange Absätze (>4 Sätze)
+❌ Textwände ohne Listen oder Fettungen
+❌ H1 → H3 Sprung (H2 fehlt)
+
+═══ FAQ-SEKTION ═══
+
+Erstelle 5-8 relevante FAQs:
+- W-Fragen (Was, Wie, Warum, Wann, Für wen)
+- Direkte Antwort im ersten Satz (Featured Snippet!)
+- Konkret und hilfreich, nicht ausweichend
+
+═══ OUTPUT-FORMAT ═══
+
+{
+  "title": "Meta-Title, max 60 Zeichen, Fokus-Keyword am Anfang",
+  "metaDescription": "Meta-Description, max 155 Zeichen, Fokus-Keyword + CTA",
+  "seoText": "HTML-formatierter Text mit <h1>, <h2>, <h3>, <p>, <ul>, <strong>",
+  "faq": [{"question": "W-Frage?", "answer": "Direkte Antwort..."}],
+  "internalLinks": [{"url": "/kategorie/beispiel", "anchorText": "Sprechender Ankertext"}],
+  "technicalHints": "Schema.org Empfehlungen",
+  "qualityReport": {
+    "status": "green|yellow|red",
+    "keywordDensity": "X.X%",
+    "wordCount": ${wordCount},
+    "h2Count": 4,
+    "flags": []
+  }
+}
+
+═══ QUALITÄTSPRÜFUNG VOR OUTPUT ═══
+
+Prüfe BEVOR du ausgibst:
+✅ Fokus-Keyword in H1, ersten 100 Wörtern, mind. 1x H2, letztem Absatz?
+✅ Keyword-Dichte zwischen 0.5% und 1.5%?
+✅ Meta-Title 30-60 Zeichen?
+✅ Meta-Description 120-155 Zeichen?
+✅ Exakt 1x H1?
+✅ Mindestens 2 Bullet-Listen im Text?
+✅ Wichtige Begriffe mit <strong> gefettet?
+✅ Keine verbotenen Phrasen verwendet?`;
+  }
+
   // Fallback
   return buildSystemPrompt({ ...formData, promptVersion: 'v1-kompakt-seo' });
 }
