@@ -953,12 +953,34 @@ da historische Versionen nicht vollständig implementiert sind.`;
                 <Collapsible open={showDebugPrompt} onOpenChange={setShowDebugPrompt}>
                   <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
                     <Code className="h-4 w-4" />
-                    <span className="flex-1 text-left">Debug: User-Prompt Vorschau</span>
+                    <span className="flex-1 text-left">Debug: Prompt-Vorschau (System + User)</span>
                     <ChevronDown className={`h-4 w-4 transition-transform ${showDebugPrompt ? 'rotate-180' : ''}`} />
                   </CollapsibleTrigger>
-                  <CollapsibleContent className="pt-3">
-                    <div className="bg-muted/50 border rounded-lg p-3 relative">
-                      <div className="absolute top-2 right-2 flex gap-1">
+                  <CollapsibleContent className="pt-3 space-y-3">
+                    {/* System Prompt */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-medium text-primary">🎯 System-Prompt ({formData.promptVersion})</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => copyToClipboard(buildSystemPromptPreview(), "System-Prompt")}
+                        >
+                          {copiedSection === "System-Prompt" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                        </Button>
+                      </div>
+                      <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
+                        <pre className="text-xs font-mono whitespace-pre-wrap text-muted-foreground overflow-x-auto max-h-48 overflow-y-auto">
+                          {buildSystemPromptPreview()}
+                        </pre>
+                      </div>
+                    </div>
+
+                    {/* User Prompt */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-medium text-blue-600 dark:text-blue-400">📝 User-Prompt (dynamisch)</span>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -968,13 +990,16 @@ da historische Versionen nicht vollständig implementiert sind.`;
                           {copiedSection === "User-Prompt" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                         </Button>
                       </div>
-                      <pre className="text-xs font-mono whitespace-pre-wrap text-muted-foreground overflow-x-auto max-h-64 overflow-y-auto">
-                        {buildUserPromptPreview()}
-                      </pre>
+                      <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                        <pre className="text-xs font-mono whitespace-pre-wrap text-muted-foreground overflow-x-auto max-h-48 overflow-y-auto">
+                          {buildUserPromptPreview()}
+                        </pre>
+                      </div>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
                       <Info className="h-3 w-3" />
-                      Dies wird an die KI gesendet (+ System-Prompt je nach Strategie)
+                      Beide Prompts werden zusammen an die KI gesendet
                     </p>
                   </CollapsibleContent>
                 </Collapsible>
