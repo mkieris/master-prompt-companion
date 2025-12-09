@@ -973,7 +973,8 @@ da historische Versionen nicht vollständig implementiert sind.`;
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="v8.1-sachlich">v8.1: Sachlich & Informativ ⭐</SelectItem>
+                      <SelectItem value="v9-master">v9: Master Prompt ⭐ NEU</SelectItem>
+                      <SelectItem value="v8.1-sachlich">v8.1: Sachlich & Informativ</SelectItem>
                       <SelectItem value="v8.2-aktivierend">v8.2: Nutzenorientiert & Aktivierend</SelectItem>
                       <SelectItem value="v8.3-nahbar">v8.3: Nahbar & Authentisch</SelectItem>
                       <SelectItem value="v8-natural-seo">v8: Natural SEO (Basis)</SelectItem>
