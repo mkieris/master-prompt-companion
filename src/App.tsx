@@ -28,6 +28,7 @@ import SystemPromptVersions from "./pages/SystemPromptVersions";
 import UserPromptVersions from "./pages/UserPromptVersions";
 import SloganCreator from "./pages/SloganCreator";
 import CodeAnalysis from "./pages/CodeAnalysis";
+import TextCheck from "./pages/TextCheck";
 
 const queryClient = new QueryClient();
 
@@ -77,6 +78,7 @@ const App = () => {
                 <Route path="system-prompts" element={<SystemPromptVersions />} />
                 <Route path="user-prompts" element={<UserPromptVersions />} />
                 <Route path="code-analysis" element={<CodeAnalysis />} />
+                <Route path="text-check" element={<TextCheck />} />
               </Route>
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

@@ -38,7 +38,8 @@ interface SidebarProps {
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "SEO-Check", href: "/seo-check", icon: Search },
-  { name: "KI Content Creator", href: "/dashboard/ai-content", icon: Bot, isNew: true },
+  { name: "Text-Check", href: "/dashboard/text-check", icon: FileText, isNew: true },
+  { name: "KI Content Creator", href: "/dashboard/ai-content", icon: Bot },
   { name: "Content Basic", href: "/basic", icon: FileText },
   { name: "Content Pro", href: "/pro", icon: Sparkles },
   { name: "Slogan Creator", href: "/dashboard/slogan-creator", icon: Sparkles },
