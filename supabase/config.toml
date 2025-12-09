@@ -26,3 +26,9 @@ verify_jwt = false
 
 [functions.generate-insights]
 verify_jwt = false
+
+[functions.check-compliance]
+verify_jwt = false
+
+[functions.check-ai-text]
+verify_jwt = false
