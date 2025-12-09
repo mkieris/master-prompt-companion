@@ -118,7 +118,7 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
     manufacturerWebsite: "",
     manufacturerInfo: "",
     additionalInfo: "",
-    promptVersion: "v1-kompakt-seo",
+    promptVersion: "v8.1-sachlich",
   });
   
   const [wQuestionInput, setWQuestionInput] = useState("");
@@ -283,7 +283,46 @@ Du bist "Senior SEO Editor & Quality Auditor".
 
 TONALITÄT: ${formData.tone}`,
 
-      'v8-natural-seo': `[v8-natural-seo: Natural SEO - Mensch + Google]
+      'v8.1-sachlich': `[v8.1: Sachlich & Informativ]
+
+STIL-VARIANTE: Sachlich & Informativ ⭐
+
+- Faktenbasiert mit konkreten Details
+- Klare Struktur, gut scannbar
+- Nutze Listen wo sinnvoll
+- Ruhiger, vertrauensbildender Ton
+- Objektiv und informativ
+
+Basiert auf V8-Grundprinzipien: Mensch + Google optimiert
+TONALITÄT: ${formData.tone}`,
+
+      'v8.2-aktivierend': `[v8.2: Nutzenorientiert & Aktivierend]
+
+STIL-VARIANTE: Nutzenorientiert & Aktivierend
+
+- Fokus auf Benefits und Problemlösung
+- Direkte Ansprache, motivierend
+- CTAs an passenden Stellen
+- Zeige Transformation (vorher → nachher)
+- Nutzenversprechen in Headlines
+
+Basiert auf V8-Grundprinzipien: Mensch + Google optimiert
+TONALITÄT: ${formData.tone}`,
+
+      'v8.3-nahbar': `[v8.3: Nahbar & Authentisch]
+
+STIL-VARIANTE: Nahbar & Authentisch
+
+- Storytelling und Szenarien
+- Persönliche, empathische Ansprache
+- Praxisbeispiele aus dem Alltag
+- Verbindend, auf Augenhöhe
+- "Kennst du das?"-Einstiege
+
+Basiert auf V8-Grundprinzipien: Mensch + Google optimiert
+TONALITÄT: ${formData.tone}`,
+
+      'v8-natural-seo': `[v8-natural-seo: Natural SEO - Basis]
 
 Du bist SEO-Content-Stratege für Texte die bei Google UND Menschen funktionieren.
 
@@ -297,18 +336,6 @@ Du bist SEO-Content-Stratege für Texte die bei Google UND Menschen funktioniere
 - H1, erster Absatz, mind. 1x H2, Schlussabsatz
 - NIEMALS unnatürliche Wortstellungen
 - Synonyme statt stumpfer Wiederholung
-
-✅ E-E-A-T KONKRET:
-- Experience: Szenarien aus echtem Leben
-- Expertise: Konkrete Details, das "Warum"
-- Authority: Zahlen, Fakten, Zertifizierungen
-- Trust: Ehrlich über Grenzen, keine Superlative
-
-📐 STRUKTUR:
-- Einstiegstext 80-150 Wörter mit Hook
-- Max. 4 Sätze pro Absatz
-- Satzlänge variieren
-- Aktive Sprache
 
 TONALITÄT: ${formData.tone}`,
 
@@ -946,7 +973,10 @@ da historische Versionen nicht vollständig implementiert sind.`;
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="v8-natural-seo">v8: Natural SEO (Mensch + Google) ⭐</SelectItem>
+                      <SelectItem value="v8.1-sachlich">v8.1: Sachlich & Informativ ⭐</SelectItem>
+                      <SelectItem value="v8.2-aktivierend">v8.2: Nutzenorientiert & Aktivierend</SelectItem>
+                      <SelectItem value="v8.3-nahbar">v8.3: Nahbar & Authentisch</SelectItem>
+                      <SelectItem value="v8-natural-seo">v8: Natural SEO (Basis)</SelectItem>
                       <SelectItem value="v7-seo-content-master">v7: SEO Content Master 2025</SelectItem>
                       <SelectItem value="v6-quality-auditor">v6: Quality-Auditor (Anti-Fluff)</SelectItem>
                       <SelectItem value="v5-ai-meta-optimiert">v5: Meta-Optimiert</SelectItem>
