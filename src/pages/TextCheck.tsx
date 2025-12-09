@@ -21,10 +21,12 @@ import {
   Info,
   ShieldAlert,
   Stethoscope,
-  FileSearch
+  FileSearch,
+  Highlighter
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { HighlightedText } from '@/components/text-check/HighlightedText';
 
 // Lesbarkeits-Analyse Funktionen
 function calculateFleschDE(text: string): number {
@@ -241,7 +243,7 @@ function checkCompliance(text: string): ComplianceFinding[] {
 
 export default function TextCheck() {
   const [text, setText] = useState('');
-  const [activeTab, setActiveTab] = useState('readability');
+  const [activeTab, setActiveTab] = useState('highlights');
   const [isAiChecking, setIsAiChecking] = useState(false);
   const [aiFindings, setAiFindings] = useState<ComplianceFinding[]>([]);
 
@@ -484,16 +486,25 @@ export default function TextCheck() {
 
           {/* Detaillierte Analyse */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
+            <TabsList className="grid w-full grid-cols-3 lg:w-[500px]">
+              <TabsTrigger value="highlights" className="gap-2">
+                <Highlighter className="h-4 w-4" />
+                Markierungen
+              </TabsTrigger>
               <TabsTrigger value="readability" className="gap-2">
                 <BarChart3 className="h-4 w-4" />
-                Lesbarkeit
+                Statistiken
               </TabsTrigger>
               <TabsTrigger value="compliance" className="gap-2">
                 <Scale className="h-4 w-4" />
                 Compliance
               </TabsTrigger>
             </TabsList>
+
+            {/* Markierungs-Tab */}
+            <TabsContent value="highlights" className="mt-6">
+              <HighlightedText text={text} />
+            </TabsContent>
 
             {/* Lesbarkeits-Tab */}
             <TabsContent value="readability" className="mt-6">
