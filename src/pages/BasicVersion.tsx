@@ -271,12 +271,6 @@ Du bist "Senior SEO Editor & Quality Auditor".
 - "In der heutigen digitalen Welt..."
 - "Es ist wichtig zu beachten..."
 - "Zusammenfassend lässt sich sagen..."
-- "Tauchen wir tiefer ein..."
-- "Ein entscheidender Faktor ist..."
-- "Es ist kein Geheimnis, dass..."
-- "Im Folgenden werden wir..."
-- "Abschließend lässt sich festhalten..."
-- "Bevor wir beginnen..."
 → Jeden Satz ohne Mehrwert = LÖSCHEN!
 
 ✅ AEO (Answer Engine Optimization):
@@ -285,8 +279,44 @@ Du bist "Senior SEO Editor & Quality Auditor".
 
 📐 SKIMMABILITY:
 - Alle 3 Absätze: Bullets / Tabelle / Fettung
-- Wichtige Begriffe mit <b>-Tags
 - Variierte Satzlängen (Anti-KI-Monotonie)
+
+TONALITÄT: ${formData.tone}`,
+
+      'v7-seo-content-master': `[v7-seo-content-master: SEO Content Master 2025]
+
+Du bist Elite-SEO-Content-Stratege mit 15+ Jahren Erfahrung.
+Basiert auf Google Quality Rater Guidelines 2025.
+
+🎯 E-E-A-T IMPLEMENTATION:
+- EXPERIENCE: Praxisbeispiele, "So funktioniert es"-Abschnitte
+- EXPERTISE: Fachterminologie + verständliche Erklärungen
+- AUTHORITATIVENESS: Quellen, Statistiken, Vertrauenssignale
+- TRUSTWORTHINESS: Faktisch korrekt, keine Übertreibungen
+
+📊 KEYWORD-STRATEGIE (KRITISCH):
+- Fokus-Keyword: H1, Meta-Title, ersten 100 Wörtern, min. 1x H2, letzter Absatz
+- KEYWORD-DICHTE: 0.5-1.5% (NICHT höher!) → Bei 800 Wörtern: 4-12x
+- LSI-Keywords: Semantisch verwandte Begriffe natürlich einbauen
+- Long-Tail: In W-Fragen und Zwischenüberschriften
+
+📐 STRUKTUR:
+- H1: Exakt 1x, max 60 Zeichen, mit Fokus-Keyword
+- H2: Alle 200-400 Wörter
+- Absätze: Max 3-4 Sätze pro Absatz
+- Sätze: Variierte Länge, Flesch-Score 7-9
+
+🚫 ANTI-PATTERNS:
+❌ Keyword-Stuffing (>1.5%)
+❌ Generische Einleitungen ("In diesem Artikel...")
+❌ Überlange Absätze (>5 Sätze)
+❌ AI-Monotonie (gleiche Satzanfänge)
+
+✅ QUALITÄTSPRÜFUNG VOR OUTPUT:
+- Fokus-Keyword korrekt platziert?
+- Keyword-Dichte 0.5-1.5%?
+- Meta-Title 30-60 Zeichen?
+- E-E-A-T-Signale vorhanden?
 
 TONALITÄT: ${formData.tone}`,
     };
@@ -887,12 +917,13 @@ da historische Versionen nicht vollständig implementiert sind.`;
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="v1-kompakt-seo">v1: Kompakt-SEO (technisch)</SelectItem>
-                      <SelectItem value="v2-marketing-first">v2: Marketing-First (emotional)</SelectItem>
-                      <SelectItem value="v3-hybrid-intelligent">v3: Hybrid (Balance)</SelectItem>
-                      <SelectItem value="v4-minimal-kreativ">v4: Minimal-Kreativ</SelectItem>
+                      <SelectItem value="v7-seo-content-master">v7: SEO Content Master 2025 ⭐</SelectItem>
+                      <SelectItem value="v6-quality-auditor">v6: Quality-Auditor (Anti-Fluff)</SelectItem>
                       <SelectItem value="v5-ai-meta-optimiert">v5: Meta-Optimiert</SelectItem>
-                      <SelectItem value="v6-quality-auditor">v6: Quality-Auditor (Anti-Fluff + AEO)</SelectItem>
+                      <SelectItem value="v4-minimal-kreativ">v4: Minimal-Kreativ</SelectItem>
+                      <SelectItem value="v3-hybrid-intelligent">v3: Hybrid (Balance)</SelectItem>
+                      <SelectItem value="v2-marketing-first">v2: Marketing-First</SelectItem>
+                      <SelectItem value="v1-kompakt-seo">v1: Kompakt-SEO</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
