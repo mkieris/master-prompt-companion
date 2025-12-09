@@ -11,7 +11,9 @@ import {
   MessageSquare,
   Stethoscope,
   Bot,
-  Info
+  Info,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import {
   Tooltip,
@@ -19,6 +21,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 // Füllwörter Liste
 const FUELLWOERTER = [
@@ -32,9 +35,9 @@ const FUELLWOERTER = [
   'im grunde', 'an sich', 'im prinzip', 'an und für sich'
 ];
 
-// ========== KI-TEXT ERKENNUNG ==========
+// ========== UMFASSENDE KI-TEXT ERKENNUNG ==========
 
-// Typische KI-Phrasen (ChatGPT, Claude, Gemini etc.)
+// 1. Typische KI-Phrasen (ChatGPT, Claude, Gemini etc.)
 const AI_PHRASES = [
   // Einleitungen
   'in der heutigen zeit', 'in der heutigen welt', 'in der modernen welt',
@@ -42,30 +45,34 @@ const AI_PHRASES = [
   'es ist wichtig zu beachten', 'es ist erwähnenswert', 'es sei darauf hingewiesen',
   'es lässt sich feststellen', 'es zeigt sich', 'es wird deutlich',
   'in der heutigen digitalen welt', 'in unserer schnelllebigen zeit',
+  'stellen sie sich vor', 'haben sie sich jemals gefragt',
   
   // Übergänge
   'darüber hinaus', 'des weiteren', 'ferner', 'überdies', 'zudem',
   'in diesem zusammenhang', 'in diesem kontext', 'vor diesem hintergrund',
   'mit blick auf', 'im hinblick auf', 'hinsichtlich',
-  'nicht zuletzt', 'last but not least',
+  'nicht zuletzt', 'last but not least', 'hinzu kommt',
   
   // Zusammenfassungen
   'zusammenfassend lässt sich sagen', 'zusammenfassend kann festgehalten werden',
   'abschließend lässt sich festhalten', 'alles in allem', 'insgesamt zeigt sich',
   'letztlich bleibt festzuhalten', 'resümierend lässt sich sagen',
   'zusammenfassend kann man sagen', 'abschließend sei gesagt',
+  'fazit:', 'zusammenfassung:', 'schlussfolgerung:',
   
   // Verstärkungen
   'von entscheidender bedeutung', 'von großer wichtigkeit', 'von zentraler bedeutung',
   'eine wichtige rolle spielen', 'eine entscheidende rolle spielen',
   'maßgeblich beitragen', 'wesentlich dazu beitragen',
   'nicht zu unterschätzen', 'von besonderer bedeutung',
+  'einen wichtigen beitrag leisten', 'von großer relevanz',
   
   // Generische Aussagen
   'sowohl als auch', 'nicht nur sondern auch',
   'eine vielzahl von', 'eine breite palette', 'ein breites spektrum',
   'in vielerlei hinsicht', 'auf vielfältige weise',
   'eine wichtige grundlage', 'einen wichtigen beitrag',
+  'auf der einen seite', 'auf der anderen seite',
   
   // Typische AI-Floskeln
   'optimale ergebnisse erzielen', 'bestmögliche ergebnisse',
@@ -74,9 +81,14 @@ const AI_PHRASES = [
   'individuelle bedürfnisse', 'maßgeschneiderte lösungen',
   'nahtlose integration', 'reibungsloser ablauf',
   'kontinuierlich verbessern', 'stetig weiterentwickeln',
+  'das volle potenzial', 'ihr volles potenzial',
+  
+  // Hedging/Absicherungen
+  'es könnte argumentiert werden', 'man könnte sagen',
+  'es scheint, dass', 'es erscheint', 'tendenziell',
 ];
 
-// Wörter die AI übermäßig verwendet
+// 2. Überverwendete KI-Wörter
 const AI_OVERUSED_WORDS = new Set([
   'jedoch', 'allerdings', 'dennoch', 'nichtsdestotrotz', 'nichtsdestoweniger',
   'optimal', 'effektiv', 'effizient', 'nachhaltig', 'ganzheitlich',
@@ -86,48 +98,174 @@ const AI_OVERUSED_WORDS = new Set([
   'implementieren', 'integrieren', 'optimieren', 'maximieren',
   'transparent', 'authentisch', 'innovativ', 'dynamisch', 'holistisch',
   'synergie', 'synergien', 'potenzial', 'mehrwert', 'wertschöpfung',
-  'skalierbar', 'agil', 'proaktiv', 'zukunftsorientiert',
+  'skalierbar', 'agil', 'proaktiv', 'zukunftsorientiert', 'lösungsorientiert',
+  'ganzheitlich', 'strategisch', 'systematisch', 'strukturiert',
+  'entsprechend', 'diesbezüglich', 'dahingehend', 'insbesondere',
+  'grundlegend', 'wesentlich', 'zentral', 'entscheidend', 'maßgebend',
 ]);
 
-// Patterns die auf AI hinweisen
-const AI_PATTERNS = [
-  // Aufzählungen mit "erstens, zweitens..."
-  /erstens[\s\S]{0,200}zweitens[\s\S]{0,200}drittens/gi,
-  // "Es ist [Adjektiv], dass..."
-  /es ist \w+, dass/gi,
-  // "Dies ermöglicht/gewährleistet..."
-  /dies (ermöglicht|gewährleistet|unterstützt|fördert|bietet)/gi,
-  // Übermäßige Doppelpunkte vor Aufzählungen
-  /:\s*\n\s*[-•]/g,
+// 3. Typische KI-Satzanfänge
+const AI_SENTENCE_STARTERS = [
+  'es ist', 'es gibt', 'es wird', 'es kann', 'es sollte',
+  'dies ist', 'dies bedeutet', 'dies ermöglicht', 'dies führt',
+  'darüber hinaus', 'zusätzlich', 'außerdem', 'weiterhin', 'ferner',
+  'insgesamt', 'grundsätzlich', 'prinzipiell', 'generell',
+  'in diesem', 'bei diesem', 'mit diesem', 'durch dieses',
+  'um dies', 'um diese', 'um dieses',
+  'wichtig ist', 'entscheidend ist', 'relevant ist',
+  'zusammenfassend', 'abschließend', 'schließlich',
 ];
 
-// Berechnet AI-Wahrscheinlichkeit (0-100)
-function calculateAIScore(text: string): { score: number; reasons: string[]; highlights: Set<string> } {
+// 4. Interpunktions-Muster die auf KI hinweisen
+interface PunctuationAnalysis {
+  emDashes: number;       // —
+  enDashes: number;       // –
+  colonsBeforeLists: number;
+  semicolons: number;
+  excessiveCommas: boolean;
+  bulletPoints: number;
+  numberedLists: number;
+}
+
+function analyzePunctuation(text: string): PunctuationAnalysis {
+  const emDashes = (text.match(/—/g) || []).length;
+  const enDashes = (text.match(/–/g) || []).length;
+  const colonsBeforeLists = (text.match(/:\s*\n\s*[-•\d]/g) || []).length;
+  const semicolons = (text.match(/;/g) || []).length;
+  const bulletPoints = (text.match(/^\s*[-•]\s/gm) || []).length;
+  const numberedLists = (text.match(/^\s*\d+[.)]\s/gm) || []).length;
+  
+  // Durchschnittliche Kommas pro Satz
+  const sentences = text.split(/[.!?]+/).filter(s => s.trim());
+  const totalCommas = (text.match(/,/g) || []).length;
+  const avgCommasPerSentence = sentences.length > 0 ? totalCommas / sentences.length : 0;
+  const excessiveCommas = avgCommasPerSentence > 3;
+  
+  return { emDashes, enDashes, colonsBeforeLists, semicolons, excessiveCommas, bulletPoints, numberedLists };
+}
+
+// 5. Vokabular-Diversität (Type-Token-Ratio)
+function calculateTTR(text: string): number {
+  const words = text.toLowerCase().match(/[a-zäöüß]+/g) || [];
+  if (words.length < 50) return 1; // Zu kurz für Analyse
+  
+  const uniqueWords = new Set(words);
+  // Normalisierte TTR (für längere Texte)
+  return uniqueWords.size / Math.sqrt(words.length * 2);
+}
+
+// 6. Satzanfänge-Analyse (Repetitive Anfänge = KI)
+function analyzeSentenceStarters(text: string): { repetitionScore: number; repeatedStarters: string[] } {
+  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 10);
+  if (sentences.length < 4) return { repetitionScore: 0, repeatedStarters: [] };
+  
+  const starters: Record<string, number> = {};
+  sentences.forEach(sentence => {
+    const firstWords = sentence.trim().split(/\s+/).slice(0, 2).join(' ').toLowerCase();
+    starters[firstWords] = (starters[firstWords] || 0) + 1;
+  });
+  
+  const repeatedStarters = Object.entries(starters)
+    .filter(([_, count]) => count >= 2)
+    .map(([starter]) => starter);
+  
+  // Wie viele Sätze beginnen mit AI-typischen Anfängen?
+  let aiStarterCount = 0;
+  sentences.forEach(sentence => {
+    const lowerSentence = sentence.trim().toLowerCase();
+    if (AI_SENTENCE_STARTERS.some(starter => lowerSentence.startsWith(starter))) {
+      aiStarterCount++;
+    }
+  });
+  
+  const repetitionScore = (aiStarterCount / sentences.length) * 100;
+  return { repetitionScore, repeatedStarters };
+}
+
+// 7. Absatz-Längen-Uniformität
+function analyzeParagraphUniformity(text: string): { uniform: boolean; stdDev: number } {
+  const paragraphs = text.split(/\n\n+/).filter(p => p.trim().length > 20);
+  if (paragraphs.length < 3) return { uniform: false, stdDev: 999 };
+  
+  const lengths = paragraphs.map(p => p.split(/\s+/).length);
+  const avg = lengths.reduce((a, b) => a + b, 0) / lengths.length;
+  const variance = lengths.reduce((sum, len) => sum + Math.pow(len - avg, 2), 0) / lengths.length;
+  const stdDev = Math.sqrt(variance);
+  
+  // Niedrige Standardabweichung = zu gleichmäßig
+  return { uniform: stdDev < 10, stdDev };
+}
+
+// 8. Adjektiv-Ketten erkennen
+function countAdjectiveChains(text: string): number {
+  // Muster: "adjektiv und adjektiv Nomen" oder "adjektiv, adjektiv Nomen"
+  const patterns = [
+    /\b\w+e\s+und\s+\w+e\s+\w+/gi,
+    /\b\w+en\s+und\s+\w+en\s+\w+/gi,
+    /\b\w+er\s+und\s+\w+er\s+\w+/gi,
+  ];
+  
+  let count = 0;
+  patterns.forEach(pattern => {
+    const matches = text.match(pattern);
+    if (matches) count += matches.length;
+  });
+  
+  return count;
+}
+
+// 9. Aufzählungsmuster (erstens, zweitens, drittens)
+function hasEnumerationPattern(text: string): boolean {
+  const lowerText = text.toLowerCase();
+  const patterns = [
+    /erstens[\s\S]{0,500}zweitens/,
+    /zunächst[\s\S]{0,500}anschließend[\s\S]{0,500}schließlich/,
+    /zum einen[\s\S]{0,500}zum anderen/,
+    /einerseits[\s\S]{0,500}andererseits/,
+  ];
+  
+  return patterns.some(p => p.test(lowerText));
+}
+
+// 10. HAUPTFUNKTION: Berechnet umfassenden AI-Score
+interface AIAnalysisResult {
+  score: number;
+  reasons: string[];
+  details: {
+    category: string;
+    score: number;
+    description: string;
+  }[];
+  highlights: Set<string>;
+}
+
+function calculateAIScore(text: string): AIAnalysisResult {
   const lowerText = text.toLowerCase();
   const words = lowerText.split(/\s+/);
   const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
   const reasons: string[] = [];
+  const details: { category: string; score: number; description: string }[] = [];
   const highlights = new Set<string>();
-  let score = 0;
+  let totalScore = 0;
   
-  // 1. AI-Phrasen zählen (max 40 Punkte)
+  // 1. AI-Phrasen (max 25 Punkte)
   let phraseCount = 0;
   AI_PHRASES.forEach(phrase => {
-    const regex = new RegExp(phrase, 'gi');
+    const regex = new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
     const matches = lowerText.match(regex);
     if (matches) {
       phraseCount += matches.length;
-      // Markiere die Phrase-Wörter
       phrase.split(/\s+/).forEach(w => highlights.add(w.replace(/[^a-zäöüß]/g, '')));
     }
   });
   if (phraseCount > 0) {
-    const phraseScore = Math.min(phraseCount * 10, 40);
-    score += phraseScore;
-    reasons.push(`${phraseCount} typische KI-Phrasen`);
+    const phraseScore = Math.min(phraseCount * 5, 25);
+    totalScore += phraseScore;
+    reasons.push(`${phraseCount} KI-Phrasen`);
+    details.push({ category: '🔤 KI-Phrasen', score: phraseScore, description: `${phraseCount} typische Formulierungen gefunden` });
   }
   
-  // 2. Überverwendete Wörter (max 25 Punkte)
+  // 2. Überverwendete Wörter (max 15 Punkte)
   let overusedCount = 0;
   words.forEach(word => {
     const cleanWord = word.replace(/[^a-zäöüß]/g, '');
@@ -137,43 +275,107 @@ function calculateAIScore(text: string): { score: number; reasons: string[]; hig
     }
   });
   const overusedRatio = words.length > 0 ? overusedCount / words.length : 0;
-  if (overusedRatio > 0.015) {
-    const overusedScore = Math.min(overusedRatio * 600, 25);
-    score += overusedScore;
-    reasons.push(`${overusedCount} KI-typische Wörter`);
+  if (overusedRatio > 0.01) {
+    const overusedScore = Math.min(overusedRatio * 500, 15);
+    totalScore += overusedScore;
+    details.push({ category: '📝 KI-Wörter', score: Math.round(overusedScore), description: `${overusedCount} Wörter (${(overusedRatio * 100).toFixed(1)}%)` });
   }
   
-  // 3. Satzlängen-Uniformität (max 15 Punkte)
+  // 3. Interpunktion (max 15 Punkte)
+  const punct = analyzePunctuation(text);
+  let punctScore = 0;
+  const punctIssues: string[] = [];
+  
+  if (punct.emDashes + punct.enDashes >= 3) {
+    punctScore += 5;
+    punctIssues.push(`${punct.emDashes + punct.enDashes} Gedankenstriche`);
+  }
+  if (punct.semicolons >= 3) {
+    punctScore += 3;
+    punctIssues.push(`${punct.semicolons} Semikolons`);
+  }
+  if (punct.excessiveCommas) {
+    punctScore += 4;
+    punctIssues.push('Viele Kommas');
+  }
+  if (punct.bulletPoints >= 5 || punct.numberedLists >= 3) {
+    punctScore += 3;
+    punctIssues.push('Viele Listen');
+  }
+  
+  if (punctScore > 0) {
+    totalScore += Math.min(punctScore, 15);
+    details.push({ category: '✏️ Interpunktion', score: Math.min(punctScore, 15), description: punctIssues.join(', ') });
+  }
+  
+  // 4. Satzlängen-Uniformität (max 12 Punkte)
   if (sentences.length > 4) {
     const sentenceLengths = sentences.map(s => s.split(/\s+/).length);
     const avgLength = sentenceLengths.reduce((a, b) => a + b, 0) / sentenceLengths.length;
     const variance = sentenceLengths.reduce((sum, len) => sum + Math.pow(len - avgLength, 2), 0) / sentenceLengths.length;
     const stdDev = Math.sqrt(variance);
     
-    // Niedrige Standardabweichung = zu gleichmäßig = AI-typisch
-    if (stdDev < 4 && avgLength > 12) {
-      score += 15;
-      reasons.push('Sehr gleichmäßige Satzlängen');
-    } else if (stdDev < 6 && avgLength > 12) {
-      score += 8;
-      reasons.push('Gleichmäßige Satzlängen');
+    if (stdDev < 4 && avgLength > 10) {
+      totalScore += 12;
+      details.push({ category: '📏 Satzlängen', score: 12, description: `Sehr gleichmäßig (σ=${stdDev.toFixed(1)})` });
+    } else if (stdDev < 6 && avgLength > 10) {
+      totalScore += 6;
+      details.push({ category: '📏 Satzlängen', score: 6, description: `Gleichmäßig (σ=${stdDev.toFixed(1)})` });
     }
   }
   
-  // 4. Pattern-Matching (max 20 Punkte)
-  let patternMatches = 0;
-  AI_PATTERNS.forEach(pattern => {
-    pattern.lastIndex = 0;
-    const matches = text.match(pattern);
-    if (matches) patternMatches += matches.length;
-  });
-  if (patternMatches > 0) {
-    const patternScore = Math.min(patternMatches * 7, 20);
-    score += patternScore;
-    reasons.push(`${patternMatches} KI-Satzmuster`);
+  // 5. Satzanfänge (max 12 Punkte)
+  const starterAnalysis = analyzeSentenceStarters(text);
+  if (starterAnalysis.repetitionScore > 30) {
+    const starterScore = Math.min(starterAnalysis.repetitionScore / 3, 12);
+    totalScore += starterScore;
+    details.push({ category: '🔁 Satzanfänge', score: Math.round(starterScore), description: `${Math.round(starterAnalysis.repetitionScore)}% KI-typische Anfänge` });
   }
   
-  return { score: Math.min(score, 100), reasons, highlights };
+  // 6. Vokabular-Diversität (max 10 Punkte)
+  const ttr = calculateTTR(text);
+  if (ttr < 0.4 && words.length >= 100) {
+    const ttrScore = Math.round((0.4 - ttr) * 50);
+    totalScore += Math.min(ttrScore, 10);
+    details.push({ category: '📚 Vokabular', score: Math.min(ttrScore, 10), description: `Geringe Diversität (TTR=${ttr.toFixed(2)})` });
+  }
+  
+  // 7. Absatz-Uniformität (max 8 Punkte)
+  const paragraphAnalysis = analyzeParagraphUniformity(text);
+  if (paragraphAnalysis.uniform) {
+    totalScore += 8;
+    details.push({ category: '📄 Absätze', score: 8, description: 'Sehr gleichmäßige Absatzlängen' });
+  }
+  
+  // 8. Aufzählungsmuster (max 5 Punkte)
+  if (hasEnumerationPattern(text)) {
+    totalScore += 5;
+    details.push({ category: '🔢 Aufzählung', score: 5, description: 'Typisches KI-Aufzählungsmuster' });
+  }
+  
+  // 9. Adjektiv-Ketten (max 5 Punkte)
+  const adjChains = countAdjectiveChains(text);
+  if (adjChains >= 2) {
+    const adjScore = Math.min(adjChains * 2, 5);
+    totalScore += adjScore;
+    details.push({ category: '🎨 Adjektive', score: adjScore, description: `${adjChains} Adjektiv-Ketten` });
+  }
+  
+  // Zusammenfassung
+  if (details.length > 0) {
+    const topReasons = details
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map(d => d.category.slice(2).trim());
+    reasons.push(...topReasons);
+  }
+  
+  return { 
+    score: Math.min(totalScore, 100), 
+    reasons: reasons.slice(0, 4), 
+    details: details.sort((a, b) => b.score - a.score),
+    highlights 
+  };
 }
 
 // Prüft ob ein Wort KI-typisch ist
@@ -182,41 +384,30 @@ function isAIWord(word: string, aiHighlights: Set<string>): boolean {
   return aiHighlights.has(cleanWord) || AI_OVERUSED_WORDS.has(cleanWord);
 }
 
-// Fachbegriffe - Medizin, Technik, Wissenschaft
+// ========== FACHBEGRIFFE ==========
+
 const FACHBEGRIFF_PATTERNS = [
-  // Medizinische Suffixe
   /\w*(itis|ose|ismus|pathie|logie|tomie|ektomie|plastik|skopie|therapie|gramm|graphie)\b/gi,
-  // Medizinische Präfixe
   /\b(anti|hyper|hypo|intra|extra|trans|peri|post|prä|neo|pseudo|patho|physio|cardio|neuro|gastro|derma|ortho|psycho)\w+/gi,
-  // Pharma/Wirkstoffe
   /\w*(azol|pril|sartan|statin|mycin|cillin|oxacin|mab|nib|zumab)\b/gi,
-  // Technische Begriffe
   /\b(algorithmus|infrastruktur|implementierung|konfiguration|spezifikation|validierung|zertifizierung|akkreditierung|standardisierung)\b/gi,
-  // Wissenschaftliche Begriffe
   /\b(hypothese|signifikanz|korrelation|kausalität|evidenz|metaanalyse|randomisierung|placebo|doppelblind)\b/gi,
-  // Rechtliche Begriffe
   /\b(konformität|compliance|regulierung|zulassung|haftung|gewährleistung|inverkehrbringung)\b/gi,
 ];
 
-// Medizinische Fachbegriffe (häufige)
 const MEDICAL_TERMS = new Set([
-  // Anatomie
   'muskulatur', 'skelett', 'gelenk', 'wirbelsäule', 'bandscheibe', 'sehne', 'ligament',
   'faszien', 'myofaszial', 'propriozeption', 'nozizeption', 'innervation',
-  // Beschwerden/Diagnosen
   'arthrose', 'arthritis', 'tendinitis', 'bursitis', 'fibromyalgie', 'neuropathie',
   'ischialgie', 'lumbalgie', 'cervikalgie', 'epicondylitis', 'karpaltunnelsyndrom',
   'impingement', 'instabilität', 'dysfunktion', 'insuffizienz',
-  // Therapie
   'mobilisation', 'manipulation', 'traktion', 'kompression', 'dekompression',
   'elektrotherapie', 'ultraschall', 'kryotherapie', 'thermotherapie', 'hydrotherapie',
   'tens', 'ems', 'biofeedback', 'propriozeptiv', 'sensomotorisch',
-  // Medizinprodukte
   'medizinprodukt', 'konformitätsbewertung', 'risikoklasse', 'biokompatibilität',
   'sterilisation', 'desinfektion', 'kontamination',
 ]);
 
-// Technische Fachbegriffe
 const TECH_TERMS = new Set([
   'frequenz', 'amplitude', 'modulation', 'stimulation', 'impuls', 'elektrode',
   'applikator', 'sensor', 'aktuator', 'interface', 'protokoll', 'parameter',
@@ -225,29 +416,22 @@ const TECH_TERMS = new Set([
 
 function isFachbegriff(word: string): boolean {
   const cleanWord = word.toLowerCase().replace(/[^a-zäöüß]/g, '');
-  
-  // Direkte Übereinstimmung
-  if (MEDICAL_TERMS.has(cleanWord) || TECH_TERMS.has(cleanWord)) {
-    return true;
-  }
-  
-  // Pattern-Matching
+  if (MEDICAL_TERMS.has(cleanWord) || TECH_TERMS.has(cleanWord)) return true;
   for (const pattern of FACHBEGRIFF_PATTERNS) {
-    // Reset lastIndex for global patterns
     pattern.lastIndex = 0;
-    if (pattern.test(cleanWord)) {
-      return true;
-    }
+    if (pattern.test(cleanWord)) return true;
   }
-  
   return false;
 }
 
-// Passiv-Patterns
+// ========== PASSIV ==========
+
 const PASSIV_PATTERNS = [
   /\b(wird|werden|wurde|wurden)\s+\w+t\b/gi,
   /\b(ist|sind|war|waren)\s+\w+t\s+worden\b/gi,
 ];
+
+// ========== KATEGORIEN ==========
 
 interface HighlightCategory {
   id: string;
@@ -313,19 +497,13 @@ interface HighlightedTextProps {
   text: string;
 }
 
-interface TextSegment {
-  text: string;
-  categories: string[];
-  isSentenceStart?: boolean;
-}
-
 // AI-Score Label und Farbe
-function getAIScoreLabel(score: number): { label: string; color: string; bgColor: string } {
-  if (score >= 70) return { label: 'Sehr wahrscheinlich KI', color: 'text-red-700', bgColor: 'bg-red-100' };
-  if (score >= 50) return { label: 'Wahrscheinlich KI', color: 'text-orange-700', bgColor: 'bg-orange-100' };
-  if (score >= 30) return { label: 'Möglicherweise KI', color: 'text-yellow-700', bgColor: 'bg-yellow-100' };
-  if (score >= 15) return { label: 'Leichte KI-Merkmale', color: 'text-blue-700', bgColor: 'bg-blue-100' };
-  return { label: 'Vermutlich menschlich', color: 'text-green-700', bgColor: 'bg-green-100' };
+function getAIScoreLabel(score: number): { label: string; color: string; bgColor: string; borderColor: string } {
+  if (score >= 70) return { label: 'Sehr wahrscheinlich KI', color: 'text-red-700', bgColor: 'bg-red-50', borderColor: 'border-red-300' };
+  if (score >= 50) return { label: 'Wahrscheinlich KI', color: 'text-orange-700', bgColor: 'bg-orange-50', borderColor: 'border-orange-300' };
+  if (score >= 30) return { label: 'Möglicherweise KI', color: 'text-yellow-700', bgColor: 'bg-yellow-50', borderColor: 'border-yellow-300' };
+  if (score >= 15) return { label: 'Leichte KI-Merkmale', color: 'text-blue-700', bgColor: 'bg-blue-50', borderColor: 'border-blue-300' };
+  return { label: 'Vermutlich menschlich', color: 'text-green-700', bgColor: 'bg-green-50', borderColor: 'border-green-300' };
 }
 
 export function HighlightedText({ text }: HighlightedTextProps) {
@@ -337,6 +515,7 @@ export function HighlightedText({ text }: HighlightedTextProps) {
     passiv: true,
     fachbegriff: true
   });
+  const [showAIDetails, setShowAIDetails] = useState(false);
 
   const toggleCategory = (categoryId: string) => {
     setActiveCategories(prev => ({
@@ -347,7 +526,7 @@ export function HighlightedText({ text }: HighlightedTextProps) {
 
   // AI-Score berechnen
   const aiAnalysis = useMemo(() => {
-    if (!text.trim()) return { score: 0, reasons: [], highlights: new Set<string>() };
+    if (!text.trim()) return { score: 0, reasons: [], details: [], highlights: new Set<string>() };
     return calculateAIScore(text);
   }, [text]);
 
@@ -394,14 +573,12 @@ export function HighlightedText({ text }: HighlightedTextProps) {
   const highlightedContent = useMemo(() => {
     if (!text.trim()) return null;
 
-    // Split in Sätze mit deren Positionen
     const sentences = text.split(/(?<=[.!?])\s+/);
     
     return sentences.map((sentence, sentenceIndex) => {
       const words = sentence.split(/\s+/).filter(w => w.length > 0);
       const wordCount = words.length;
       
-      // Satz-Level Kategorien
       const sentenceCategories: string[] = [];
       if (wordCount > 30 && activeCategories.veryLongSentence) {
         sentenceCategories.push('veryLongSentence');
@@ -409,7 +586,6 @@ export function HighlightedText({ text }: HighlightedTextProps) {
         sentenceCategories.push('longSentence');
       }
 
-      // Check für Passiv im Satz
       let hasPassiv = false;
       if (activeCategories.passiv) {
         for (const pattern of PASSIV_PATTERNS) {
@@ -420,7 +596,6 @@ export function HighlightedText({ text }: HighlightedTextProps) {
         }
       }
 
-      // Wort-Level Rendering
       const renderedWords = sentence.split(/(\s+)/).map((part, partIndex) => {
         if (/^\s+$/.test(part)) {
           return <span key={`${sentenceIndex}-${partIndex}`}>{part}</span>;
@@ -429,22 +604,18 @@ export function HighlightedText({ text }: HighlightedTextProps) {
         const wordCategories: string[] = [];
         const cleanWord = part.toLowerCase().replace(/[^a-zäöüß]/g, '');
 
-        // KI-Text?
         if (activeCategories.aiText && isAIWord(part, aiAnalysis.highlights)) {
           wordCategories.push('aiText');
         }
 
-        // Füllwort?
         if (activeCategories.fuellwort && FUELLWOERTER.includes(cleanWord)) {
           wordCategories.push('fuellwort');
         }
 
-        // Fachbegriff?
         if (activeCategories.fachbegriff && isFachbegriff(part)) {
           wordCategories.push('fachbegriff');
         }
 
-        // Passiv-Teil?
         if (hasPassiv && activeCategories.passiv) {
           const passivWords = ['wird', 'werden', 'wurde', 'wurden', 'worden'];
           if (passivWords.includes(cleanWord)) {
@@ -452,7 +623,6 @@ export function HighlightedText({ text }: HighlightedTextProps) {
           }
         }
 
-        // Styling basierend auf Kategorien
         if (wordCategories.length > 0 || sentenceCategories.length > 0) {
           const allCategories = [...wordCategories, ...sentenceCategories];
           const primaryCategory = allCategories[0];
@@ -474,7 +644,6 @@ export function HighlightedText({ text }: HighlightedTextProps) {
         return <span key={`${sentenceIndex}-${partIndex}`}>{part}</span>;
       });
 
-      // Satz-Container mit Border wenn lang
       if (sentenceCategories.length > 0) {
         const sentenceCategoryConfig = CATEGORIES.find(c => c.id === sentenceCategories[0]);
         return (
@@ -513,7 +682,7 @@ export function HighlightedText({ text }: HighlightedTextProps) {
   return (
     <div className="space-y-4">
       {/* KI-Erkennung Card */}
-      <Card className={`border-2 ${aiScoreInfo.bgColor} ${aiScoreInfo.color.replace('text-', 'border-')}`}>
+      <Card className={`border-2 ${aiScoreInfo.bgColor} ${aiScoreInfo.borderColor}`}>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
             <Bot className="h-4 w-4" />
@@ -523,11 +692,18 @@ export function HighlightedText({ text }: HighlightedTextProps) {
                 <TooltipTrigger>
                   <Info className="h-3 w-3 opacity-60" />
                 </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
-                  <p className="text-xs">
-                    Analysiert typische KI-Merkmale: Phrasen, Wortmuster, Satzgleichförmigkeit. 
-                    Höherer Score = wahrscheinlicher KI-generiert.
-                  </p>
+                <TooltipContent className="max-w-sm">
+                  <p className="text-xs font-medium mb-1">Analysierte Metriken:</p>
+                  <ul className="text-xs space-y-0.5 list-disc pl-3">
+                    <li>KI-typische Phrasen & Floskeln</li>
+                    <li>Überverwendete Wörter</li>
+                    <li>Interpunktion (Gedankenstriche, Semikolons)</li>
+                    <li>Satz- und Absatzlängen-Uniformität</li>
+                    <li>Repetitive Satzanfänge</li>
+                    <li>Vokabular-Diversität (TTR)</li>
+                    <li>Aufzählungsmuster</li>
+                    <li>Adjektiv-Ketten</li>
+                  </ul>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -544,19 +720,33 @@ export function HighlightedText({ text }: HighlightedTextProps) {
               </div>
               <Progress 
                 value={aiAnalysis.score} 
-                className="h-2"
+                className="h-2.5"
               />
             </div>
           </div>
           
-          {aiAnalysis.reasons.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {aiAnalysis.reasons.map((reason, idx) => (
-                <Badge key={idx} variant="secondary" className="text-xs">
-                  {reason}
-                </Badge>
-              ))}
-            </div>
+          {aiAnalysis.details.length > 0 && (
+            <Collapsible open={showAIDetails} onOpenChange={setShowAIDetails}>
+              <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                {showAIDetails ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                {showAIDetails ? 'Details ausblenden' : `${aiAnalysis.details.length} Kriterien analysiert`}
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-2">
+                <div className="grid gap-2">
+                  {aiAnalysis.details.map((detail, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-xs bg-background/50 rounded px-2 py-1.5">
+                      <span className="flex items-center gap-1.5">
+                        <span>{detail.category}</span>
+                        <span className="text-muted-foreground">– {detail.description}</span>
+                      </span>
+                      <Badge variant="secondary" className="text-xs h-5">
+                        +{detail.score}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
           )}
         </CardContent>
       </Card>
