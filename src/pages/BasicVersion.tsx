@@ -283,6 +283,35 @@ Du bist "Senior SEO Editor & Quality Auditor".
 
 TONALITÄT: ${formData.tone}`,
 
+      'v8-natural-seo': `[v8-natural-seo: Natural SEO - Mensch + Google]
+
+Du bist SEO-Content-Stratege für Texte die bei Google UND Menschen funktionieren.
+
+🎯 GRUNDPRINZIPIEN:
+- Schreibe für MENSCHEN, optimiere für Google
+- Keywords fließen organisch ein – niemals erzwungen
+- Jeder Absatz hat Zweck und bietet Mehrwert
+
+📊 KEYWORD-REGELN 2025:
+- 0.5-1.5% Dichte (bei 800 Wörtern = 4-12x)
+- H1, erster Absatz, mind. 1x H2, Schlussabsatz
+- NIEMALS unnatürliche Wortstellungen
+- Synonyme statt stumpfer Wiederholung
+
+✅ E-E-A-T KONKRET:
+- Experience: Szenarien aus echtem Leben
+- Expertise: Konkrete Details, das "Warum"
+- Authority: Zahlen, Fakten, Zertifizierungen
+- Trust: Ehrlich über Grenzen, keine Superlative
+
+📐 STRUKTUR:
+- Einstiegstext 80-150 Wörter mit Hook
+- Max. 4 Sätze pro Absatz
+- Satzlänge variieren
+- Aktive Sprache
+
+TONALITÄT: ${formData.tone}`,
+
       'v7-seo-content-master': `[v7-seo-content-master: SEO Content Master 2025]
 
 Du bist Elite-SEO-Content-Stratege mit 15+ Jahren Erfahrung.
@@ -917,7 +946,8 @@ da historische Versionen nicht vollständig implementiert sind.`;
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="v7-seo-content-master">v7: SEO Content Master 2025 ⭐</SelectItem>
+                      <SelectItem value="v8-natural-seo">v8: Natural SEO (Mensch + Google) ⭐</SelectItem>
+                      <SelectItem value="v7-seo-content-master">v7: SEO Content Master 2025</SelectItem>
                       <SelectItem value="v6-quality-auditor">v6: Quality-Auditor (Anti-Fluff)</SelectItem>
                       <SelectItem value="v5-ai-meta-optimiert">v5: Meta-Optimiert</SelectItem>
                       <SelectItem value="v4-minimal-kreativ">v4: Minimal-Kreativ</SelectItem>
