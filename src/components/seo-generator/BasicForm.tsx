@@ -503,6 +503,12 @@ export const BasicForm = ({ onGenerate, isLoading }: BasicFormProps) => {
                         <span className="text-xs text-muted-foreground">Anti-Fluff + AEO + Skimmability</span>
                       </div>
                     </SelectItem>
+                    <SelectItem value="v9-master-prompt">
+                      <div className="flex flex-col">
+                        <span className="font-medium">⭐ v9: Master Prompt</span>
+                        <span className="text-xs text-muted-foreground">Alle Features, optimierte Prompts</span>
+                      </div>
+                    </SelectItem>
                     
                     <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mt-2 border-t">
                       📚 Historische Versionen
