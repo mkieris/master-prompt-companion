@@ -64,6 +64,11 @@ interface FormData {
   manufacturerInfo: string;
   additionalInfo: string;
   promptVersion: string;
+  pageGoal: "inform" | "advise" | "preparePurchase" | "triggerPurchase";
+  complianceCheck: boolean;
+  checkMDR: boolean;
+  checkHWG: boolean;
+  checkStudies: boolean;
 }
 
 interface SeoTextContent {
@@ -118,7 +123,12 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
     manufacturerWebsite: "",
     manufacturerInfo: "",
     additionalInfo: "",
-    promptVersion: "v8.1-sachlich",
+    promptVersion: "v9-master",
+    pageGoal: "inform",
+    complianceCheck: false,
+    checkMDR: false,
+    checkHWG: false,
+    checkStudies: false,
   });
   
   const [wQuestionInput, setWQuestionInput] = useState("");
@@ -375,6 +385,64 @@ Basiert auf Google Quality Rater Guidelines 2025.
 - E-E-A-T-Signale vorhanden?
 
 TONALITÄT: ${formData.tone}`,
+
+      'v9-master': `[v9-master: MASTER PROMPT 2025] ⭐ EMPFOHLEN
+
+Du bist erfahrener SEO-Content-Stratege für Texte die bei Google UND Menschen funktionieren.
+
+═══ FIXES GEGENÜBER V8 ═══
+✅ tone → tonality Mapping (Frontend sendet "factual/advisory/sales")
+✅ pageGoal Integration (inform/advise/preparePurchase/triggerPurchase)
+✅ Compliance-Struktur (checkMDR + complianceChecks.mdr)
+✅ Zielgruppen-spezifische Tiefe (B2B vs B2C)
+
+═══ GRUNDPRINZIPIEN ═══
+1. Schreibe für MENSCHEN, optimiere für Google
+2. Keywords fließen organisch ein – niemals erzwungen
+3. Jeder Absatz hat Zweck und bietet Mehrwert
+
+═══ KEYWORD-STRATEGIE 2025 ═══
+📍 PFLICHT-PLATZIERUNGEN:
+- H1-Überschrift
+- Erste 100 Wörter
+- Mind. 1x H2
+- Letzter Absatz
+- Meta-Title + Description
+
+📊 KEYWORD-DICHTE: 0.5-1.5%
+- Bei ${formData.contentLength === 'short' ? '400' : formData.contentLength === 'long' ? '1200' : '800'} Wörtern = ${formData.contentLength === 'short' ? '2-6' : formData.contentLength === 'long' ? '6-18' : '4-12'}x
+- NIEMALS unnatürliche Wortstellungen
+- Synonyme + Variationen nutzen
+
+═══ E-E-A-T KONKRET ═══
+- Experience: "Kennst du das, wenn..." Szenarien
+- Expertise: Konkrete Details, das "Warum" erklären
+- Authority: Zahlen, Fakten, Zertifizierungen
+- Trust: Ehrlich über Grenzen, keine Übertreibungen
+
+═══ STRUKTUR ═══
+1. H1 + Fokus-Keyword (nur 1x!)
+2. Einstieg 80-150 Wörter (Hook + Keyword)
+3. H2-Sektionen für Hauptthemen
+4. H3 nur für echte Unterpunkte
+5. Mind. 2-3 Bullet-Listen
+6. <strong> für wichtige Begriffe
+7. FAQ am Ende (5-8 W-Fragen)
+
+═══ ANTI-PATTERNS (VERBOTEN!) ═══
+❌ "In der heutigen Zeit..."
+❌ "Es ist wichtig zu beachten..."
+❌ "Zusammenfassend lässt sich sagen..."
+❌ Keyword-Stuffing (>1.5%)
+❌ Passive Formulierungen
+❌ H1 → H3 Sprung (H2 fehlt)
+
+═══ AKTUELLE KONFIGURATION ═══
+TONALITÄT: ${formData.tone === 'factual' ? 'Sachlich & Informativ' : formData.tone === 'sales' ? 'Aktivierend & Überzeugend' : 'Beratend & Nutzenorientiert'}
+SEITENZIEL: ${formData.pageGoal === 'inform' ? 'Informieren' : formData.pageGoal === 'advise' ? 'Beraten' : formData.pageGoal === 'preparePurchase' ? 'Kauf vorbereiten' : 'Kauf auslösen'}
+ANREDE: ${formData.formOfAddress === 'du' ? 'Du-Form' : formData.formOfAddress === 'sie' ? 'Sie-Form' : 'Neutral'}
+ZIELGRUPPE: ${formData.targetAudience === 'physiotherapists' ? 'B2B (Fachpersonal)' : 'B2C (Endkunden)'}
+${formData.complianceCheck ? `\n⚠️ COMPLIANCE AKTIV: ${[formData.checkMDR ? 'MDR' : '', formData.checkHWG ? 'HWG' : '', formData.checkStudies ? 'Studien' : ''].filter(Boolean).join(', ')}` : ''}`,
     };
 
     // Check for historical versions
