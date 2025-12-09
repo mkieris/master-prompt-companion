@@ -4,6 +4,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
 import { 
   AlertTriangle, 
   Shuffle,
@@ -13,7 +14,12 @@ import {
   Bot,
   Info,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Sparkles,
+  Loader2,
+  CheckCircle,
+  XCircle,
+  Lightbulb
 } from 'lucide-react';
 import {
   Tooltip,
@@ -22,6 +28,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 // Füllwörter Liste
 const FUELLWOERTER = [
@@ -506,6 +514,21 @@ function getAIScoreLabel(score: number): { label: string; color: string; bgColor
   return { label: 'Vermutlich menschlich', color: 'text-green-700', bgColor: 'bg-green-50', borderColor: 'border-green-300' };
 }
 
+// AI Analysis Response Type
+interface DeepAIAnalysis {
+  score: number;
+  verdict: string;
+  confidence: string;
+  analysis: {
+    positiveIndicators: string[];
+    negativeIndicators: string[];
+    linguisticPatterns: string;
+    structuralPatterns: string;
+  };
+  recommendations: string[];
+  highlightedPhrases: string[];
+}
+
 export function HighlightedText({ text }: HighlightedTextProps) {
   const [activeCategories, setActiveCategories] = useState<Record<string, boolean>>({
     aiText: true,
@@ -516,12 +539,55 @@ export function HighlightedText({ text }: HighlightedTextProps) {
     fachbegriff: true
   });
   const [showAIDetails, setShowAIDetails] = useState(false);
+  
+  // Deep AI Analysis State
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [deepAnalysis, setDeepAnalysis] = useState<DeepAIAnalysis | null>(null);
+  const [showDeepDetails, setShowDeepDetails] = useState(true);
 
   const toggleCategory = (categoryId: string) => {
     setActiveCategories(prev => ({
       ...prev,
       [categoryId]: !prev[categoryId]
     }));
+  };
+
+  // Deep AI Analysis function
+  const runDeepAIAnalysis = async () => {
+    if (!text.trim() || text.length < 100) {
+      toast.error('Text muss mindestens 100 Zeichen haben');
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setDeepAnalysis(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('check-ai-text', {
+        body: { text }
+      });
+
+      if (error) {
+        console.error('Deep AI Analysis error:', error);
+        toast.error('Fehler bei der KI-Analyse');
+        return;
+      }
+
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+
+      if (data?.analysis) {
+        setDeepAnalysis(data.analysis);
+        toast.success('KI-Analyse abgeschlossen');
+      }
+    } catch (err) {
+      console.error('Unexpected error:', err);
+      toast.error('Ein unerwarteter Fehler ist aufgetreten');
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   // AI-Score berechnen
@@ -678,35 +744,58 @@ export function HighlightedText({ text }: HighlightedTextProps) {
   }
 
   const aiScoreInfo = getAIScoreLabel(aiAnalysis.score);
+  const deepScoreInfo = deepAnalysis ? getAIScoreLabel(deepAnalysis.score) : null;
 
   return (
     <div className="space-y-4">
-      {/* KI-Erkennung Card */}
+      {/* KI-Erkennung Card - Regel-basiert */}
       <Card className={`border-2 ${aiScoreInfo.bgColor} ${aiScoreInfo.borderColor}`}>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Bot className="h-4 w-4" />
-            KI-Text Erkennung
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger>
-                  <Info className="h-3 w-3 opacity-60" />
-                </TooltipTrigger>
-                <TooltipContent className="max-w-sm">
-                  <p className="text-xs font-medium mb-1">Analysierte Metriken:</p>
-                  <ul className="text-xs space-y-0.5 list-disc pl-3">
-                    <li>KI-typische Phrasen & Floskeln</li>
-                    <li>Überverwendete Wörter</li>
-                    <li>Interpunktion (Gedankenstriche, Semikolons)</li>
-                    <li>Satz- und Absatzlängen-Uniformität</li>
-                    <li>Repetitive Satzanfänge</li>
-                    <li>Vokabular-Diversität (TTR)</li>
-                    <li>Aufzählungsmuster</li>
-                    <li>Adjektiv-Ketten</li>
-                  </ul>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+          <CardTitle className="text-sm flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Bot className="h-4 w-4" />
+              KI-Text Erkennung
+              <Badge variant="outline" className="text-xs font-normal">Regel-basiert</Badge>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Info className="h-3 w-3 opacity-60" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-sm">
+                    <p className="text-xs font-medium mb-1">Analysierte Metriken:</p>
+                    <ul className="text-xs space-y-0.5 list-disc pl-3">
+                      <li>KI-typische Phrasen & Floskeln</li>
+                      <li>Überverwendete Wörter</li>
+                      <li>Interpunktion (Gedankenstriche, Semikolons)</li>
+                      <li>Satz- und Absatzlängen-Uniformität</li>
+                      <li>Repetitive Satzanfänge</li>
+                      <li>Vokabular-Diversität (TTR)</li>
+                      <li>Aufzählungsmuster</li>
+                      <li>Adjektiv-Ketten</li>
+                    </ul>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={runDeepAIAnalysis}
+              disabled={isAnalyzing || text.length < 100}
+              className="gap-1.5"
+            >
+              {isAnalyzing ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Analysiere...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Deep AI Analyse
+                </>
+              )}
+            </Button>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -750,6 +839,122 @@ export function HighlightedText({ text }: HighlightedTextProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* Deep AI Analysis Results */}
+      {deepAnalysis && deepScoreInfo && (
+        <Card className={`border-2 ${deepScoreInfo.bgColor} ${deepScoreInfo.borderColor}`}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-purple-600" />
+              Deep AI Analyse
+              <Badge className="bg-purple-100 text-purple-700 border-0 text-xs">Google Gemini</Badge>
+              <Badge variant="outline" className="text-xs font-normal">
+                Konfidenz: {deepAnalysis.confidence}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Score */}
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <div className="flex justify-between mb-1">
+                  <span className={`text-sm font-medium ${deepScoreInfo.color}`}>
+                    {deepAnalysis.verdict}
+                  </span>
+                  <span className="text-sm font-bold">{deepAnalysis.score}%</span>
+                </div>
+                <Progress value={deepAnalysis.score} className="h-2.5" />
+              </div>
+            </div>
+
+            <Collapsible open={showDeepDetails} onOpenChange={setShowDeepDetails}>
+              <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                {showDeepDetails ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                {showDeepDetails ? 'Details ausblenden' : 'Details anzeigen'}
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-3 space-y-4">
+                {/* Positive Indicators */}
+                {deepAnalysis.analysis.positiveIndicators.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-medium flex items-center gap-1.5 mb-2 text-red-700">
+                      <XCircle className="h-3.5 w-3.5" />
+                      KI-Indikatoren gefunden
+                    </h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      {deepAnalysis.analysis.positiveIndicators.map((indicator, idx) => (
+                        <Badge key={idx} variant="secondary" className="text-xs bg-red-50 text-red-700">
+                          {indicator}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Negative Indicators */}
+                {deepAnalysis.analysis.negativeIndicators.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-medium flex items-center gap-1.5 mb-2 text-green-700">
+                      <CheckCircle className="h-3.5 w-3.5" />
+                      Menschliche Merkmale
+                    </h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      {deepAnalysis.analysis.negativeIndicators.map((indicator, idx) => (
+                        <Badge key={idx} variant="secondary" className="text-xs bg-green-50 text-green-700">
+                          {indicator}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Patterns */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="text-xs bg-muted/50 rounded-lg p-3">
+                    <h5 className="font-medium mb-1">Sprachliche Muster</h5>
+                    <p className="text-muted-foreground">{deepAnalysis.analysis.linguisticPatterns}</p>
+                  </div>
+                  <div className="text-xs bg-muted/50 rounded-lg p-3">
+                    <h5 className="font-medium mb-1">Strukturelle Muster</h5>
+                    <p className="text-muted-foreground">{deepAnalysis.analysis.structuralPatterns}</p>
+                  </div>
+                </div>
+
+                {/* Highlighted Phrases */}
+                {deepAnalysis.highlightedPhrases.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-medium flex items-center gap-1.5 mb-2">
+                      <AlertTriangle className="h-3.5 w-3.5 text-orange-600" />
+                      Typische KI-Phrasen im Text
+                    </h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      {deepAnalysis.highlightedPhrases.map((phrase, idx) => (
+                        <Badge key={idx} className="text-xs bg-orange-100 text-orange-800 border-0">
+                          "{phrase}"
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Recommendations */}
+                {deepAnalysis.recommendations.length > 0 && (
+                  <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                    <h4 className="text-xs font-medium flex items-center gap-1.5 mb-2 text-blue-800">
+                      <Lightbulb className="h-3.5 w-3.5" />
+                      Verbesserungsvorschläge
+                    </h4>
+                    <ul className="text-xs text-blue-700 space-y-1 list-disc pl-4">
+                      {deepAnalysis.recommendations.map((rec, idx) => (
+                        <li key={idx}>{rec}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </CollapsibleContent>
+            </Collapsible>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Kategorie-Toggles */}
       <Card>
