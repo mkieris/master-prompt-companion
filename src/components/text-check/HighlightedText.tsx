@@ -5,10 +5,10 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   AlertTriangle, 
-  Type, 
   Shuffle,
   Zap,
-  MessageSquare
+  MessageSquare,
+  Stethoscope
 } from 'lucide-react';
 
 // Füllwörter Liste
@@ -23,22 +23,65 @@ const FUELLWOERTER = [
   'im grunde', 'an sich', 'im prinzip', 'an und für sich'
 ];
 
-// Komplexe Wörter (> 3 Silben und > 10 Zeichen)
-function isComplexWord(word: string): boolean {
+// Fachbegriffe - Medizin, Technik, Wissenschaft
+const FACHBEGRIFF_PATTERNS = [
+  // Medizinische Suffixe
+  /\w*(itis|ose|ismus|pathie|logie|tomie|ektomie|plastik|skopie|therapie|gramm|graphie)\b/gi,
+  // Medizinische Präfixe
+  /\b(anti|hyper|hypo|intra|extra|trans|peri|post|prä|neo|pseudo|patho|physio|cardio|neuro|gastro|derma|ortho|psycho)\w+/gi,
+  // Pharma/Wirkstoffe
+  /\w*(azol|pril|sartan|statin|mycin|cillin|oxacin|mab|nib|zumab)\b/gi,
+  // Technische Begriffe
+  /\b(algorithmus|infrastruktur|implementierung|konfiguration|spezifikation|validierung|zertifizierung|akkreditierung|standardisierung)\b/gi,
+  // Wissenschaftliche Begriffe
+  /\b(hypothese|signifikanz|korrelation|kausalität|evidenz|metaanalyse|randomisierung|placebo|doppelblind)\b/gi,
+  // Rechtliche Begriffe
+  /\b(konformität|compliance|regulierung|zulassung|haftung|gewährleistung|inverkehrbringung)\b/gi,
+];
+
+// Medizinische Fachbegriffe (häufige)
+const MEDICAL_TERMS = new Set([
+  // Anatomie
+  'muskulatur', 'skelett', 'gelenk', 'wirbelsäule', 'bandscheibe', 'sehne', 'ligament',
+  'faszien', 'myofaszial', 'propriozeption', 'nozizeption', 'innervation',
+  // Beschwerden/Diagnosen
+  'arthrose', 'arthritis', 'tendinitis', 'bursitis', 'fibromyalgie', 'neuropathie',
+  'ischialgie', 'lumbalgie', 'cervikalgie', 'epicondylitis', 'karpaltunnelsyndrom',
+  'impingement', 'instabilität', 'dysfunktion', 'insuffizienz',
+  // Therapie
+  'mobilisation', 'manipulation', 'traktion', 'kompression', 'dekompression',
+  'elektrotherapie', 'ultraschall', 'kryotherapie', 'thermotherapie', 'hydrotherapie',
+  'tens', 'ems', 'biofeedback', 'propriozeptiv', 'sensomotorisch',
+  // Medizinprodukte
+  'medizinprodukt', 'konformitätsbewertung', 'risikoklasse', 'biokompatibilität',
+  'sterilisation', 'desinfektion', 'kontamination',
+]);
+
+// Technische Fachbegriffe
+const TECH_TERMS = new Set([
+  'frequenz', 'amplitude', 'modulation', 'stimulation', 'impuls', 'elektrode',
+  'applikator', 'sensor', 'aktuator', 'interface', 'protokoll', 'parameter',
+  'kalibrierung', 'justierung', 'wartung', 'instandhaltung',
+]);
+
+function isFachbegriff(word: string): boolean {
   const cleanWord = word.toLowerCase().replace(/[^a-zäöüß]/g, '');
-  if (cleanWord.length < 10) return false;
   
-  const vowels = 'aeiouyäöü';
-  let syllables = 0;
-  let prevWasVowel = false;
-  
-  for (const char of cleanWord) {
-    const isVowel = vowels.includes(char);
-    if (isVowel && !prevWasVowel) syllables++;
-    prevWasVowel = isVowel;
+  // Direkte Übereinstimmung
+  if (MEDICAL_TERMS.has(cleanWord) || TECH_TERMS.has(cleanWord)) {
+    return true;
   }
   
-  return syllables >= 4;
+  // Pattern-Matching
+  for (const pattern of FACHBEGRIFF_PATTERNS) {
+    // Reset lastIndex for global patterns
+    pattern.lastIndex = 0;
+    if (pattern.test(cleanWord)) {
+      return true;
+    }
+  }
+  
+  return false;
 }
 
 // Passiv-Patterns
@@ -90,12 +133,12 @@ const CATEGORIES: HighlightCategory[] = [
     description: 'Passiv-Konstruktionen'
   },
   {
-    id: 'complex',
-    label: 'Komplexe Wörter',
+    id: 'fachbegriff',
+    label: 'Fachbegriffe',
     color: 'text-teal-700',
     bgColor: 'bg-teal-200',
-    icon: <Type className="h-3 w-3" />,
-    description: '4+ Silben'
+    icon: <Stethoscope className="h-3 w-3" />,
+    description: 'Medizin/Technik'
   }
 ];
 
@@ -115,7 +158,7 @@ export function HighlightedText({ text }: HighlightedTextProps) {
     veryLongSentence: true,
     fuellwort: true,
     passiv: true,
-    complex: true
+    fachbegriff: true
   });
 
   const toggleCategory = (categoryId: string) => {
@@ -155,11 +198,12 @@ export function HighlightedText({ text }: HighlightedTextProps) {
     });
 
     const words = text.split(/\s+/);
+    let fachbegriff = 0;
     words.forEach(word => {
-      if (isComplexWord(word)) complex++;
+      if (isFachbegriff(word)) fachbegriff++;
     });
 
-    return { longSentence, veryLongSentence, fuellwort, passiv, complex };
+    return { longSentence, veryLongSentence, fuellwort, passiv, fachbegriff };
   }, [text]);
 
   // Text mit Highlights rendern
@@ -206,9 +250,9 @@ export function HighlightedText({ text }: HighlightedTextProps) {
           wordCategories.push('fuellwort');
         }
 
-        // Komplexes Wort?
-        if (activeCategories.complex && isComplexWord(part)) {
-          wordCategories.push('complex');
+        // Fachbegriff?
+        if (activeCategories.fachbegriff && isFachbegriff(part)) {
+          wordCategories.push('fachbegriff');
         }
 
         // Passiv-Teil?
