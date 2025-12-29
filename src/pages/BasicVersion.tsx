@@ -13,10 +13,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ProcessFlowPanel } from "@/components/seo-generator/ProcessFlowPanel";
+import { ValidationPanel } from "@/components/seo-generator/ValidationPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useDebug } from "@/contexts/DebugContext";
 import { useOrganization } from "@/hooks/useOrganization";
+import { quickValidate } from "@/utils/formValidation";
 import type { Session } from "@supabase/supabase-js";
 import {
   ArrowLeft,
@@ -107,6 +109,7 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
   const [showProcessFlow, setShowProcessFlow] = useState(true);
   const [showDebugPrompt, setShowDebugPrompt] = useState(false);
+  const [showValidation, setShowValidation] = useState(false);
   const [keywordInput, setKeywordInput] = useState("");
 
   const [formData, setFormData] = useState<FormData>({
@@ -549,10 +552,24 @@ da historische Versionen nicht vollständig implementiert sind.`;
   };
 
   const handleGenerate = async () => {
-    if (!formData.focusKeyword.trim()) {
-      log('error', 'Validierung fehlgeschlagen', { reason: 'Fokus-Keyword fehlt' });
-      toast({ title: "Fokus-Keyword erforderlich", variant: "destructive" });
+    // Pre-validation check
+    const validation = quickValidate(formData);
+    if (!validation.canSubmit) {
+      log('error', 'Validierung fehlgeschlagen', { 
+        reason: validation.message, 
+        details: validation.details 
+      });
+      toast({ 
+        title: "Validierung fehlgeschlagen", 
+        description: validation.details?.join(', ') || validation.message,
+        variant: "destructive" 
+      });
       return;
+    }
+
+    // Log validation warnings if any
+    if (validation.details && validation.details.length > 0) {
+      log('form', 'Validierungs-Warnungen', validation.details);
     }
 
     setIsLoading(true);
@@ -1161,6 +1178,18 @@ da historische Versionen nicht vollständig implementiert sind.`;
                       <Info className="h-3 w-3" />
                       Beide Prompts werden zusammen an die KI gesendet
                     </p>
+                  </CollapsibleContent>
+                </Collapsible>
+
+                {/* Validation Panel */}
+                <Collapsible open={showValidation} onOpenChange={setShowValidation}>
+                  <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span className="flex-1 text-left">Feld-Mapping Validierung</span>
+                    <ChevronDown className={`h-4 w-4 transition-transform ${showValidation ? 'rotate-180' : ''}`} />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-3">
+                    <ValidationPanel formData={formData} autoValidate={true} />
                   </CollapsibleContent>
                 </Collapsible>
 
