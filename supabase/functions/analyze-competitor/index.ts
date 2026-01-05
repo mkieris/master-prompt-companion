@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,18 +30,116 @@ interface CompetitorAnalysis {
   };
 }
 
+// SSRF protection: Block private/internal URLs
+function isBlockedUrl(urlString: string): boolean {
+  try {
+    const parsed = new URL(urlString);
+    const hostname = parsed.hostname.toLowerCase();
+    
+    const blockedPatterns = [
+      /^localhost$/i,
+      /^127\.\d+\.\d+\.\d+$/,
+      /^10\.\d+\.\d+\.\d+$/,
+      /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/,
+      /^192\.168\.\d+\.\d+$/,
+      /^169\.254\.\d+\.\d+$/,
+      /^0\.0\.0\.0$/,
+      /^::1$/,
+      /^fc00:/i,
+      /^fe80:/i,
+    ];
+    
+    for (const pattern of blockedPatterns) {
+      if (pattern.test(hostname)) {
+        return true;
+      }
+    }
+    
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return true;
+    }
+    
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+// Input validation schema
+const requestSchema = z.object({
+  url: z.string().min(1, 'URL is required').max(2000, 'URL too long'),
+  organizationId: z.string().uuid('Invalid organization ID'),
+  analysisId: z.string().uuid('Invalid analysis ID'),
+});
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { url, organizationId, analysisId } = await req.json();
+    // ===== AUTHENTICATION =====
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('Missing or invalid Authorization header');
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      console.log('Invalid token:', authError?.message);
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Authenticated user:', user.id);
+    // ===== END AUTHENTICATION =====
+
+    // ===== INPUT VALIDATION =====
+    const rawData = await req.json();
+    const parseResult = requestSchema.safeParse(rawData);
+    
+    if (!parseResult.success) {
+      console.log('Validation error:', parseResult.error.format());
+      return new Response(
+        JSON.stringify({ error: 'Invalid input', details: parseResult.error.format() }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { url, organizationId, analysisId } = parseResult.data;
+    // ===== END VALIDATION =====
+
+    // ===== ORGANIZATION MEMBERSHIP CHECK =====
+    const { data: membership } = await supabase
+      .from('organization_members')
+      .select('role')
+      .eq('organization_id', organizationId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+    
+    if (!membership) {
+      console.log('User not authorized for organization:', organizationId);
+      return new Response(
+        JSON.stringify({ error: 'Not authorized for this organization' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    // ===== END ORGANIZATION CHECK =====
 
     const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
     if (!FIRECRAWL_API_KEY) {
       throw new Error('FIRECRAWL_API_KEY is not configured');
@@ -49,9 +148,17 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // ===== SSRF PROTECTION =====
+    if (isBlockedUrl(url)) {
+      console.log('Blocked SSRF attempt:', url);
+      return new Response(
+        JSON.stringify({ error: 'Private and internal URLs are not allowed' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    // ===== END SSRF PROTECTION =====
 
-    console.log('Starting competitor analysis for:', url);
+    console.log('Starting competitor analysis for:', url, 'User:', user.id);
 
     // Update status to crawling
     await supabase
@@ -250,16 +357,12 @@ Antworte NUR mit validem JSON in diesem Format:
     
     // Try to update status to failed
     try {
-      const { organizationId, analysisId } = await req.json().catch(() => ({}));
-      if (analysisId) {
-        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-        const supabase = createClient(supabaseUrl, supabaseKey);
-        await supabase
-          .from('competitor_analyses')
-          .update({ crawl_status: 'failed' })
-          .eq('id', analysisId);
-      }
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      
+      // We can't re-read the body, so just log the error
+      console.log('Unable to update analysis status to failed - body already consumed');
     } catch (e) {
       // Ignore cleanup errors
     }

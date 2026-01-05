@@ -1,9 +1,25 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Input validation schema
+const messageSchema = z.object({
+  role: z.enum(['user', 'assistant', 'system']),
+  content: z.string().max(50000, 'Message content too long'),
+});
+
+const requestSchema = z.object({
+  messages: z.array(messageSchema).max(100, 'Too many messages'),
+  userMessage: z.string().min(1, 'Message is required').max(10000, 'Message too long'),
+  currentStep: z.number().int().min(0).max(20).optional(),
+  extractedData: z.record(z.unknown()).optional(),
+  domainKnowledge: z.any().optional(),
+});
 
 const SYSTEM_PROMPT = `Du bist ein erfahrener SEO-Content-Stratege und führst Benutzer interaktiv durch die Erstellung von hochwertigem SEO-Content. Du arbeitest wie ein professioneller Content-Berater.
 
@@ -149,7 +165,48 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, userMessage, currentStep, extractedData, domainKnowledge } = await req.json();
+    // ===== AUTHENTICATION =====
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('Missing or invalid Authorization header');
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      console.log('Invalid token:', authError?.message);
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Authenticated user:', user.id);
+    // ===== END AUTHENTICATION =====
+
+    // ===== INPUT VALIDATION =====
+    const rawData = await req.json();
+    const parseResult = requestSchema.safeParse(rawData);
+    
+    if (!parseResult.success) {
+      console.log('Validation error:', parseResult.error.format());
+      return new Response(
+        JSON.stringify({ error: 'Invalid input', details: parseResult.error.format() }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { messages, userMessage, currentStep, extractedData, domainKnowledge } = parseResult.data;
+    // ===== END VALIDATION =====
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -184,7 +241,7 @@ Bestätige diese Daten kurz und fahre mit dem nächsten Schritt fort.`;
     }
 
     const stepNames = ['intro', 'pageType', 'keyword', 'audience', 'content', 'style', 'generate'];
-    contextMessage += `\n\nAKTUELLER SCHRITT: ${currentStep} (${stepNames[currentStep] || 'unknown'})`;
+    contextMessage += `\n\nAKTUELLER SCHRITT: ${currentStep} (${stepNames[currentStep || 0] || 'unknown'})`;
 
     // Build messages array
     const apiMessages = [
@@ -193,7 +250,7 @@ Bestätige diese Daten kurz und fahre mit dem nächsten Schritt fort.`;
       { role: 'user', content: userMessage }
     ];
 
-    console.log('Calling Lovable AI with messages:', apiMessages.length, 'currentStep:', currentStep);
+    console.log('Calling Lovable AI with messages:', apiMessages.length, 'currentStep:', currentStep, 'User:', user.id);
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
