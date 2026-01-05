@@ -1,10 +1,16 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Input validation schema
+const requestSchema = z.object({
+  organizationId: z.string().uuid('Invalid organization ID'),
+});
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -12,18 +18,73 @@ serve(async (req) => {
   }
 
   try {
-    const { organizationId } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+    // ===== AUTHENTICATION =====
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('Missing or invalid Authorization header');
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    console.log('Generating insights for organization:', organizationId);
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      console.log('Invalid token:', authError?.message);
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Authenticated user:', user.id);
+    // ===== END AUTHENTICATION =====
+
+    // ===== INPUT VALIDATION =====
+    const rawData = await req.json();
+    const parseResult = requestSchema.safeParse(rawData);
+    
+    if (!parseResult.success) {
+      console.log('Validation error:', parseResult.error.format());
+      return new Response(
+        JSON.stringify({ error: 'Invalid input', details: parseResult.error.format() }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { organizationId } = parseResult.data;
+    // ===== END VALIDATION =====
+
+    // ===== ORGANIZATION MEMBERSHIP CHECK =====
+    const { data: membership } = await supabase
+      .from('organization_members')
+      .select('role')
+      .eq('organization_id', organizationId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+    
+    if (!membership) {
+      console.log('User not authorized for organization:', organizationId);
+      return new Response(
+        JSON.stringify({ error: 'Not authorized for this organization' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    // ===== END ORGANIZATION CHECK =====
+
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    
+    if (!LOVABLE_API_KEY) {
+      throw new Error('LOVABLE_API_KEY is not configured');
+    }
+
+    console.log('Generating insights for organization:', organizationId, 'User:', user.id);
 
     // Fetch all ratings for this organization
     const { data: ratings, error: ratingsError } = await supabase

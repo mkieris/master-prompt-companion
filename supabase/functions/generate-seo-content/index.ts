@@ -1,10 +1,52 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Input validation schema
+const formDataSchema = z.object({
+  focusKeyword: z.string().min(1, 'Fokus-Keyword ist erforderlich').max(200, 'Fokus-Keyword zu lang'),
+  pageType: z.string().max(100).optional(),
+  targetAudience: z.string().max(100).optional(),
+  formOfAddress: z.enum(['du', 'sie', 'neutral']).optional(),
+  tone: z.enum(['factual', 'advisory', 'sales']).optional(),
+  contentLength: z.enum(['short', 'medium', 'long']).optional(),
+  keywordDensity: z.enum(['minimal', 'normal', 'high']).optional(),
+  secondaryKeywords: z.array(z.string().max(100)).max(20).optional(),
+  briefingFiles: z.array(z.string().max(500)).max(20).optional(),
+  manufacturerName: z.string().max(500).optional(),
+  productInfo: z.string().max(50000).optional(),
+  existingContent: z.any().optional(),
+  quickChange: z.boolean().optional(),
+  refinementPrompt: z.string().max(5000).optional(),
+  promptVersion: z.string().max(100).optional(),
+  pageGoal: z.string().max(500).optional(),
+  searchIntent: z.array(z.string().max(50)).max(10).optional(),
+  wQuestions: z.array(z.string().max(500)).max(20).optional(),
+  complianceCheck: z.boolean().optional(),
+  checkMDR: z.boolean().optional(),
+  checkHWG: z.boolean().optional(),
+  checkStudies: z.boolean().optional(),
+  mainTopic: z.string().max(500).optional(),
+  brandName: z.string().max(200).optional(),
+  additionalInfo: z.string().max(10000).optional(),
+  internalLinks: z.array(z.any()).max(50).optional(),
+  faqInputs: z.array(z.any()).max(20).optional(),
+  includeFAQ: z.boolean().optional(),
+  addExamples: z.boolean().optional(),
+  tonality: z.string().max(100).optional(),
+  wordCount: z.string().max(20).optional(),
+  maxParagraphLength: z.number().int().min(100).max(1000).optional(),
+  complianceChecks: z.object({
+    mdr: z.boolean().optional(),
+    hwg: z.boolean().optional(),
+    studies: z.boolean().optional(),
+  }).optional(),
+}).passthrough();
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -12,22 +54,48 @@ serve(async (req) => {
   }
 
   try {
-    const formData = await req.json();
-    
-    // Validierung kritischer Felder
-    if (!formData || typeof formData !== 'object') {
+    // ===== AUTHENTICATION =====
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('Missing or invalid Authorization header');
       return new Response(
-        JSON.stringify({ error: 'Ungültige Anfragedaten' }),
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      console.log('Invalid token:', authError?.message);
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Authenticated user:', user.id);
+    // ===== END AUTHENTICATION =====
+
+    // ===== INPUT VALIDATION =====
+    const rawFormData = await req.json();
+    const parseResult = formDataSchema.safeParse(rawFormData);
+    
+    if (!parseResult.success) {
+      console.log('Validation error:', parseResult.error.format());
+      return new Response(
+        JSON.stringify({ error: 'Invalid input', details: parseResult.error.format() }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    if (!formData.focusKeyword?.trim()) {
-      return new Response(
-        JSON.stringify({ error: 'Fokus-Keyword ist erforderlich' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const formData = parseResult.data;
+    // ===== END VALIDATION =====
     
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     

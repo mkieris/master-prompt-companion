@@ -1,9 +1,65 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// SSRF protection: Block private/internal URLs
+function isBlockedUrl(urlString: string): boolean {
+  try {
+    const parsed = new URL(urlString);
+    const hostname = parsed.hostname.toLowerCase();
+    
+    // Block localhost, private IPs, link-local, AWS metadata
+    const blockedPatterns = [
+      /^localhost$/i,
+      /^127\.\d+\.\d+\.\d+$/,
+      /^10\.\d+\.\d+\.\d+$/,
+      /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/,
+      /^192\.168\.\d+\.\d+$/,
+      /^169\.254\.\d+\.\d+$/,
+      /^0\.0\.0\.0$/,
+      /^::1$/,
+      /^fc00:/i,
+      /^fe80:/i,
+    ];
+    
+    for (const pattern of blockedPatterns) {
+      if (pattern.test(hostname)) {
+        return true;
+      }
+    }
+    
+    // Only allow http/https
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return true;
+    }
+    
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+// Input validation schema
+const requestSchema = z.object({
+  url: z.string()
+    .min(1, 'URL is required')
+    .max(2000, 'URL too long')
+    .refine((url) => {
+      try {
+        const normalized = url.startsWith('http') ? url : `https://${url}`;
+        new URL(normalized);
+        return true;
+      } catch {
+        return false;
+      }
+    }, 'Invalid URL format'),
+  mode: z.enum(['single', 'multi']).optional().default('single'),
+});
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -11,15 +67,53 @@ serve(async (req) => {
   }
 
   try {
-    const { url, mode = 'single' } = await req.json();
+    // ===== AUTHENTICATION =====
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('Missing or invalid Authorization header');
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      console.log('Invalid token:', authError?.message);
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Authenticated user:', user.id);
+    // ===== END AUTHENTICATION =====
+
+    // ===== INPUT VALIDATION =====
+    const rawData = await req.json();
+    const parseResult = requestSchema.safeParse(rawData);
+    
+    if (!parseResult.success) {
+      console.log('Validation error:', parseResult.error.format());
+      return new Response(
+        JSON.stringify({ error: 'Invalid input', details: parseResult.error.format() }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { url, mode } = parseResult.data;
+    // ===== END VALIDATION =====
+
     const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
     
     if (!FIRECRAWL_API_KEY) {
       throw new Error('FIRECRAWL_API_KEY is not configured');
-    }
-
-    if (!url) {
-      throw new Error('URL is required');
     }
 
     // Normalize URL
@@ -28,7 +122,17 @@ serve(async (req) => {
       normalizedUrl = 'https://' + normalizedUrl;
     }
 
-    console.log('Scraping website with Firecrawl:', normalizedUrl, 'Mode:', mode);
+    // ===== SSRF PROTECTION =====
+    if (isBlockedUrl(normalizedUrl)) {
+      console.log('Blocked SSRF attempt:', normalizedUrl);
+      return new Response(
+        JSON.stringify({ error: 'Private and internal URLs are not allowed' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    // ===== END SSRF PROTECTION =====
+
+    console.log('Scraping website with Firecrawl:', normalizedUrl, 'Mode:', mode, 'User:', user.id);
 
     if (mode === 'multi') {
       return await crawlMultiplePages(normalizedUrl, FIRECRAWL_API_KEY);

@@ -1,9 +1,40 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Input validation schema
+const extractedDataSchema = z.object({
+  pageType: z.string().max(100).optional(),
+  focusKeyword: z.string().max(200).optional(),
+  secondaryKeywords: z.array(z.string().max(100)).max(20).optional(),
+  searchIntent: z.array(z.string().max(50)).max(10).optional(),
+  wQuestions: z.array(z.string().max(500)).max(20).optional(),
+  audienceType: z.string().max(50).optional(),
+  formOfAddress: z.string().max(20).optional(),
+  language: z.string().max(10).optional(),
+  tonality: z.string().max(100).optional(),
+  wordCount: z.string().max(20).optional(),
+  headingStructure: z.string().max(50).optional(),
+  includeIntro: z.boolean().optional(),
+  includeFAQ: z.boolean().optional(),
+  keywordDensity: z.string().max(20).optional(),
+  brandName: z.string().max(200).optional(),
+  productName: z.string().max(200).optional(),
+  usps: z.array(z.string().max(500)).max(20).optional(),
+  productInfo: z.string().max(20000).optional(),
+  pageGoal: z.string().max(500).optional(),
+}).passthrough();
+
+const requestSchema = z.object({
+  extractedData: extractedDataSchema,
+  domainKnowledge: z.any().optional(),
+  competitorInsights: z.any().optional(),
+});
 
 // Tonalität-Mix mit PRÄZISER Gewichtungssteuerung (identisch zum Pro-System)
 const tonalityInstructions: Record<string, { description: string; weights: string; instructions: string }> = {
@@ -286,7 +317,48 @@ serve(async (req) => {
   }
 
   try {
-    const { extractedData, domainKnowledge, competitorInsights } = await req.json();
+    // ===== AUTHENTICATION =====
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('Missing or invalid Authorization header');
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      console.log('Invalid token:', authError?.message);
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Authenticated user:', user.id);
+    // ===== END AUTHENTICATION =====
+
+    // ===== INPUT VALIDATION =====
+    const rawData = await req.json();
+    const parseResult = requestSchema.safeParse(rawData);
+    
+    if (!parseResult.success) {
+      console.log('Validation error:', parseResult.error.format());
+      return new Response(
+        JSON.stringify({ error: 'Invalid input', details: parseResult.error.format() }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { extractedData, domainKnowledge, competitorInsights } = parseResult.data;
+    // ===== END VALIDATION =====
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -300,6 +372,7 @@ serve(async (req) => {
     console.log('WordCount:', extractedData.wordCount);
     console.log('Audience:', extractedData.audienceType);
     console.log('Has competitor insights:', !!competitorInsights);
+    console.log('User:', user.id);
 
     const systemPrompt = buildSystemPrompt(extractedData, domainKnowledge, competitorInsights || null);
 
