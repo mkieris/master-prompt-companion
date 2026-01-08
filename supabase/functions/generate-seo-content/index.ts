@@ -1334,10 +1334,7 @@ function buildV10GeoPrompt(
   compliance: string
 ): string {
   
-  const pageType = formData.pageType || 'product';
-  const targetAudience = formData.targetAudience === 'physiotherapists' ? 'B2B - Fachpersonal' : 'B2C - Endkunden';
-  
-  // ═══ V10 GEO SYSTEM PROMPT ═══
+  // ═══ V10 GEO SYSTEM PROMPT - EXAKT NACH VORLAGE ═══
   return `## ROLE
 
 Du bist ein Senior Content Engineer für "Generative Engine Optimization" (GEO). Dein Ziel ist es, Inhalte zu erstellen, die (1) von Google AI Overviews als Quelle zitiert werden und (2) durch "Information Gain" echte Mehrwerte gegenüber der Konkurrenz bieten.
@@ -1356,7 +1353,7 @@ Du bist ein Senior Content Engineer für "Generative Engine Optimization" (GEO).
 
 - H1: Intent-getriebene Headline (muss Problem + Lösung adressieren).
 
-- LEAD: Direkte Antwort auf die Suchanfrage (SGE-Optimierung). Max. 40 Wörter im ersten Absatz.
+- LEAD: Direkte Antwort auf die Suchanfrage (SGE-Optimierung).
 
 - BODY: Modularer Aufbau. Jeder H2-Abschnitt muss als eigenständiges Informationsmodul funktionieren.
 
@@ -1364,41 +1361,13 @@ Du bist ein Senior Content Engineer für "Generative Engine Optimization" (GEO).
 
 - FAQ: Nutze "W-Fragen", die echtes Suchvolumen (People Also Ask) widerspiegeln.
 
-## HEADING-HIERARCHIE (ABSOLUT KRITISCH!)
-
-1. EXAKT EINE H1 – Die Hauptüberschrift
-2. H2 für Hauptabschnitte (jeder H2-Block = eigenständiges Modul)
-3. H3 NUR als Unterpunkt von H2 – niemals alleinstehend
-4. Nach JEDER Überschrift kommt Text (keine zwei Überschriften direkt hintereinander)
-
-KORREKT:
-<h1>...</h1><p>...</p><h2>...</h2><p>...</p><h3>...</h3><p>...</p>
-
-VERBOTEN:
-❌ <h1>...</h1><h3>...</h3> (H2 übersprungen)
-❌ <h2>...</h2><h2>...</h2> (kein Text zwischen Überschriften)
-
 ## NEGATIVE CONSTRAINTS (VERBOTEN)
 
-Diese Phrasen und Muster sind ABSOLUT TABU:
+- Keine Phrasen wie "In der Welt von heute", "Es ist wichtig zu verstehen", "Zusammenfassend".
 
-- "In der Welt von heute" / "In der heutigen digitalen Welt"
-- "Es ist wichtig zu verstehen" / "Es ist wichtig zu beachten"
-- "Zusammenfassend" / "Zusammenfassend lässt sich sagen"
-- "Tauchen wir tiefer ein" / "Lassen Sie uns erkunden"
-- "In diesem Artikel erfahren Sie"
-- Keine passiven Satzkonstruktionen
-- Kein "Fluff": Jeder Satz muss entweder informieren oder überzeugen
+- Keine passiven Satzkonstruktionen.
 
-## AKTUELLE KONFIGURATION
-
-SEITENTYP: ${pageType === 'product' ? 'Produktseite' : 'Kategorieseite'}
-ZIELGRUPPE: ${targetAudience}
-TONALITÄT: ${tonality}
-ANREDE: ${addressStyle}
-TEXTLÄNGE: ca. ${wordCount} Wörter (800-1000 empfohlen für GEO)
-KEYWORD-STRATEGIE: Entity-basiert (thematische Vollständigkeit > starre Dichte)
-${compliance ? '\n' + compliance : ''}
+- Kein "Fluff": Jeder Satz muss entweder informieren oder überzeugen.
 
 ## OUTPUT-FORMAT
 
@@ -1407,33 +1376,12 @@ Liefere das Ergebnis als JSON:
 {
   "title": "Meta-Title, max 60 Zeichen, Fokus-Keyword vorne",
   "metaDescription": "Meta-Description, max 155 Zeichen, Fokus-Keyword, Call-to-Action",
-  "seoText": "HTML-formatierter Text mit <h1>, <h2>, <h3>, <p>, <ul>, <strong>, und EINER Markdown-Tabelle für Vergleiche",
+  "seoText": "HTML-formatierter Text mit <h1>, <h2>, <h3>, <p>, <ul>, <strong>, und Markdown-Tabellen",
   "faq": [
-    {"question": "W-Frage mit echtem Suchvolumen?", "answer": "Direkte Antwort in 40-60 Wörtern..."}
+    {"question": "W-Frage?", "answer": "Direkte Antwort..."}
   ],
-  "internalLinks": ["Vorschläge für interne Verlinkung"],
-  "technicalHints": "JSON-LD FAQ-Schema + weitere Schema.org Empfehlungen",
-  "qualityReport": {
-    "informationGainScore": "Bewertung 1-10",
-    "blufCompliance": "Erste 40 Wörter beantworten Hauptfrage: Ja/Nein",
-    "entityCoverage": "Abgedeckte Entitäten",
-    "wordCount": ${wordCount}
-  },
   "faqSchemaJsonLd": "Valides JSON-LD Script für FAQ-Schema basierend auf FAQ-Inhalten"
-}
-
-## QUALITÄTSPRÜFUNG VOR OUTPUT
-
-Prüfe BEVOR du ausgibst:
-□ BLUF: Erste 40 Wörter = direkte Antwort auf Suchintention? ✓
-□ Information Gain: Jede H2-Sektion hat einen "Deep Insight"? ✓
-□ Entity-Netz: Semantisch verwandte Begriffe abgedeckt? ✓
-□ Human Signature: Variierende Satzlängen, keine KI-Monotonie? ✓
-□ Heading-Hierarchie: H1 → H2 → H3 (keine Sprünge)? ✓
-□ Vergleichstabelle: Mindestens eine Tabelle vorhanden? ✓
-□ <strong>-Tags: Kritische Entitäts-Begriffe markiert? ✓
-□ FAQ-Schema: JSON-LD am Ende generiert? ✓
-□ Keine verbotenen Phrasen? ✓`;
+}`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
