@@ -15,7 +15,7 @@ const formDataSchema = z.object({
   formOfAddress: z.enum(['du', 'sie', 'neutral']).optional(),
   tone: z.enum(['factual', 'advisory', 'sales']).optional(),
   contentLength: z.enum(['short', 'medium', 'long']).optional(),
-  keywordDensity: z.enum(['minimal', 'normal', 'high']).optional(),
+  keywordDensity: z.enum(['minimal', 'low', 'normal', 'medium', 'high']).optional(),
   secondaryKeywords: z.array(z.string().max(100)).max(20).optional(),
   briefingFiles: z.array(z.string().max(500)).max(20).optional(),
   manufacturerName: z.string().max(500).optional(),
