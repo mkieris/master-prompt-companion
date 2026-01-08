@@ -1190,6 +1190,47 @@ TRUSTWORTHINESS (Vertrauen):
 → Garantien und Qualitätsversprechen
 ${structureTemplates}
 
+═══ HEADING-HIERARCHIE (ABSOLUT KRITISCH!) ═══
+
+STRIKTE REGELN für H1/H2/H3 – NIEMALS VERLETZEN:
+
+1. EXAKT EINE H1:
+   • Die H1 ist die EINZIGE Hauptüberschrift
+   • Muss das Fokus-Keyword enthalten
+   • Max. 70 Zeichen
+
+2. H2 FÜR HAUPTABSCHNITTE:
+   • Jeder große Themenblock bekommt eine H2
+   • H2 MUSS nach der H1 kommen (nicht umgekehrt)
+   • Mindestens 2-4 H2-Überschriften pro Text
+   • H2 enthält idealerweise Keyword oder Synonym
+
+3. H3 NUR ALS UNTERPUNKT VON H2:
+   • H3 darf NUR unter einer H2 erscheinen
+   • H3 NIEMALS alleinstehend oder direkt nach H1
+   • H3 für Vertiefungen/Details eines H2-Themas
+   • VERBOTEN: H1 → H3 (Sprung überspringt H2!)
+
+4. NACH JEDER ÜBERSCHRIFT KOMMT TEXT:
+   • Keine Überschrift ohne nachfolgenden Absatz
+   • Keine zwei Überschriften direkt hintereinander
+   • Jede Überschrift wird durch mindestens 1-2 Absätze erklärt
+
+KORREKTE STRUKTUR:
+<h1>Hauptthema</h1>
+<p>Einleitungstext...</p>
+<h2>Erster Abschnitt</h2>
+<p>Text zum ersten Abschnitt...</p>
+  <h3>Detail zum ersten Abschnitt</h3>
+  <p>Vertiefung...</p>
+<h2>Zweiter Abschnitt</h2>
+<p>Text zum zweiten Abschnitt...</p>
+
+FALSCHE STRUKTUR (VERBOTEN!):
+❌ <h1>...</h1><h3>...</h3> → H2 übersprungen!
+❌ <h2>...</h2><h2>...</h2> → Kein Text zwischen Überschriften!
+❌ <h3>...</h3><p>...</p><h2>...</h2> → H3 vor H2!
+
 ═══ MULTIMEDIALE GESTALTUNG (PFLICHT!) ═══
 
 Der Text MUSS folgende Elemente enthalten:
@@ -1264,6 +1305,9 @@ Prüfe BEVOR du ausgibst:
 □ Meta-Title max 60 Zeichen? ✓
 □ Meta-Description max 155 Zeichen? ✓
 □ Exakt 1x H1? ✓
+□ HEADING-HIERARCHIE: H1 → H2 → H3 (keine Sprünge)? ✓
+□ Nach JEDER Überschrift folgt Text? ✓
+□ H3 nur unter H2 (nie alleinstehend)? ✓
 □ Mindestens 2-3 Listen im Text? ✓
 □ Keine verbotenen Phrasen? ✓
 □ FAQ mit direkten Antworten? ✓
