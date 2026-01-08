@@ -1540,28 +1540,37 @@ ${briefingContent}`;
 
   // V10-spezifischer User-Prompt mit GEO-Aufgaben
   if (formData.promptVersion === 'v10-geo-optimized') {
+    // Suchintention für V10 mapping
+    const searchIntentMap: Record<string, string> = {
+      'know': 'Informieren',
+      'do': 'Vergleichen',
+      'buy': 'Kaufen',
+      'go': 'Navigation'
+    };
+    const v10SearchIntent = formData.searchIntent?.map((i: string) => searchIntentMap[i] || i).join(' / ') || 'Informieren';
+    
     prompt += `
 
-═══ DATENSATZ FÜR CONTENT-GENERIERUNG ═══
+### DATENSATZ FÜR CONTENT-GENERIERUNG
 
-- FOKUS-THEMA: ${formData.mainTopic || formData.focusKeyword}
-- PRIMÄRES KEYWORD: ${formData.focusKeyword}
-- SEMANTISCHE ENTITÄTEN (LSI): ${formData.secondaryKeywords?.join(', ') || 'Automatisch ableiten'}
-- ZIELGRUPPE: ${formData.targetAudience === 'physiotherapists' ? 'B2B - Fachpersonal (Therapeuten, Kliniken)' : 'B2C - Endkunden/Patienten'}
-- SUCHINTENTION: ${formData.searchIntent?.join(' / ') || 'Informieren'}
+- FOKUS-THEMA: [${formData.mainTopic || formData.focusKeyword}]
+- PRIMÄRES KEYWORD: [${formData.focusKeyword}]
+- SEMANTISCHE ENTITÄTEN (LSI): [${formData.secondaryKeywords?.join(', ') || 'Automatisch aus Thema ableiten'}]
+- ZIELGRUPPE: [${formData.targetAudience === 'physiotherapists' ? 'B2B' : 'B2C'}] - [${formData.targetAudience === 'physiotherapists' ? 'Fachpersonal (Therapeuten, Kliniken, Praxen)' : 'Endkunden/Patienten'}]
+- SUCHINTENTION: [${v10SearchIntent}]
 
-═══ SCHREIB-AUFTRAG ═══
+### SCHREIB-AUFTRAG
 
 1. ANALYSE: Erstelle zuerst eine kurze Gliederung, die eine "Wissenslücke" (Information Gain) im Vergleich zu Standard-Artikeln schließt.
 
-2. DRAFT: Schreibe den Text (ca. 800-1000 Wörter) im ${formData.formOfAddress === 'du' ? 'Du' : formData.formOfAddress === 'sie' ? 'Sie' : 'neutralen'}-Stil.
+2. DRAFT: Schreibe den Text (ca. 800-1000 Wörter) im [${formData.formOfAddress === 'du' ? 'DU' : formData.formOfAddress === 'sie' ? 'SIE' : 'NEUTRAL'}]-Stil.
 
 3. OPTIMIERUNG:
-   - Baue eine Vergleichstabelle ein (Markdown-Format).
+   - Baue eine Vergleichstabelle ein.
    - Markiere <strong>-Begriffe, die für das Verständnis der Entität kritisch sind.
-   - Erzeuge am Ende ein FAQ-Modul mit 5-8 echten W-Fragen.
+   - Erzeuge am Ende ein FAQ-Modul.
 
-═══ BONUS-OUTPUT (TECHNISCH) ═══
+### BONUS-OUTPUT (TECHNISCH)
 
 Generiere am Ende des Textes ein valides JSON-LD Skript für FAQ-Schema, basierend auf den FAQ-Inhalten des Textes.
 
