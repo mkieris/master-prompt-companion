@@ -268,15 +268,25 @@ serve(async (req) => {
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           try {
             console.log('Variant ' + (variantIndex + 1) + ' (' + approach.name + '): attempt ' + attempt);
+            console.log('System prompt length:', systemPrompt?.length || 0);
+            console.log('User prompt length:', enhancedUserPrompt?.length || 0);
+            
+            const requestBody = { 
+              model: 'google/gemini-2.5-pro', 
+              messages: variantMessages, 
+              temperature: 0.55
+            };
+            
             const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
               method: 'POST',
               headers: { 'Authorization': 'Bearer ' + LOVABLE_API_KEY, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
-                model: 'google/gemini-2.5-pro', 
-                messages: variantMessages, 
-                temperature: 0.55
-              }),
+              body: JSON.stringify(requestBody),
             });
+            
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error('API Error Response:', response.status, errorText);
+            }
 
             if (response.ok) {
               const data = await response.json();
