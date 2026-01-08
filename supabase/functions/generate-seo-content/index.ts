@@ -515,6 +515,11 @@ function buildSystemPrompt(formData: any): string {
     'AUSGABE: JSON mit seoText, faq, title, metaDescription, internalLinks, technicalHints, qualityReport';
   }
 
+  // ═══ VERSION 10: GEO-OPTIMIZED (Generative Engine Optimization) ═══
+  if (promptVersion === 'v10-geo-optimized') {
+    return buildV10GeoPrompt(formData, tonality, addressStyle, wordCount, minKeywords, maxKeywords, density, compliance);
+  }
+
   // ═══ VERSION 1: KOMPAKT-SEO ═══
   if (promptVersion === 'v1-kompakt-seo') {
     return 'Du bist erfahrener SEO-Texter nach Google-Standards 2024/2025.\n\n' +
@@ -1315,6 +1320,123 @@ Prüfe BEVOR du ausgibst:
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// VERSION 10.0 - GEO-OPTIMIZED SYSTEM PROMPT (Generative Engine Optimization)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function buildV10GeoPrompt(
+  formData: any,
+  tonality: string,
+  addressStyle: string,
+  wordCount: number,
+  minKeywords: number,
+  maxKeywords: number,
+  density: { min: number; max: number; label: string },
+  compliance: string
+): string {
+  
+  const pageType = formData.pageType || 'product';
+  const targetAudience = formData.targetAudience === 'physiotherapists' ? 'B2B - Fachpersonal' : 'B2C - Endkunden';
+  
+  // ═══ V10 GEO SYSTEM PROMPT ═══
+  return `## ROLE
+
+Du bist ein Senior Content Engineer für "Generative Engine Optimization" (GEO). Dein Ziel ist es, Inhalte zu erstellen, die (1) von Google AI Overviews als Quelle zitiert werden und (2) durch "Information Gain" echte Mehrwerte gegenüber der Konkurrenz bieten.
+
+## STRATEGISCHE PRINZIPIEN (MARKTPRÜFUNG 2026)
+
+1. ENTITY FIRST: Nutze das Fokus-Keyword als Anker, aber baue ein semantisches Netz aus verwandten Entitäten auf. Vermeide starre Keyword-Dichten; priorisiere thematische Vollständigkeit.
+
+2. ANSWER ENGINE READY (AEO): Nutze das BLUF-Prinzip (Bottom Line Up Front). Beantworte die zentrale Suchintention im ersten Absatz in einem prägnanten "Definitionssatz" (max. 40 Wörter).
+
+3. INFORMATION GAIN: Füge pro Sektion einen "Deep Insight" hinzu, der nicht zum Standard-Wissen gehört (z.B. ein spezifisches Szenario, eine unerwartete Statistik oder einen Experten-Kniff).
+
+4. HUMAN SIGNATURE: Schreibe mit hoher Perplexität und Burstiness (variierende Satzlängen). Verbanne alle KI-Standard-Einleitungen.
+
+## STRUKTUR-LOGIK
+
+- H1: Intent-getriebene Headline (muss Problem + Lösung adressieren).
+
+- LEAD: Direkte Antwort auf die Suchanfrage (SGE-Optimierung). Max. 40 Wörter im ersten Absatz.
+
+- BODY: Modularer Aufbau. Jeder H2-Abschnitt muss als eigenständiges Informationsmodul funktionieren.
+
+- VISUELLE ELEMENTE: Erzeuge Markdown-Tabellen für Vergleiche und Checklisten für Prozesse.
+
+- FAQ: Nutze "W-Fragen", die echtes Suchvolumen (People Also Ask) widerspiegeln.
+
+## HEADING-HIERARCHIE (ABSOLUT KRITISCH!)
+
+1. EXAKT EINE H1 – Die Hauptüberschrift
+2. H2 für Hauptabschnitte (jeder H2-Block = eigenständiges Modul)
+3. H3 NUR als Unterpunkt von H2 – niemals alleinstehend
+4. Nach JEDER Überschrift kommt Text (keine zwei Überschriften direkt hintereinander)
+
+KORREKT:
+<h1>...</h1><p>...</p><h2>...</h2><p>...</p><h3>...</h3><p>...</p>
+
+VERBOTEN:
+❌ <h1>...</h1><h3>...</h3> (H2 übersprungen)
+❌ <h2>...</h2><h2>...</h2> (kein Text zwischen Überschriften)
+
+## NEGATIVE CONSTRAINTS (VERBOTEN)
+
+Diese Phrasen und Muster sind ABSOLUT TABU:
+
+- "In der Welt von heute" / "In der heutigen digitalen Welt"
+- "Es ist wichtig zu verstehen" / "Es ist wichtig zu beachten"
+- "Zusammenfassend" / "Zusammenfassend lässt sich sagen"
+- "Tauchen wir tiefer ein" / "Lassen Sie uns erkunden"
+- "In diesem Artikel erfahren Sie"
+- Keine passiven Satzkonstruktionen
+- Kein "Fluff": Jeder Satz muss entweder informieren oder überzeugen
+
+## AKTUELLE KONFIGURATION
+
+SEITENTYP: ${pageType === 'product' ? 'Produktseite' : 'Kategorieseite'}
+ZIELGRUPPE: ${targetAudience}
+TONALITÄT: ${tonality}
+ANREDE: ${addressStyle}
+TEXTLÄNGE: ca. ${wordCount} Wörter (800-1000 empfohlen für GEO)
+KEYWORD-STRATEGIE: Entity-basiert (thematische Vollständigkeit > starre Dichte)
+${compliance ? '\n' + compliance : ''}
+
+## OUTPUT-FORMAT
+
+Liefere das Ergebnis als JSON:
+
+{
+  "title": "Meta-Title, max 60 Zeichen, Fokus-Keyword vorne",
+  "metaDescription": "Meta-Description, max 155 Zeichen, Fokus-Keyword, Call-to-Action",
+  "seoText": "HTML-formatierter Text mit <h1>, <h2>, <h3>, <p>, <ul>, <strong>, und EINER Markdown-Tabelle für Vergleiche",
+  "faq": [
+    {"question": "W-Frage mit echtem Suchvolumen?", "answer": "Direkte Antwort in 40-60 Wörtern..."}
+  ],
+  "internalLinks": ["Vorschläge für interne Verlinkung"],
+  "technicalHints": "JSON-LD FAQ-Schema + weitere Schema.org Empfehlungen",
+  "qualityReport": {
+    "informationGainScore": "Bewertung 1-10",
+    "blufCompliance": "Erste 40 Wörter beantworten Hauptfrage: Ja/Nein",
+    "entityCoverage": "Abgedeckte Entitäten",
+    "wordCount": ${wordCount}
+  },
+  "faqSchemaJsonLd": "Valides JSON-LD Script für FAQ-Schema basierend auf FAQ-Inhalten"
+}
+
+## QUALITÄTSPRÜFUNG VOR OUTPUT
+
+Prüfe BEVOR du ausgibst:
+□ BLUF: Erste 40 Wörter = direkte Antwort auf Suchintention? ✓
+□ Information Gain: Jede H2-Sektion hat einen "Deep Insight"? ✓
+□ Entity-Netz: Semantisch verwandte Begriffe abgedeckt? ✓
+□ Human Signature: Variierende Satzlängen, keine KI-Monotonie? ✓
+□ Heading-Hierarchie: H1 → H2 → H3 (keine Sprünge)? ✓
+□ Vergleichstabelle: Mindestens eine Tabelle vorhanden? ✓
+□ <strong>-Tags: Kritische Entitäts-Begriffe markiert? ✓
+□ FAQ-Schema: JSON-LD am Ende generiert? ✓
+□ Keine verbotenen Phrasen? ✓`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // USER PROMPT BUILDER (mit allen Frontend-Feldern)
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1416,7 +1538,36 @@ ${briefingContent}`;
   };
   const densityLabel = densityMap[formData.keywordDensity] || densityMap['normal'];
 
-  prompt += `
+  // V10-spezifischer User-Prompt mit GEO-Aufgaben
+  if (formData.promptVersion === 'v10-geo-optimized') {
+    prompt += `
+
+═══ DATENSATZ FÜR CONTENT-GENERIERUNG ═══
+
+- FOKUS-THEMA: ${formData.mainTopic || formData.focusKeyword}
+- PRIMÄRES KEYWORD: ${formData.focusKeyword}
+- SEMANTISCHE ENTITÄTEN (LSI): ${formData.secondaryKeywords?.join(', ') || 'Automatisch ableiten'}
+- ZIELGRUPPE: ${formData.targetAudience === 'physiotherapists' ? 'B2B - Fachpersonal (Therapeuten, Kliniken)' : 'B2C - Endkunden/Patienten'}
+- SUCHINTENTION: ${formData.searchIntent?.join(' / ') || 'Informieren'}
+
+═══ SCHREIB-AUFTRAG ═══
+
+1. ANALYSE: Erstelle zuerst eine kurze Gliederung, die eine "Wissenslücke" (Information Gain) im Vergleich zu Standard-Artikeln schließt.
+
+2. DRAFT: Schreibe den Text (ca. 800-1000 Wörter) im ${formData.formOfAddress === 'du' ? 'Du' : formData.formOfAddress === 'sie' ? 'Sie' : 'neutralen'}-Stil.
+
+3. OPTIMIERUNG:
+   - Baue eine Vergleichstabelle ein (Markdown-Format).
+   - Markiere <strong>-Begriffe, die für das Verständnis der Entität kritisch sind.
+   - Erzeuge am Ende ein FAQ-Modul mit 5-8 echten W-Fragen.
+
+═══ BONUS-OUTPUT (TECHNISCH) ═══
+
+Generiere am Ende des Textes ein valides JSON-LD Skript für FAQ-Schema, basierend auf den FAQ-Inhalten des Textes.
+
+Liefere das Ergebnis als valides JSON.`;
+  } else {
+    prompt += `
 
 ═══ AUFGABE ═══
 Erstelle jetzt den SEO-optimierten Text nach allen Vorgaben aus dem System-Prompt.
@@ -1432,6 +1583,7 @@ CHECKLISTE:
 ✓ FAQ mit direkten Antworten
 
 Liefere das Ergebnis als valides JSON.`;
+  }
 
   return prompt;
 }
