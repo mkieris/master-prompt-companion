@@ -34,6 +34,86 @@ interface SEOOutputTabsProps {
   content: GeneratedContent | null;
 }
 
+// Helper function to convert Markdown tables to HTML
+const convertMarkdownTablesToHtml = (text: string): string => {
+  if (!text) return '';
+  
+  // Split by lines
+  const lines = text.split('\n');
+  let result: string[] = [];
+  let inTable = false;
+  let tableLines: string[] = [];
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    // Check if this line is a table row (starts and ends with |)
+    const isTableRow = line.startsWith('|') && line.endsWith('|');
+    // Check if this is a separator row (contains only |, -, :, and spaces)
+    const isSeparatorRow = /^\|[-:\s|]+\|$/.test(line);
+    
+    if (isTableRow) {
+      if (!inTable) {
+        inTable = true;
+        tableLines = [];
+      }
+      tableLines.push(line);
+    } else {
+      if (inTable && tableLines.length > 0) {
+        // Convert collected table lines to HTML
+        result.push(convertTableToHtml(tableLines));
+        tableLines = [];
+        inTable = false;
+      }
+      result.push(lines[i]);
+    }
+  }
+  
+  // Handle table at end of text
+  if (inTable && tableLines.length > 0) {
+    result.push(convertTableToHtml(tableLines));
+  }
+  
+  return result.join('\n');
+};
+
+const convertTableToHtml = (tableLines: string[]): string => {
+  if (tableLines.length < 2) return tableLines.join('\n');
+  
+  let html = '<table class="w-full border-collapse my-4 text-sm">';
+  
+  for (let i = 0; i < tableLines.length; i++) {
+    const line = tableLines[i];
+    
+    // Skip separator rows
+    if (/^\|[-:\s|]+\|$/.test(line)) continue;
+    
+    const cells = line
+      .split('|')
+      .filter((cell, idx, arr) => idx > 0 && idx < arr.length - 1)
+      .map(cell => cell.trim());
+    
+    if (i === 0) {
+      // Header row
+      html += '<thead class="bg-muted"><tr>';
+      cells.forEach(cell => {
+        html += `<th class="border border-border p-2 text-left font-medium">${cell}</th>`;
+      });
+      html += '</tr></thead><tbody>';
+    } else {
+      // Data row
+      html += '<tr class="border-b border-border hover:bg-muted/50">';
+      cells.forEach(cell => {
+        html += `<td class="border border-border p-2">${cell}</td>`;
+      });
+      html += '</tr>';
+    }
+  }
+  
+  html += '</tbody></table>';
+  return html;
+};
+
 export const SEOOutputTabs = ({ content }: SEOOutputTabsProps) => {
   if (!content) {
     return (
@@ -82,7 +162,7 @@ export const SEOOutputTabs = ({ content }: SEOOutputTabsProps) => {
             <div 
               className="prose prose-sm max-w-none" 
               dangerouslySetInnerHTML={{ 
-                __html: typeof content.seoText === 'string' ? content.seoText : '' 
+                __html: typeof content.seoText === 'string' ? convertMarkdownTablesToHtml(content.seoText) : ''
               }} 
             />
           </Card>
