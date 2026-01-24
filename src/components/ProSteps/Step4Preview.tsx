@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Loader2, RefreshCw, Sparkles, Check } from "lucide-react";
+import { Loader2, RefreshCw, Sparkles, Check, Coins, Zap, Crown } from "lucide-react";
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -10,6 +10,13 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ContentRating } from "@/components/ContentRating";
+
+// Model display names and icons
+const MODEL_DISPLAY: Record<string, { name: string; icon: React.ReactNode }> = {
+  'gemini-flash': { name: 'Gemini Flash', icon: <Zap className="h-3 w-3 text-yellow-500" /> },
+  'gemini-pro': { name: 'Gemini Pro', icon: <Sparkles className="h-3 w-3 text-blue-500" /> },
+  'claude-sonnet': { name: 'Claude Sonnet', icon: <Crown className="h-3 w-3 text-purple-500" /> },
+};
 
 interface Step4Props {
   generatedContent: any;
@@ -172,6 +179,30 @@ export const Step4Preview = ({
                 <span className="text-xs text-muted-foreground">
                   {variantLabels[selectedVariant].description}
                 </span>
+              </div>
+            </Card>
+          )}
+
+          {/* Cost & Model Info */}
+          {generatedContent?._meta && (
+            <Card className="p-3 bg-muted/30 border-muted">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5">
+                    {MODEL_DISPLAY[generatedContent._meta.model]?.icon}
+                    <span className="font-medium">
+                      {MODEL_DISPLAY[generatedContent._meta.model]?.name || generatedContent._meta.modelName}
+                    </span>
+                  </div>
+                  <span className="text-muted-foreground">|</span>
+                  <span className="text-muted-foreground">
+                    {generatedContent._meta.inputTokens?.toLocaleString()} Input + {generatedContent._meta.outputTokens?.toLocaleString()} Output Tokens
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
+                  <Coins className="h-3 w-3" />
+                  <span className="font-medium">{generatedContent._meta.cost?.formatted || '~0 Cent'}</span>
+                </div>
               </div>
             </Card>
           )}

@@ -47,6 +47,7 @@ export interface FormData {
   includeIntro: boolean;
   includeFAQ: boolean;
   pageGoal: string;
+  aiModel?: 'gemini-flash' | 'gemini-pro' | 'claude-sonnet';
   complianceChecks: {
     mdr: boolean;
     hwg: boolean;
@@ -495,6 +496,7 @@ export const SEOGeneratorFormPro = ({ onGenerate, isLoading }: SEOGeneratorFormP
               includeIntro: formData.includeIntro,
               includeFAQ: formData.includeFAQ,
               pageGoal: formData.pageGoal,
+              aiModel: formData.aiModel || "gemini-pro",
               complianceChecks: formData.complianceChecks,
             }}
             onUpdate={updateFormData}

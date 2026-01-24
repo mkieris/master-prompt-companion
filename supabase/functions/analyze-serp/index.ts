@@ -308,7 +308,7 @@ WETTBEWERBER-TITEL (für H1-Inspiration):
 ${analysis.competitorHeadings.slice(0, 5).map((h, i) => `${i + 1}. ${h}`).join('\n')}
 
 HÄUFIGE FRAGEN (für FAQ):
-${peopleAlsoAsk.slice(0, 5).map(q => `- ${q}`).join('\n')}
+${peopleAlsoAsk.slice(0, 5).map((q: string) => `- ${q}`).join('\n')}
       `.trim(),
     };
 
@@ -321,8 +321,9 @@ ${peopleAlsoAsk.slice(0, 5).map(q => `- ${q}`).join('\n')}
 
   } catch (error) {
     console.error('SERP Analysis error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unbekannter Fehler';
     return new Response(
-      JSON.stringify({ error: 'Interner Fehler bei SERP-Analyse', details: error.message }),
+      JSON.stringify({ error: 'Interner Fehler bei SERP-Analyse', details: errorMessage }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
