@@ -94,6 +94,22 @@ interface GeneratedContent {
   technicalHints?: string;
   qualityReport?: any;
   guidelineValidation?: any;
+  _variantInfo?: {
+    name: string;
+    description: string;
+    index: number;
+  };
+}
+
+interface VariantDescription {
+  name: string;
+  description: string;
+}
+
+interface GenerationResponse {
+  variants?: GeneratedContent[];
+  selectedVariant?: number;
+  variantDescriptions?: VariantDescription[];
 }
 
 const BasicVersion = ({ session }: BasicVersionProps) => {
@@ -106,6 +122,9 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
   const [isSaving, setIsSaving] = useState(false);
   const [currentStep, setCurrentStep] = useState<string>("input");
   const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
+  const [allVariants, setAllVariants] = useState<GeneratedContent[]>([]);
+  const [variantDescriptions, setVariantDescriptions] = useState<VariantDescription[]>([]);
+  const [selectedVariantIndex, setSelectedVariantIndex] = useState<number>(0);
   const [savedProjectId, setSavedProjectId] = useState<string | null>(null);
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
   const [showProcessFlow, setShowProcessFlow] = useState(true);
@@ -658,16 +677,29 @@ da historische Versionen nicht vollständig implementiert sind.`;
         return;
       }
 
-      log('response', 'generate-seo-content erfolgreich', { 
+      log('response', 'generate-seo-content erfolgreich', {
         hasVariants: !!data?.variants,
         variantCount: data?.variants?.length,
-        selectedVariant: data?.selectedVariant 
+        selectedVariant: data?.selectedVariant
       });
 
       let content = data;
       if (data?.variants && Array.isArray(data.variants) && data.variants.length > 0) {
-        log('state', 'Variante ausgewählt', { index: 0, name: data.variants[0]?._variantInfo?.name });
+        // Store all variants for selection
+        setAllVariants(data.variants);
+        setVariantDescriptions(data.variantDescriptions || [
+          { name: 'Variante A', description: 'Sachlich & Strukturiert' },
+          { name: 'Variante B', description: 'Nutzenorientiert & Aktivierend' },
+          { name: 'Variante C', description: 'Nahbar & Authentisch' }
+        ]);
+        setSelectedVariantIndex(0);
+        log('state', 'Varianten geladen', { count: data.variants.length, names: data.variants.map((v: GeneratedContent) => v._variantInfo?.name) });
         content = data.variants[0];
+      } else {
+        // Single content (refinement or quick change)
+        setAllVariants([]);
+        setVariantDescriptions([]);
+        setSelectedVariantIndex(0);
       }
 
       log('response', 'Content-Struktur', { 
@@ -837,6 +869,18 @@ da historische Versionen nicht vollständig implementiert sind.`;
     a.click();
     URL.revokeObjectURL(url);
     toast({ title: "Exportiert!", description: "HTML-Datei heruntergeladen." });
+  };
+
+  const handleVariantChange = (index: number) => {
+    if (allVariants[index]) {
+      setSelectedVariantIndex(index);
+      setGeneratedContent(allVariants[index]);
+      log('state', 'Variante gewechselt', { index, name: variantDescriptions[index]?.name });
+      toast({
+        title: variantDescriptions[index]?.name || `Variante ${index + 1}`,
+        description: variantDescriptions[index]?.description || 'Variante ausgewählt'
+      });
+    }
   };
 
   const CopyButton = ({ text, section }: { text: string; section: string }) => (
@@ -1249,8 +1293,8 @@ da historische Versionen nicht vollständig implementiert sind.`;
                 </Collapsible>
 
                 {/* Generate Button */}
-                <Button 
-                  onClick={handleGenerate} 
+                <Button
+                  onClick={handleGenerate}
                   disabled={isLoading || !formData.focusKeyword.trim()}
                   className="w-full"
                   size="lg"
@@ -1258,15 +1302,18 @@ da historische Versionen nicht vollständig implementiert sind.`;
                   {isLoading ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Generiere Content...
+                      Generiere 3 Varianten...
                     </>
                   ) : (
                     <>
                       <Wand2 className="h-4 w-4 mr-2" />
-                      Content generieren
+                      3 Varianten generieren
                     </>
                   )}
                 </Button>
+                <p className="text-xs text-muted-foreground text-center">
+                  Erstellt 3 Stil-Varianten: Sachlich, Aktivierend, Nahbar
+                </p>
               </CardContent>
             </Card>
           </div>
@@ -1299,6 +1346,9 @@ da historische Versionen nicht vollständig implementiert sind.`;
                     <div>
                       <h3 className="font-semibold">Generiere 3 Content-Varianten...</h3>
                       <p className="text-sm text-muted-foreground">KI analysiert Eingaben und erstellt optimierten SEO-Content</p>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        ⏱️ Dies kann 30-60 Sekunden dauern (3 parallele KI-Anfragen)
+                      </p>
                     </div>
                   </div>
                 </CardContent>
@@ -1315,8 +1365,30 @@ da historische Versionen nicht vollständig implementiert sind.`;
                   </div>
                 </CardContent>
               ) : (
-                <Tabs defaultValue="text" className="flex-1">
-                  <TabsList className="mx-4 grid grid-cols-5 h-auto p-1">
+                <>
+                  {/* Variant Selector - only show if we have multiple variants */}
+                  {allVariants.length > 1 && (
+                    <div className="px-4 pb-3 border-b">
+                      <Label className="text-xs text-muted-foreground mb-2 block">Variante wählen:</Label>
+                      <div className="flex gap-2">
+                        {variantDescriptions.map((variant, index) => (
+                          <Button
+                            key={index}
+                            variant={selectedVariantIndex === index ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => handleVariantChange(index)}
+                            className="flex-1 flex flex-col items-center py-2 h-auto"
+                          >
+                            <span className="font-medium text-xs">{variant.name}</span>
+                            <span className="text-xs opacity-70">{variant.description}</span>
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <Tabs defaultValue="text" className="flex-1">
+                    <TabsList className="mx-4 grid grid-cols-5 h-auto p-1">
                     <TabsTrigger value="text" className="text-xs py-2">
                       <FileText className="h-3.5 w-3.5 mr-1.5" />
                       Text
@@ -1464,7 +1536,8 @@ da historische Versionen nicht vollständig implementiert sind.`;
                       )}
                     </TabsContent>
                   </ScrollArea>
-                </Tabs>
+                  </Tabs>
+                </>
               )}
             </Card>
           </div>

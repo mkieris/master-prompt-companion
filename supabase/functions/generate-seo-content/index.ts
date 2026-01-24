@@ -1325,7 +1325,7 @@ function parseGeneratedContent(text: string, formData: any): any {
 function validateAndFixContent(content: any, mainTopic: string): any {
   const seoText = content.seoText || content.text || '';
   const faq = Array.isArray(content.faq) ? content.faq : [];
-  
+
   if (!seoText || seoText.length < 100) {
     console.error('VALIDATION FAILED: seoText too short or empty:', seoText.length);
     return {
@@ -1335,23 +1335,66 @@ function validateAndFixContent(content: any, mainTopic: string): any {
       metaDescription: '',
       internalLinks: [],
       technicalHints: '',
-      qualityReport: { status: 'error', flags: ['Content too short'], evidenceTable: [] }
+      qualityReport: { status: 'error', flags: ['Content too short'], evidenceTable: [] },
+      guidelineValidation: { overallScore: 0, googleEEAT: {} }
     };
   }
-  
+
+  // Analyze content for quality metrics
+  const plainText = seoText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  const wordCount = plainText.split(' ').filter((w: string) => w.length > 0).length;
+  const h1Count = (seoText.match(/<h1[^>]*>/gi) || []).length;
+  const h2Count = (seoText.match(/<h2[^>]*>/gi) || []).length;
+  const h3Count = (seoText.match(/<h3[^>]*>/gi) || []).length;
+  const listCount = (seoText.match(/<ul[^>]*>|<ol[^>]*>/gi) || []).length;
+  const strongCount = (seoText.match(/<strong[^>]*>/gi) || []).length;
+  const faqCount = faq.length;
+
+  // Calculate E-E-A-T scores based on content analysis
+  const experienceScore = Math.min(100, 50 + (listCount * 10) + (faqCount * 5));
+  const expertiseScore = Math.min(100, 40 + (h2Count * 10) + (h3Count * 5) + (strongCount * 2));
+  const authorityScore = Math.min(100, 50 + (wordCount > 600 ? 20 : wordCount > 400 ? 10 : 0) + (h2Count * 5));
+  const trustScore = Math.min(100, 60 + (faqCount >= 5 ? 20 : faqCount * 4) + (h1Count === 1 ? 10 : 0));
+
+  // Calculate overall score
+  const overallScore = Math.round((experienceScore + expertiseScore + authorityScore + trustScore) / 4);
+
+  // Determine status based on score
+  const getStatus = (score: number) => score >= 70 ? 'green' : score >= 50 ? 'yellow' : 'red';
+
+  const guidelineValidation = {
+    overallScore,
+    googleEEAT: {
+      experience: { score: experienceScore, status: getStatus(experienceScore) },
+      expertise: { score: expertiseScore, status: getStatus(expertiseScore) },
+      authoritativeness: { score: authorityScore, status: getStatus(authorityScore) },
+      trustworthiness: { score: trustScore, status: getStatus(trustScore) }
+    },
+    metrics: {
+      wordCount,
+      h1Count,
+      h2Count,
+      h3Count,
+      listCount,
+      strongCount,
+      faqCount
+    }
+  };
+
   const validated = {
     seoText: seoText,
-    faq: faq.length > 0 ? faq : [{ 
-      question: 'Was zeichnet ' + mainTopic + ' aus?', 
-      answer: 'Detaillierte Informationen finden Sie im Text oben.' 
+    faq: faq.length > 0 ? faq : [{
+      question: 'Was zeichnet ' + mainTopic + ' aus?',
+      answer: 'Detaillierte Informationen finden Sie im Text oben.'
     }],
     title: content.title || mainTopic.substring(0, 60),
     metaDescription: content.metaDescription || content.meta_description || seoText.replace(/<[^>]*>/g, '').substring(0, 155),
     internalLinks: Array.isArray(content.internalLinks) ? content.internalLinks : [],
     technicalHints: content.technicalHints || 'Schema.org Product/Article Markup empfohlen',
-    qualityReport: content.qualityReport || { status: 'green', flags: [], evidenceTable: [] }
+    qualityReport: content.qualityReport || { status: getStatus(overallScore), flags: [], evidenceTable: [] },
+    guidelineValidation
   };
-  
-  console.log('Content validated successfully. seoText length:', validated.seoText.length);
+
+  console.log('Content validated successfully. seoText length:', validated.seoText.length, 'Overall score:', overallScore);
   return validated;
 }
