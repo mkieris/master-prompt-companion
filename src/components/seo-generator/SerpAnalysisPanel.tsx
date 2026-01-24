@@ -217,7 +217,7 @@ export const SerpAnalysisPanel = ({
               <div className="flex items-center gap-2 mb-2">
                 <TrendingUp className="h-4 w-4 text-red-500" />
                 <span className="text-sm font-medium">Pflicht-Begriffe</span>
-                <span className="text-xs text-muted-foreground">(in >50% der Top-10)</span>
+                <span className="text-xs text-muted-foreground">(in {'>'}50% der Top-10)</span>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {result.serpTerms.mustHave.length > 0 ? (
@@ -247,7 +247,7 @@ export const SerpAnalysisPanel = ({
               <div className="flex items-center gap-2 mb-2">
                 <TrendingUp className="h-4 w-4 text-yellow-500" />
                 <span className="text-sm font-medium">Empfohlene Begriffe</span>
-                <span className="text-xs text-muted-foreground">(in >30%)</span>
+                <span className="text-xs text-muted-foreground">(in {'>'}30%)</span>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {result.serpTerms.shouldHave.length > 0 ? (

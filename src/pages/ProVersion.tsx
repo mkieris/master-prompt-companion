@@ -525,6 +525,7 @@ const ProVersion = ({ session }: ProVersionProps) => {
                           includeIntro: formData.includeIntro,
                           includeFAQ: formData.includeFAQ,
                           pageGoal: formData.pageGoal,
+                          aiModel: formData.aiModel || "gemini-pro",
                           complianceChecks: formData.complianceChecks,
                         }}
                         onUpdate={updateFormData}
