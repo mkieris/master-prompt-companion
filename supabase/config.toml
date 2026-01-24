@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.check-ai-text]
 verify_jwt = false
+
+[functions.analyze-serp]
+verify_jwt = false
