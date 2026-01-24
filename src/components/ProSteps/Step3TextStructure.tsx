@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { useState, useEffect } from "react";
 import { validatePromptConsistency, type ValidationWarning } from "@/utils/promptValidation";
 import { ValidationWarnings } from "@/components/ValidationWarnings";
+import { ModelSelector, type AIModel } from "./ModelSelector";
 
 interface Step3Data {
   focusKeyword: string;
@@ -27,6 +28,7 @@ interface Step3Data {
   includeIntro: boolean;
   includeFAQ: boolean;
   pageGoal: string;
+  aiModel: AIModel;
   complianceChecks: {
     mdr: boolean;
     hwg: boolean;
@@ -198,6 +200,16 @@ export const Step3TextStructure = ({ data, onUpdate, onNext, onBack, formOfAddre
               <SelectItem value="high">Hoch (2-3%) - Stärker optimiert</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+
+        {/* KI-Modell Auswahl */}
+        <div className="p-4 bg-gradient-to-r from-purple-500/10 to-blue-500/10 rounded-lg border border-purple-500/20">
+          <ModelSelector
+            value={data.aiModel || 'gemini-flash'}
+            onChange={(model) => onUpdate({ aiModel: model })}
+            wordCount={data.wordCount}
+            showCostEstimate={true}
+          />
         </div>
 
         {/* W-Fragen */}
