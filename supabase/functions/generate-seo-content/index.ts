@@ -7,6 +7,80 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// AI MODEL CONFIGURATION
+// ═══════════════════════════════════════════════════════════════════════════════
+
+type AIModelId = 'gemini-flash' | 'gemini-pro' | 'claude-sonnet';
+
+interface ModelConfig {
+  id: AIModelId;
+  modelName: string;
+  provider: 'lovable' | 'anthropic';
+  temperature: number;
+  costPerMillionInput: number;  // in USD
+  costPerMillionOutput: number; // in USD
+}
+
+const AI_MODELS: Record<AIModelId, ModelConfig> = {
+  'gemini-flash': {
+    id: 'gemini-flash',
+    modelName: 'google/gemini-2.5-flash',
+    provider: 'lovable',
+    temperature: 0.55,
+    costPerMillionInput: 0.15,
+    costPerMillionOutput: 3.50,
+  },
+  'gemini-pro': {
+    id: 'gemini-pro',
+    modelName: 'google/gemini-2.5-pro',
+    provider: 'lovable',
+    temperature: 0.55,
+    costPerMillionInput: 1.25,
+    costPerMillionOutput: 10.00,
+  },
+  'claude-sonnet': {
+    id: 'claude-sonnet',
+    modelName: 'anthropic/claude-sonnet-4',
+    provider: 'lovable', // Using Lovable gateway for Claude
+    temperature: 0.6,
+    costPerMillionInput: 3.00,
+    costPerMillionOutput: 15.00,
+  },
+};
+
+function getModelConfig(modelId?: string): ModelConfig {
+  if (modelId && modelId in AI_MODELS) {
+    return AI_MODELS[modelId as AIModelId];
+  }
+  return AI_MODELS['gemini-flash']; // Default
+}
+
+function estimateTokens(text: string): number {
+  // Rough estimation: 1 token ≈ 4 characters for English, ~3 for German
+  return Math.ceil(text.length / 3.5);
+}
+
+function calculateCost(model: ModelConfig, inputTokens: number, outputTokens: number): {
+  inputCost: number;
+  outputCost: number;
+  totalCost: number;
+  formatted: string;
+} {
+  const inputCost = (inputTokens / 1_000_000) * model.costPerMillionInput;
+  const outputCost = (outputTokens / 1_000_000) * model.costPerMillionOutput;
+  const totalCost = inputCost + outputCost;
+
+  return {
+    inputCost,
+    outputCost,
+    totalCost,
+    formatted: totalCost < 0.01
+      ? `${(totalCost * 100).toFixed(2)} Cent`
+      : `$${totalCost.toFixed(4)}`,
+  };
+}
+
 // Input validation schema
 const formDataSchema = z.object({
   focusKeyword: z.string().min(1, 'Fokus-Keyword ist erforderlich').max(200, 'Fokus-Keyword zu lang'),
@@ -41,6 +115,7 @@ const formDataSchema = z.object({
   tonality: z.string().max(100).optional(),
   wordCount: z.string().max(20).optional(),
   maxParagraphLength: z.number().int().min(100).max(1000).optional(),
+  aiModel: z.enum(['gemini-flash', 'gemini-pro', 'claude-sonnet']).optional(),
   complianceChecks: z.object({
     mdr: z.boolean().optional(),
     hwg: z.boolean().optional(),
@@ -109,9 +184,14 @@ serve(async (req) => {
 
     // ═══ LOGGING mit Prompt-Version ═══
     const promptVersion = formData.promptVersion || 'v9-master-prompt';
+    const modelConfig = getModelConfig(formData.aiModel);
+
     console.log('=== SEO Generator - Version: ' + promptVersion + ' ===');
+    console.log('=== AI Model: ' + modelConfig.modelName + ' ===');
     console.log('Generating SEO content with params:', {
       promptVersion: promptVersion,
+      aiModel: modelConfig.id,
+      modelName: modelConfig.modelName,
       pageType: formData.pageType,
       targetAudience: formData.targetAudience,
       focusKeyword: formData.focusKeyword,
@@ -232,49 +312,56 @@ serve(async (req) => {
         { role: 'user', content: 'Hier ist der aktuelle Text:\n\n' + JSON.stringify(formData.existingContent, null, 2) + '\n\nBitte ueberarbeite:\n' + formData.refinementPrompt + '\n\nGib den Text im gleichen JSON-Format zurueck.' }
       ];
     } else {
-      console.log('Generating 3 content variants in parallel...');
-      
+      console.log('Generating 3 content variants in parallel with model: ' + modelConfig.modelName);
+
       // v9.0 Varianten-Stile
       const variantApproaches = [
-        { 
-          name: 'Variante A', 
-          description: 'Sachlich & Strukturiert', 
-          instruction: 'STIL: SACHLICH & STRUKTURIERT\n- Faktenbasiert mit klarer Hierarchie\n- Nutze Listen und Aufzählungen wo sinnvoll\n- Ruhiger, vertrauensbildender Ton\n- Daten und Fakten zur Untermauerung\n- Objektiv und informativ' 
+        {
+          name: 'Variante A',
+          description: 'Sachlich & Strukturiert',
+          instruction: 'STIL: SACHLICH & STRUKTURIERT\n- Faktenbasiert mit klarer Hierarchie\n- Nutze Listen und Aufzählungen wo sinnvoll\n- Ruhiger, vertrauensbildender Ton\n- Daten und Fakten zur Untermauerung\n- Objektiv und informativ'
         },
-        { 
-          name: 'Variante B', 
-          description: 'Nutzenorientiert & Aktivierend', 
-          instruction: 'STIL: NUTZENORIENTIERT & AKTIVIEREND\n- Starte Abschnitte mit Nutzenversprechen\n- Zeige Transformation (vorher → nachher)\n- Integriere CTAs an passenden Stellen\n- Konkrete Ergebnisse hervorheben\n- Aktivierende Verben und Sprache' 
+        {
+          name: 'Variante B',
+          description: 'Nutzenorientiert & Aktivierend',
+          instruction: 'STIL: NUTZENORIENTIERT & AKTIVIEREND\n- Starte Abschnitte mit Nutzenversprechen\n- Zeige Transformation (vorher → nachher)\n- Integriere CTAs an passenden Stellen\n- Konkrete Ergebnisse hervorheben\n- Aktivierende Verben und Sprache'
         },
-        { 
-          name: 'Variante C', 
-          description: 'Nahbar & Authentisch', 
-          instruction: 'STIL: NAHBAR & AUTHENTISCH\n- Beginne mit realem Szenario aus dem Alltag\n- "Kennst du das?"-Einstiege\n- Nutze bildhafte, sensorische Sprache\n- Zeige Empathie für Nutzerbedürfnisse\n- Warmherziger, menschlicher Ton' 
+        {
+          name: 'Variante C',
+          description: 'Nahbar & Authentisch',
+          instruction: 'STIL: NAHBAR & AUTHENTISCH\n- Beginne mit realem Szenario aus dem Alltag\n- "Kennst du das?"-Einstiege\n- Nutze bildhafte, sensorische Sprache\n- Zeige Empathie für Nutzerbedürfnisse\n- Warmherziger, menschlicher Ton'
         }
       ];
-      
+
+      // Track total costs across variants
+      let totalInputTokens = 0;
+      let totalOutputTokens = 0;
+
       const generateVariant = async (variantIndex: number): Promise<any> => {
         const approach = variantApproaches[variantIndex];
-        
+
         // Kombiniere System-Prompt mit Varianten-Stil
         const enhancedUserPrompt = approach.instruction + '\n\n' + userPrompt;
-        
+
         const variantMessages = [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: enhancedUserPrompt }
         ];
-        
+
+        // Estimate input tokens for cost tracking
+        const inputTokens = estimateTokens(systemPrompt + enhancedUserPrompt);
+
         const maxRetries = 3;
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           try {
-            console.log('Variant ' + (variantIndex + 1) + ' (' + approach.name + '): attempt ' + attempt);
+            console.log('Variant ' + (variantIndex + 1) + ' (' + approach.name + '): attempt ' + attempt + ' | Model: ' + modelConfig.modelName);
             console.log('System prompt length:', systemPrompt?.length || 0);
             console.log('User prompt length:', enhancedUserPrompt?.length || 0);
-            
-            const requestBody = { 
-              model: 'google/gemini-2.5-pro', 
-              messages: variantMessages, 
-              temperature: 0.55
+
+            const requestBody = {
+              model: modelConfig.modelName,
+              messages: variantMessages,
+              temperature: modelConfig.temperature
             };
             
             const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -292,9 +379,14 @@ serve(async (req) => {
               const data = await response.json();
               const rawContent = data.choices[0].message.content;
               console.log('Variant ' + (variantIndex + 1) + ' raw response length:', rawContent?.length || 0);
-              
+
+              // Track tokens for cost calculation
+              const outputTokens = estimateTokens(rawContent || '');
+              totalInputTokens += inputTokens;
+              totalOutputTokens += outputTokens;
+
               const parsed = parseGeneratedContent(rawContent, formData);
-              
+
               if (!parsed.seoText || parsed.seoText.length < 50) {
                 console.error('CRITICAL: Variant ' + (variantIndex + 1) + ' has empty or too short seoText:', parsed.seoText?.length || 0);
                 if (attempt < maxRetries) {
@@ -303,7 +395,7 @@ serve(async (req) => {
                   continue;
                 }
               }
-              
+
               parsed._variantInfo = { name: approach.name, description: approach.description, index: variantIndex };
               console.log('Variant ' + (variantIndex + 1) + ' successfully parsed. seoText length:', parsed.seoText?.length || 0);
               return parsed;
@@ -331,19 +423,41 @@ serve(async (req) => {
       
       const variants = await Promise.all([generateVariant(0), generateVariant(1), generateVariant(2)]);
       console.log('Successfully generated 3 variants');
-      return new Response(JSON.stringify({ variants, selectedVariant: 0, variantDescriptions: variantApproaches.map(a => ({ name: a.name, description: a.description })) }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+      // Calculate and log costs
+      const costInfo = calculateCost(modelConfig, totalInputTokens, totalOutputTokens);
+      console.log('=== COST SUMMARY ===');
+      console.log('Model:', modelConfig.modelName);
+      console.log('Input tokens:', totalInputTokens);
+      console.log('Output tokens:', totalOutputTokens);
+      console.log('Total cost:', costInfo.formatted);
+
+      return new Response(JSON.stringify({
+        variants,
+        selectedVariant: 0,
+        variantDescriptions: variantApproaches.map(a => ({ name: a.name, description: a.description })),
+        _meta: {
+          model: modelConfig.id,
+          modelName: modelConfig.modelName,
+          inputTokens: totalInputTokens,
+          outputTokens: totalOutputTokens,
+          cost: costInfo
+        }
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     // Refinement/quick change - single generation
     const maxRetries = 3;
     let response: Response | null = null;
-    
+
+    console.log('Refinement/Quick-Change with model:', modelConfig.modelName);
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
           method: 'POST',
           headers: { 'Authorization': 'Bearer ' + LOVABLE_API_KEY, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: 'google/gemini-2.5-pro', messages: messages, temperature: 0.6 }),
+          body: JSON.stringify({ model: modelConfig.modelName, messages: messages, temperature: modelConfig.temperature }),
         });
 
         if (response.ok) break;
