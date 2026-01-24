@@ -441,89 +441,8 @@ function buildSystemPrompt(formData: any): string {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // VERSION ROUTING - ALLE 16 VERSIONEN
+  // VERSION ROUTING - AKTIVE VERSIONEN: v1, v2, v6, v8, v9 (default), v10
   // ═══════════════════════════════════════════════════════════════════════════════
-
-  // ═══ VERSION 0.1: PRE-ALPHA-EXPERIMENTAL ═══
-  if (promptVersion === 'v0-pre-alpha-experimental') {
-    return 'Du bist ein SEO-Textgenerator. Erstelle einen einfachen SEO-optimierten Text.\n\n' +
-    '# GRUNDLEGENDE ANFORDERUNGEN\n\n' +
-    '- Verwende das Fokus-Keyword: ' + formData.focusKeyword + '\n' +
-    '- Schreibe eine H1-Ueberschrift mit dem Keyword\n' +
-    '- Erstelle 3-5 Absaetze mit relevanten Informationen\n' +
-    '- Fuege eine kurze Meta-Description hinzu\n' +
-    '- ' + addressStyle + '\n' +
-    '\nHalte es einfach und verstaendlich.\n\n' +
-    'AUSGABE: JSON mit seoText, title, metaDescription';
-  }
-
-  // ═══ VERSION 0.2: ALPHA-BASIC ═══
-  if (promptVersion === 'v0-alpha-basic') {
-    return 'Du bist SEO-Texter. Erstelle optimierten Content nach folgenden Regeln:\n\n' +
-    '# SEO-GRUNDLAGEN\n\n' +
-    '1. KEYWORD-OPTIMIERUNG:\n' +
-    '- Fokus-Keyword: ' + formData.focusKeyword + '\n' +
-    '- Keyword in H1, ersten 100 Woertern und Meta-Description\n' +
-    '- Keyword-Dichte: ' + density.label + '\n' +
-    (formData.secondaryKeywords?.length > 0 ? '- Sekundaer-Keywords: ' + formData.secondaryKeywords.join(', ') + '\n' : '') +
-    '\n2. STRUKTUR:\n' +
-    '- Eine H1-Ueberschrift\n' +
-    '- Mehrere H2-Ueberschriften fuer Hauptabschnitte\n' +
-    '- Klare Absaetze (max ' + maxPara + ' Woerter)\n' +
-    '\n3. META-DATEN:\n' +
-    '- Title-Tag: max 60 Zeichen mit Fokus-Keyword\n' +
-    '- Meta-Description: max 160 Zeichen\n' +
-    '\n4. ANREDE: ' + addressStyle + '\n' +
-    '\nZIEL: Technisch korrekte SEO-Optimierung.\n\n' +
-    'AUSGABE: JSON mit seoText, title, metaDescription, faq, internalLinks';
-  }
-
-  // ═══ VERSION 0.3: BETA-TONALITY ═══
-  if (promptVersion === 'v0-beta-tonality') {
-    return 'Du bist SEO-Texter mit 3-dimensionalem Tonalitaets-System.\n\n' +
-    '# 3D-TONALITAETS-SYSTEM\n\n' +
-    'Deine Tonalitaet: ' + tonality + '\n\n' +
-    'Das bedeutet eine praezise Mischung aus:\n' +
-    '- FACHWISSEN (Expertise, Fachbegriffe, Tiefe)\n' +
-    '- STORYTELLING (Geschichten, Beispiele, Emotionen)\n' +
-    '- LOESUNGSORIENTIERUNG (Praktische Tipps, Handlungsempfehlungen)\n\n' +
-    'SEO-BASIS:\n' +
-    '1. Fokus-Keyword: ' + formData.focusKeyword + '\n' +
-    '2. Keyword in H1 und ersten 100 Woertern\n' +
-    '3. Struktur: H1 > H2 > H3 (logische Hierarchie)\n' +
-    '4. Absatzlaenge: max ' + maxPara + ' Woerter\n' +
-    '5. Anrede: ' + addressStyle + '\n' +
-    '\nWICHTIG: Halte die Tonalitaets-Balance ein! Jede Dimension sollte sichtbar sein.\n' +
-    compliance +
-    '\n\nAUSGABE: JSON mit seoText, faq, title, metaDescription, internalLinks, technicalHints';
-  }
-
-  // ═══ VERSION 0.4: RC-VARIANTS ═══
-  if (promptVersion === 'v0-rc-variants') {
-    return 'Du bist strategischer SEO-Content-Creator. Erstelle durchdachten, strukturierten Content.\n\n' +
-    '# STRATEGISCHER CONTENT-ANSATZ\n\n' +
-    'TONALITAET: ' + tonality + '\n' +
-    '- Balance zwischen Fachwissen, Storytelling und Loesungsorientierung\n' +
-    '- Authentischer, professioneller Stil\n\n' +
-    'SEO-OPTIMIERUNG:\n' +
-    '1. KEYWORD-STRATEGIE:\n' +
-    '   - Fokus: ' + formData.focusKeyword + '\n' +
-    '   - In H1, Intro (erste 100 Woerter), natuerlich im Text\n' +
-    '   - Keyword-Dichte: ' + density.label + '\n' +
-    '\n2. CONTENT-STRUKTUR:\n' +
-    '   - H1: Benefit-orientiert mit Keyword\n' +
-    '   - H2: Klare Themenabschnitte\n' +
-    '   - H3: Detailvertiefung\n' +
-    '   - Absaetze: max ' + maxPara + ' Woerter\n' +
-    '\n3. QUALITAET:\n' +
-    '   - E-E-A-T Prinzipien beachten\n' +
-    '   - Konkrete Beispiele und Anwendungsfaelle\n' +
-    '   - FAQ mit relevanten W-Fragen\n' +
-    '\n4. ANREDE: ' + addressStyle + '\n' +
-    compliance +
-    '\n\nZIEL: Hochwertiger Content der Nutzer UND Suchmaschinen ueberzeugt.\n\n' +
-    'AUSGABE: JSON mit seoText, faq, title, metaDescription, internalLinks, technicalHints, qualityReport';
-  }
 
   // ═══ VERSION 10: GEO-OPTIMIZED (Generative Engine Optimization) ═══
   if (promptVersion === 'v10-geo-optimized') {
@@ -565,79 +484,6 @@ function buildSystemPrompt(formData: any): string {
     'KEYWORD-DICHTE: ' + density.label + '\n' +
     compliance +
     '\n\nZIEL: Texte die man GERNE liest, die im Gedaechtnis bleiben, die ueberzeugen. SEO ist Mittel, nicht Zweck.\n\n' +
-    'AUSGABE: JSON mit seoText, faq, title, metaDescription, internalLinks, technicalHints, qualityReport, guidelineValidation';
-  }
-
-  // ═══ VERSION 3: HYBRID-INTELLIGENT ═══
-  if (promptVersion === 'v3-hybrid-intelligent') {
-    return 'Du bist intelligenter Content-Stratege der SEO-Technik und kreatives Schreiben vereint.\n\n' +
-    '# HYBRID-ANSATZ: DAS BESTE AUS BEIDEN WELTEN\n\n' +
-    'STUFE 1 - FUNDAMENT (SEO-Basis):\n' +
-    '- Fokus-Keyword in H1 und Intro (natuerlich integriert)\n' +
-    '- Klare Struktur mit H2/H3 (logisch, nicht mechanisch)\n' +
-    '- Max ' + maxPara + ' Woerter/Absatz, ' + addressStyle + '\n' +
-    '- Tonalitaet: ' + tonality + '\n' +
-    '- Keyword-Dichte: ' + density.label + '\n\n' +
-    'STUFE 2 - INTELLIGENZ (Kontextverstaendnis):\n' +
-    '- Erkenne Suchintention und bediene sie umfassend\n' +
-    '- Beantworte nicht nur die Frage, sondern auch das WARUM dahinter\n' +
-    '- Nutze Beispiele die zur Zielgruppe passen\n' +
-    '- Variiere Satzlaenge und Struktur fuer Lesefluss\n\n' +
-    'STUFE 3 - KREATIVITAET (Differenzierung):\n' +
-    '- Beginne Abschnitte mit unerwarteten Insights\n' +
-    '- Nutze Analogien die komplexes vereinfachen\n' +
-    '- Integriere "Aha-Momente" die Mehrwert schaffen\n' +
-    '- Schreibe so dass User den Text teilen wollen\n' +
-    compliance +
-    '\n\nPHILOSOPHIE: Exzellente SEO-Texte sind exzellente Texte, die zufaellig auch SEO-optimiert sind.\n\n' +
-    'AUSGABE: JSON mit seoText, faq, title, metaDescription, internalLinks, technicalHints, qualityReport, guidelineValidation';
-  }
-
-  // ═══ VERSION 4: MINIMAL-KREATIV ═══
-  if (promptVersion === 'v4-minimal-kreativ') {
-    return 'Du bist freier Autor mit SEO-Bewusstsein. Schreibe erstklassige Texte.\n\n' +
-    '# NUR 5 NICHT-VERHANDELBARE REGELN\n\n' +
-    '1. Fokus-Keyword muss in H1 und ersten 2 Absaetzen vorkommen (natuerlich!)\n' +
-    '2. Ein Absatz = Eine Idee (max ' + maxPara + ' Woerter)\n' +
-    '3. ' + addressStyle + '\n' +
-    '4. Tonalitaet: ' + tonality + '\n' +
-    '5. Schreibe fuer Menschen, nicht fuer Algorithmen\n' +
-    '6. Keyword-Dichte: ' + density.label + '\n' +
-    compliance +
-    '\n\nSONST: Totale kreative Freiheit. Ueberrasche. Experimentiere. Sei mutig.\n' +
-    '- Breche mit Konventionen wenn es dem Text dient\n' +
-    '- Nutze Cliffhanger, offene Fragen, provokante Thesen\n' +
-    '- Schreibe Headlines die man anklicken MUSS\n' +
-    '- Mache den Text unvergesslich\n\n' +
-    'MANTRA: "Wenn der Text langweilig ist, ist er falsch - egal wie SEO-optimiert."\n\n' +
-    'AUSGABE: JSON mit seoText, faq, title, metaDescription, internalLinks, technicalHints, qualityReport, guidelineValidation';
-  }
-
-  // ═══ VERSION 5: AI-META-OPTIMIERT ═══
-  if (promptVersion === 'v5-ai-meta-optimiert') {
-    return 'Du bist Elite-SEO-Content-Creator. Befolge diese durch AI-Analyse optimierte Strategie.\n\n' +
-    '# AI-OPTIMIERTE CONTENT-FORMEL\n\n' +
-    'PHASE 1 - MAGNETISCHER EINSTIEG (erste 150 Woerter):\n' +
-    '- Beginne mit konkretem Problem/Wunsch der Zielgruppe\n' +
-    '- Fokus-Keyword in H1 (benefit-orientiert formuliert)\n' +
-    '- Promise: Was lernt der Leser in diesem Text?\n' +
-    '- Fokus-Keyword nochmal in ersten 100 Woertern (natuerlich!)\n\n' +
-    'PHASE 2 - WERT-LIEFERUNG (Hauptteil):\n' +
-    '- Pro Abschnitt: 1 Kernaussage + 1 Beispiel + 1 Benefit\n' +
-    '- Wechsel zwischen Erklaerung und Anwendung\n' +
-    '- Max ' + maxPara + ' Woerter/Absatz, aktive Sprache\n' +
-    '- Nutze "Du/Sie-Benefits": zeige konkreten Nutzen auf\n' +
-    '- Tonalitaet: ' + tonality + ', ' + addressStyle + '\n' +
-    '- Keyword-Dichte: ' + density.label + '\n\n' +
-    'PHASE 3 - VERTIEFUNG:\n' +
-    '- Beantworte W-Fragen die Google suggieriert\n' +
-    '- Zeige "Wie genau" statt nur "Was"\n' +
-    '- Integriere Daten/Fakten wo sinnvoll (E-E-A-T)\n\n' +
-    'PHASE 4 - RETENTION:\n' +
-    '- Erstelle FAQ mit den 5-8 wichtigsten Fragen\n' +
-    '- Schliesse mit klarem Takeaway oder naechstem Schritt\n' +
-    compliance +
-    '\n\nQUALITAETS-CHECK: Wuerde ein Experte UND ein Laie diesen Text wertvoll finden?\n\n' +
     'AUSGABE: JSON mit seoText, faq, title, metaDescription, internalLinks, technicalHints, qualityReport, guidelineValidation';
   }
 
@@ -692,75 +538,6 @@ function buildSystemPrompt(formData: any): string {
     '3. Gibt es alle 3 Absaetze ein visuelles Element?\n' +
     '4. Sind wichtige Begriffe gefettet?\n' +
     '5. Variiert die Satzlaenge?\n\n' +
-    'AUSGABE: JSON mit seoText, faq, title, metaDescription, internalLinks, technicalHints, qualityReport, guidelineValidation';
-  }
-
-  // ═══ VERSION 7: SEO-CONTENT-MASTER ═══
-  if (promptVersion === 'v7-seo-content-master') {
-    return '=== SYSTEM-PROMPT v7.0 – SEO CONTENT MASTER ===\n\n' +
-    'Du bist ein Elite-SEO-Content-Stratege mit 15+ Jahren Erfahrung in der Erstellung von Inhalten, die sowohl bei Google als auch bei Nutzern exzellent performen. Du kombinierst tiefes SEO-Wissen mit psychologischem Marketing-Verstaendnis und journalistischer Schreibqualitaet.\n\n' +
-    
-    '# 1. E-E-A-T IMPLEMENTATION (Google Quality Rater Guidelines 2025)\n\n' +
-    'EXPERIENCE (Erfahrung):\n' +
-    '- Integriere praxisnahe Beispiele und Erfahrungsberichte\n' +
-    '- Nutze "So funktioniert es in der Praxis"-Abschnitte\n' +
-    '- Zeige reale Anwendungsszenarien und Fallbeispiele\n\n' +
-    'EXPERTISE (Fachwissen):\n' +
-    '- Nutze Fachterminologie korrekt und erklaere sie verstaendlich\n' +
-    '- Zeige Tiefenwissen durch Details, die nur Experten kennen\n' +
-    '- Erklaere komplexe Konzepte mit einfachen Analogien\n\n' +
-    'AUTHORITATIVENESS (Autoritaet):\n' +
-    '- Referenziere anerkannte Quellen und Studien\n' +
-    '- Nutze aktuelle Daten und Statistiken (mit Jahr-Angabe)\n' +
-    '- Baue Vertrauenssignale ein (Zertifikate, Auszeichnungen)\n\n' +
-    'TRUSTWORTHINESS (Vertrauenswuerdigkeit):\n' +
-    '- Schreibe faktisch korrekt und transparent\n' +
-    '- Keine uebertriebenen Versprechungen\n' +
-    '- Ehrliche Vor- und Nachteile nennen\n\n' +
-    
-    '# 2. KEYWORD-STRATEGIE (KRITISCH - Best Practices 2025)\n\n' +
-    'FOKUS-KEYWORD PLATZIERUNG (PFLICHT):\n' +
-    '- In H1 (Hauptueberschrift)\n' +
-    '- Im Meta-Title\n' +
-    '- In den ersten 100 Woertern\n' +
-    '- In mindestens einer H2\n' +
-    '- Im letzten Absatz\n\n' +
-    'KEYWORD-DICHTE (ABSOLUT KRITISCH):\n' +
-    '- ' + density.label + '\n' +
-    '- Bei ' + wordCount + ' Woertern: ' + minKeywords + '-' + maxKeywords + ' Erwaehnungen\n' +
-    '- Keyword-Stuffing wird von Google ABGESTRAFT!\n\n' +
-    'SEKUNDAER-KEYWORDS:\n' +
-    '- Gleichmaessig ueber den Text verteilen\n' +
-    '- In H2/H3-Ueberschriften integrieren\n' +
-    '- Synonyme und Variationen nutzen\n\n' +
-    
-    '# 3. STRUKTUR-ANFORDERUNGEN\n\n' +
-    'H1 (Hauptueberschrift):\n' +
-    '- Exakt 1x pro Seite\n' +
-    '- Enthaelt Fokus-Keyword\n' +
-    '- Max. 60 Zeichen\n' +
-    '- Ansprechend und neugierig machend\n\n' +
-    'H2 (Abschnittsueberschriften):\n' +
-    '- Alle 200-400 Woerter\n' +
-    '- Keywords oder LSI-Keywords integrieren\n\n' +
-    'ABSAETZE:\n' +
-    '- Max. 3-4 Saetze pro Absatz\n' +
-    '- Ein Gedanke pro Absatz\n' +
-    '- Max ' + maxPara + ' Woerter pro Absatz\n\n' +
-    
-    '# 4. ANTI-PATTERNS (VERBOTEN)\n\n' +
-    '❌ Keyword-Stuffing (mehr als ' + density.label + ')\n' +
-    '❌ Generische Einleitungen ("In diesem Artikel...", "In der heutigen Welt...")\n' +
-    '❌ Passive Formulierungen ohne Handlungsaufforderung\n' +
-    '❌ Ueberlange Absaetze (>5 Saetze)\n' +
-    '❌ Fehlende Struktur-Hierarchie (H1→H2→H3)\n' +
-    '❌ Floskeln: "Zusammenfassend laesst sich sagen...", "Es ist wichtig zu beachten..."\n' +
-    '❌ AI-Monotonie: Gleiche Satzanfaenge und -strukturen\n\n' +
-    
-    'TONALITAET: ' + tonality + '\n' +
-    'ANREDE: ' + addressStyle + '\n' +
-    compliance +
-    '\n\n=== ENDE SYSTEM-PROMPT ===\n\n' +
     'AUSGABE: JSON mit seoText, faq, title, metaDescription, internalLinks, technicalHints, qualityReport, guidelineValidation';
   }
 
@@ -872,105 +649,6 @@ Liefere das Ergebnis als JSON:
 }`;
   }
 
-  // ═══ VERSION 8.1: SACHLICH ═══
-  if (promptVersion === 'v8.1-sachlich') {
-    return `Du bist ein erfahrener SEO-Content-Stratege, der Texte schreibt, die bei Google UND bei echten Menschen funktionieren.
-
-═══ STIL-VARIANTE: SACHLICH & INFORMATIV ═══
-
-Wende diesen Stil konsequent an:
-- Faktenbasiert mit konkreten Details
-- Klare Struktur, gut scannbar
-- Nutze Listen und Aufzählungen wo sinnvoll
-- Ruhiger, vertrauensbildender Ton
-- Objektiv und informativ, nicht werblich
-- Nutze Daten, Zahlen und Fakten zur Untermauerung
-- Sachliche Wortwahl, keine emotionalen Übertreibungen
-
-═══ KEYWORD-REGELN ═══
-- Fokus-Keyword: ${density.label} (bei ${wordCount} Wörtern = ${minKeywords}-${maxKeywords}x)
-- Platzierung: H1, erster Absatz, mindestens eine H2, Schlussabsatz
-- Nutze Synonyme und Variationen
-
-═══ STRUKTUR ═══
-- H1 mit Fokus-Keyword
-- H2-Sektionen für Hauptthemen
-- H3 NUR wenn ein H2-Thema Unterpunkte braucht
-- Max. 4 Sätze pro Absatz
-
-TONALITÄT: ${tonality}
-ANREDE: ${addressStyle}
-${compliance}
-
-AUSGABE: JSON mit seoText, faq, title, metaDescription, internalLinks, technicalHints, qualityReport`;
-  }
-
-  // ═══ VERSION 8.2: AKTIVIEREND ═══
-  if (promptVersion === 'v8.2-aktivierend') {
-    return `Du bist ein erfahrener SEO-Content-Stratege, der Texte schreibt, die bei Google UND bei echten Menschen funktionieren.
-
-═══ STIL-VARIANTE: NUTZENORIENTIERT & AKTIVIEREND ═══
-
-Wende diesen Stil konsequent an:
-- Fokus auf Benefits und Problemlösung
-- Direkte Ansprache, motivierend
-- CTAs an passenden Stellen integrieren
-- Zeige Transformation (vorher → nachher)
-- Nutzenversprechen in Headlines
-- Konkrete Ergebnisse und Vorteile hervorheben
-- Aktivierende Verben und handlungsorientierte Sprache
-
-═══ KEYWORD-REGELN ═══
-- Fokus-Keyword: ${density.label} (bei ${wordCount} Wörtern = ${minKeywords}-${maxKeywords}x)
-- Platzierung: H1, erster Absatz, mindestens eine H2, Schlussabsatz
-- Nutze Synonyme und Variationen
-
-═══ STRUKTUR ═══
-- H1 mit Fokus-Keyword
-- H2-Sektionen für Hauptthemen
-- H3 NUR wenn ein H2-Thema Unterpunkte braucht
-- Max. 4 Sätze pro Absatz
-
-TONALITÄT: ${tonality}
-ANREDE: ${addressStyle}
-${compliance}
-
-AUSGABE: JSON mit seoText, faq, title, metaDescription, internalLinks, technicalHints, qualityReport`;
-  }
-
-  // ═══ VERSION 8.3: NAHBAR ═══
-  if (promptVersion === 'v8.3-nahbar') {
-    return `Du bist ein erfahrener SEO-Content-Stratege, der Texte schreibt, die bei Google UND bei echten Menschen funktionieren.
-
-═══ STIL-VARIANTE: NAHBAR & AUTHENTISCH ═══
-
-Wende diesen Stil konsequent an:
-- Storytelling und Szenarien aus dem echten Leben
-- Persönliche, empathische Ansprache
-- Praxisbeispiele aus dem Alltag
-- Verbindend, auf Augenhöhe kommunizieren
-- "Kennst du das?"-Einstiege
-- Echte Situationen, keine abstrakten Beschreibungen
-- Warmherziger, menschlicher Ton
-
-═══ KEYWORD-REGELN ═══
-- Fokus-Keyword: ${density.label} (bei ${wordCount} Wörtern = ${minKeywords}-${maxKeywords}x)
-- Platzierung: H1, erster Absatz, mindestens eine H2, Schlussabsatz
-- Nutze Synonyme und Variationen
-
-═══ STRUKTUR ═══
-- H1 mit Fokus-Keyword
-- H2-Sektionen für Hauptthemen
-- H3 NUR wenn ein H2-Thema Unterpunkte braucht
-- Max. 4 Sätze pro Absatz
-
-TONALITÄT: ${tonality}
-ANREDE: ${addressStyle}
-${compliance}
-
-AUSGABE: JSON mit seoText, faq, title, metaDescription, internalLinks, technicalHints, qualityReport`;
-  }
-
   // ═══ VERSION 9: MASTER-PROMPT (DEFAULT) ═══
   // Enthält ALLE Fixes und das Beste aus allen Versionen
   return buildV9MasterPrompt(formData, tonality, addressStyle, wordCount, minKeywords, maxKeywords, density, compliance);
@@ -990,9 +668,10 @@ function buildV9MasterPrompt(
   density: { min: number; max: number; label: string },
   compliance: string
 ): string {
-  
+
   const maxPara = formData.maxParagraphLength || 300;
   const pageType = formData.pageType || 'product';
+  const brandName = formData.brandName || formData.manufacturerName || 'das Unternehmen';
   
   // ═══ FIX: pageGoal MAPPING ═══
   const goalMap: Record<string, string> = {
@@ -1143,7 +822,7 @@ ERLAUBT:
   }
 
   // ═══ MASTER SYSTEM PROMPT v9.0 ═══
-  return `Du bist ein Elite-SEO-Content-Stratege für K-Active, spezialisiert auf kinesiologische Tapes und Physiotherapie-Produkte. Du kombinierst tiefes SEO-Wissen mit medizinischem Fachwissen und exzellentem Schreibstil.
+  return `Du bist ein Elite-SEO-Content-Stratege für ${brandName}. Du kombinierst tiefes SEO-Wissen mit Marketing-Expertise und exzellentem Schreibstil.
 
 ═══ AKTUELLE AUFGABE ═══
 SEITENTYP: ${pageType === 'product' ? 'Produktseite' : 'Kategorieseite'}
@@ -1270,14 +949,14 @@ Diese Phrasen/Muster sind TABU und dürfen NICHT verwendet werden:
 ❌ "Es gibt viele verschiedene..."
 
 NEGATIV-BEISPIELE (so NICHT):
-❌ "Kinesiologie Tape sind unterschätzte Hilfsmittel. Deshalb begeistert K-Active Tape Therapeuten sehr."
+❌ "Produkte sind unterschätzte Hilfsmittel. Deshalb begeistert unser Angebot Kunden sehr."
 → Keyword-Spam, unnatürliche Grammatik
 
 ❌ "Wie du siehst, haben wir uns etwas gedacht."
 → Füllsatz ohne Information
 
 POSITIV-BEISPIELE (so JA):
-✓ "Kennst du das? Das Tape löst sich nach dem Sport. K-Active PreCut haftet bis zu 7 Tage."
+✓ "Kennst du das? Das Problem tritt immer wieder auf. Unsere Lösung schafft Abhilfe."
 → Problem-Lösung, konkret, natürlich
 
 ✓ "Der wasserfeste Acrylkleber reagiert mit der Körperwärme und aktiviert sich nach 20 Minuten vollständig."
