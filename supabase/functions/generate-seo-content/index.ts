@@ -46,6 +46,7 @@ const formDataSchema = z.object({
     hwg: z.boolean().optional(),
     studies: z.boolean().optional(),
   }).optional(),
+  serpContext: z.string().max(10000).optional(),
 }).passthrough();
 
 serve(async (req) => {
@@ -431,13 +432,20 @@ function buildSystemPrompt(formData: any): string {
   const hasMDR = formData.complianceChecks?.mdr || formData.checkMDR;
   const hasHWG = formData.complianceChecks?.hwg || formData.checkHWG;
   const hasStudies = formData.complianceChecks?.studies || formData.checkStudies;
-  
+
   if (formData.complianceCheck && (hasMDR || hasHWG || hasStudies)) {
     const checks = [];
     if (hasMDR) checks.push('MDR/MPDG beachten');
     if (hasHWG) checks.push('HWG beachten');
     if (hasStudies) checks.push('Studien korrekt zitieren');
     compliance = '\n\nCOMPLIANCE: ' + checks.join(', ');
+  }
+
+  // ═══ SERP-ANALYSE KONTEXT ═══
+  let serpBlock = '';
+  if (formData.serpContext && formData.serpContext.trim().length > 0) {
+    serpBlock = '\n\n# SERP-ANALYSE (Google Top-10)\n\n' + formData.serpContext.trim() + '\n\nWICHTIG: Integriere die PFLICHT-BEGRIFFE natürlich in den Text. Die EMPFOHLENEN BEGRIFFE sollten ebenfalls vorkommen. Nutze die HÄUFIGEN FRAGEN als Inspiration für FAQ und Zwischenüberschriften.';
+    console.log('SERP-Kontext integriert: ' + formData.serpContext.length + ' Zeichen');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════════
@@ -651,7 +659,7 @@ Liefere das Ergebnis als JSON:
 
   // ═══ VERSION 9: MASTER-PROMPT (DEFAULT) ═══
   // Enthält ALLE Fixes und das Beste aus allen Versionen
-  return buildV9MasterPrompt(formData, tonality, addressStyle, wordCount, minKeywords, maxKeywords, density, compliance);
+  return buildV9MasterPrompt(formData, tonality, addressStyle, wordCount, minKeywords, maxKeywords, density, compliance, serpBlock);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -659,14 +667,15 @@ Liefere das Ergebnis als JSON:
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function buildV9MasterPrompt(
-  formData: any, 
-  tonality: string, 
-  addressStyle: string, 
-  wordCount: number, 
-  minKeywords: number, 
+  formData: any,
+  tonality: string,
+  addressStyle: string,
+  wordCount: number,
+  minKeywords: number,
   maxKeywords: number,
   density: { min: number; max: number; label: string },
-  compliance: string
+  compliance: string,
+  serpBlock: string = ''
 ): string {
 
   const maxPara = formData.maxParagraphLength || 300;
@@ -1005,7 +1014,7 @@ Prüfe BEVOR du ausgibst:
 □ Mindestens 2-3 Listen im Text? ✓
 □ Keine verbotenen Phrasen? ✓
 □ FAQ mit direkten Antworten? ✓
-□ E-E-A-T-Signale vorhanden? ✓`;
+□ E-E-A-T-Signale vorhanden? ✓${serpBlock}`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
