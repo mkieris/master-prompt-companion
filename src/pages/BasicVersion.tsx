@@ -65,6 +65,7 @@ interface FormData {
   manufacturerWebsite: string;
   manufacturerInfo: string;
   additionalInfo: string;
+  brandName: string;
   promptVersion: string;
   pageGoal: "inform" | "advise" | "preparePurchase" | "triggerPurchase";
   complianceCheck: boolean;
@@ -126,6 +127,7 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
     manufacturerWebsite: "",
     manufacturerInfo: "",
     additionalInfo: "",
+    brandName: "",
     promptVersion: "v9-master",
     pageGoal: "inform",
     complianceCheck: false,
@@ -1095,30 +1097,34 @@ da historische Versionen nicht vollständig implementiert sind.`;
                   </div>
                 </div>
 
+                {/* Brand Name */}
+                <div>
+                  <Label className="text-xs">Markenname (optional)</Label>
+                  <Input
+                    value={formData.brandName}
+                    onChange={(e) => setFormData({ ...formData, brandName: e.target.value })}
+                    placeholder="z.B. K-Active, Musterfirma GmbH"
+                    className="mt-1 h-9 text-xs"
+                  />
+                </div>
+
                 {/* Prompt Version */}
                 <div>
                   <Label className="text-xs">Prompt-Strategie</Label>
-                  <Select 
-                    value={formData.promptVersion} 
+                  <Select
+                    value={formData.promptVersion}
                     onValueChange={(v) => setFormData({ ...formData, promptVersion: v })}
                   >
                     <SelectTrigger className="mt-1 h-9 text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="v10-geo-optimized">v10: GEO-Optimized 2026 🚀 NEU</SelectItem>
-                      <SelectItem value="v9-master">v9: Master Prompt ⭐</SelectItem>
-                      <SelectItem value="v8.1-sachlich">v8.1: Sachlich & Informativ</SelectItem>
-                      <SelectItem value="v8.2-aktivierend">v8.2: Nutzenorientiert & Aktivierend</SelectItem>
-                      <SelectItem value="v8.3-nahbar">v8.3: Nahbar & Authentisch</SelectItem>
-                      <SelectItem value="v8-natural-seo">v8: Natural SEO (Basis)</SelectItem>
-                      <SelectItem value="v7-seo-content-master">v7: SEO Content Master 2025</SelectItem>
+                      <SelectItem value="v9-master">v9: Master Prompt ⭐ (Standard)</SelectItem>
+                      <SelectItem value="v10-geo-optimized">v10: GEO-Optimized (AI-Ready) 🚀</SelectItem>
                       <SelectItem value="v6-quality-auditor">v6: Quality-Auditor (Anti-Fluff)</SelectItem>
-                      <SelectItem value="v5-ai-meta-optimiert">v5: Meta-Optimiert</SelectItem>
-                      <SelectItem value="v4-minimal-kreativ">v4: Minimal-Kreativ</SelectItem>
-                      <SelectItem value="v3-hybrid-intelligent">v3: Hybrid (Balance)</SelectItem>
-                      <SelectItem value="v2-marketing-first">v2: Marketing-First</SelectItem>
-                      <SelectItem value="v1-kompakt-seo">v1: Kompakt-SEO</SelectItem>
+                      <SelectItem value="v8-natural-seo">v8: Natural SEO (Natürlich)</SelectItem>
+                      <SelectItem value="v2-marketing-first">v2: Marketing-First (Emotional)</SelectItem>
+                      <SelectItem value="v1-kompakt-seo">v1: Kompakt-SEO (Schnell)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
