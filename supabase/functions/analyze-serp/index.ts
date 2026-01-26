@@ -123,11 +123,34 @@ function analyzeSerpResults(results: any[], focusKeyword: string) {
   // Top 30 relevante Terme
   const topTerms = sortedTerms.slice(0, 30);
 
-  // Kategorisierung: Must-Have (in >50% der Titel), Should-Have (in >30%), Nice-to-Have (Rest)
+  // Kategorisierung basierend auf kombiniertem Score und Erscheinen in Titeln/Snippets
+  // - Must-Have: Top-Terme die in mindestens 2 Titeln ODER 5 Snippets vorkommen (hohe Relevanz)
+  // - Should-Have: Terme die in mindestens 1 Titel ODER 3 Snippets vorkommen (mittlere Relevanz)
+  // - Nice-to-Have: Restliche Terme aus den Top 30 (niedrigere Relevanz)
   const totalResults = results.length;
-  const mustHave = topTerms.filter(t => t.inTitles >= totalResults * 0.5).slice(0, 10);
-  const shouldHave = topTerms.filter(t => t.inTitles >= totalResults * 0.3 && t.inTitles < totalResults * 0.5).slice(0, 10);
-  const niceToHave = topTerms.filter(t => t.inTitles < totalResults * 0.3).slice(0, 10);
+
+  // Berechne einen kombinierten Relevanz-Score für die Kategorisierung
+  const categorizedTerms = topTerms.map(t => ({
+    ...t,
+    relevanceScore: (t.inTitles * 3) + (t.inSnippets * 1.5) + (t.frequency * 0.5),
+    isMustHave: t.inTitles >= 2 || t.inSnippets >= Math.min(5, totalResults * 0.5),
+    isShouldHave: t.inTitles >= 1 || t.inSnippets >= Math.min(3, totalResults * 0.3),
+  }));
+
+  const mustHave = categorizedTerms
+    .filter(t => t.isMustHave)
+    .sort((a, b) => b.relevanceScore - a.relevanceScore)
+    .slice(0, 10);
+
+  const shouldHave = categorizedTerms
+    .filter(t => !t.isMustHave && t.isShouldHave)
+    .sort((a, b) => b.relevanceScore - a.relevanceScore)
+    .slice(0, 10);
+
+  const niceToHave = categorizedTerms
+    .filter(t => !t.isMustHave && !t.isShouldHave)
+    .sort((a, b) => b.relevanceScore - a.relevanceScore)
+    .slice(0, 10);
 
   return {
     topTerms: topTerms.map(t => t.term),
@@ -240,6 +263,8 @@ serve(async (req) => {
 
     const serpData = await serpResponse.json();
     console.log(`Received ${serpData.organic?.length || 0} organic results`);
+    console.log(`People Also Ask: ${serpData.peopleAlsoAsk?.length || 0} questions`);
+    console.log(`Related Searches: ${serpData.relatedSearches?.length || 0} queries`);
     // ===== END SERPER API CALL =====
 
     // ===== ANALYZE RESULTS =====
@@ -288,17 +313,23 @@ serve(async (req) => {
       stats: {
         totalResultsAnalyzed: analysis.totalResultsAnalyzed,
         averageSnippetLength: analysis.averageSnippetLength,
-        termDetails: analysis.termDetails.slice(0, 15),
+        termDetails: analysis.termDetails.slice(0, 15).map(t => ({
+          term: t.term,
+          score: t.score,
+          inTitles: t.inTitles,
+          inSnippets: t.inSnippets,
+          frequency: t.frequency,
+        })),
       },
 
       // Prompt-Erweiterung für generate-seo-content
       promptContext: `
 SERP-ANALYSE FÜR "${keyword}":
 
-PFLICHT-BEGRIFFE (in >50% der Top-10 Titel):
+PFLICHT-BEGRIFFE (hohe Relevanz - in mehreren Titeln/Snippets):
 ${analysis.mustHave.length > 0 ? analysis.mustHave.map(t => `- ${t}`).join('\n') : '- Keine gefunden'}
 
-EMPFOHLENE BEGRIFFE (in >30% der Ergebnisse):
+EMPFOHLENE BEGRIFFE (mittlere Relevanz):
 ${analysis.shouldHave.length > 0 ? analysis.shouldHave.map(t => `- ${t}`).join('\n') : '- Keine gefunden'}
 
 OPTIONALE BEGRIFFE (zur Differenzierung):

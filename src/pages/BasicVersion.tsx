@@ -64,10 +64,44 @@ interface FormData {
   wQuestions: string[];
   brandName: string;
   additionalInfo: string;
+  // SEO-spezifische Felder
+  pageType: "product" | "category";
+  pageGoal: "inform" | "advise" | "preparePurchase" | "triggerPurchase";
+  searchIntent: string[];
+  keywordDensity: "low" | "medium" | "high";
+  // Website-Scraping (optional)
+  manufacturerWebsite: string;
+  manufacturerInfo: string;
+  // Compliance (optional)
+  complianceCheck: boolean;
+  checkMDR: boolean;
+  checkHWG: boolean;
+  checkStudies: boolean;
   // SERP-Analyse
   serpContext: string;
   // Intern verwendet (nicht in UI)
   promptVersion: string;
+}
+
+// SERP Analysis Result
+interface SerpAnalysis {
+  serpTerms: {
+    mustHave: string[];
+    shouldHave: string[];
+    niceToHave: string[];
+    all: string[];
+  };
+  questions: {
+    peopleAlsoAsk: string[];
+    relatedSearches: string[];
+  };
+  competitors: Array<{
+    position: number;
+    title: string;
+    url: string;
+    domain: string;
+  }>;
+  promptContext: string;
 }
 
 interface KeywordAnalysis {
@@ -128,6 +162,19 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
     wQuestions: [],
     brandName: "",
     additionalInfo: "",
+    // SEO-spezifische Felder
+    pageType: "product",
+    pageGoal: "advise",
+    searchIntent: [],
+    keywordDensity: "medium",
+    // Website-Scraping
+    manufacturerWebsite: "",
+    manufacturerInfo: "",
+    // Compliance
+    complianceCheck: false,
+    checkMDR: false,
+    checkHWG: false,
+    checkStudies: false,
     // SERP-Analyse
     serpContext: "",
     // Intern
@@ -136,8 +183,11 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
 
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isAnalyzingKeyword, setIsAnalyzingKeyword] = useState(false);
+  const [isAnalyzingSerp, setIsAnalyzingSerp] = useState(false);
   const [keywordAnalysis, setKeywordAnalysis] = useState<KeywordAnalysis | null>(null);
+  const [serpAnalysis, setSerpAnalysis] = useState<SerpAnalysis | null>(null);
   const [showKeywordSuggestions, setShowKeywordSuggestions] = useState(false);
+  const [showSerpResults, setShowSerpResults] = useState(false);
 
   useEffect(() => {
     if (!session) {
@@ -160,6 +210,7 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
   };
 
   const handleRemoveKeyword = (keyword: string) => {
+    log('form', 'Sekundär-Keyword entfernt', { keyword });
     setFormData({
       ...formData,
       secondaryKeywords: formData.secondaryKeywords.filter((k) => k !== keyword),
@@ -167,6 +218,7 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
   };
 
   const handleRemoveWQuestion = (question: string) => {
+    log('form', 'W-Frage entfernt', { question });
     setFormData({
       ...formData,
       wQuestions: formData.wQuestions.filter((q) => q !== question),
@@ -214,6 +266,108 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
       endTimer();
       setIsAnalyzingKeyword(false);
     }
+  };
+
+  // SERP Analysis Handler
+  const handleAnalyzeSerp = async () => {
+    if (!formData.focusKeyword.trim()) {
+      toast({ title: "Fehler", description: "Bitte zuerst ein Fokus-Keyword eingeben", variant: "destructive" });
+      return;
+    }
+
+    setIsAnalyzingSerp(true);
+    setCurrentStep("serp-analysis");
+    const endTimer = logWithTimer('api', 'SERP-Analyse');
+    log('api', 'analyze-serp aufgerufen', {
+      keyword: formData.focusKeyword,
+      country: 'de',
+      language: 'de'
+    });
+
+    try {
+      const { data, error } = await supabase.functions.invoke("analyze-serp", {
+        body: {
+          keyword: formData.focusKeyword,
+          country: 'de',
+          language: 'de',
+          numResults: 10
+        },
+      });
+
+      if (error) throw error;
+
+      log('response', 'SERP-Analyse erfolgreich', {
+        mustHaveCount: data.serpTerms?.mustHave?.length || 0,
+        shouldHaveCount: data.serpTerms?.shouldHave?.length || 0,
+        paaCount: data.questions?.peopleAlsoAsk?.length || 0,
+        competitorsCount: data.competitors?.length || 0,
+      });
+
+      // Log detailed SERP results for analysis
+      log('response', 'SERP mustHave Terme', data.serpTerms?.mustHave || []);
+      log('response', 'SERP shouldHave Terme', data.serpTerms?.shouldHave || []);
+      log('response', 'SERP People Also Ask', data.questions?.peopleAlsoAsk || []);
+
+      setSerpAnalysis(data);
+      setShowSerpResults(true);
+      setShowAdvanced(true);
+
+      // Auto-add mustHave terms to secondaryKeywords if not already present
+      if (data.serpTerms?.mustHave?.length > 0) {
+        const newKeywords = data.serpTerms.mustHave.filter(
+          (term: string) => !formData.secondaryKeywords.includes(term)
+        );
+        if (newKeywords.length > 0) {
+          setFormData(prev => ({
+            ...prev,
+            secondaryKeywords: [...prev.secondaryKeywords, ...newKeywords.slice(0, 5)]
+          }));
+          log('form', 'SERP mustHave Terme automatisch hinzugefügt', newKeywords.slice(0, 5));
+        }
+      }
+
+      toast({
+        title: "SERP-Analyse abgeschlossen",
+        description: `${data.serpTerms?.mustHave?.length || 0} wichtige Terme gefunden`
+      });
+    } catch (error) {
+      log('error', 'SERP-Analyse fehlgeschlagen', { error: String(error) });
+      console.error("SERP analysis error:", error);
+      toast({ title: "Fehler", description: "SERP-Analyse fehlgeschlagen", variant: "destructive" });
+    } finally {
+      endTimer();
+      setIsAnalyzingSerp(false);
+      setCurrentStep("input");
+    }
+  };
+
+  // Combined Analysis: SERP + Keyword Analysis
+  const handleFullAnalysis = async () => {
+    if (!formData.focusKeyword.trim()) {
+      toast({ title: "Fehler", description: "Bitte zuerst ein Fokus-Keyword eingeben", variant: "destructive" });
+      return;
+    }
+
+    log('state', 'Vollständige Analyse gestartet', { keyword: formData.focusKeyword });
+
+    // Run both analyses
+    await handleAnalyzeSerp();
+    await handleAnalyzeKeyword();
+
+    log('state', 'Vollständige Analyse abgeschlossen', {
+      serpAnalysis: !!serpAnalysis,
+      keywordAnalysis: !!keywordAnalysis
+    });
+  };
+
+  // Form change handler with logging
+  const handleFormChange = <K extends keyof FormData>(field: K, value: FormData[K]) => {
+    log('form', `Feld geändert: ${field}`, {
+      field,
+      oldValue: formData[field],
+      newValue: value
+    });
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleAddSuggestedKeyword = (keyword: string) => {
@@ -704,7 +858,7 @@ da historische Versionen nicht vollständig implementiert sind.`;
 
     setIsLoading(true);
     setCurrentStep("generating");
-    
+
     // Log the complete form data and both prompts
     log('prompt', 'System-Prompt (Regeln & Rolle)', buildSystemPromptPreview());
     log('prompt', 'User-Prompt (Auftrag & Inputs)', buildUserPromptPreview());
@@ -715,21 +869,44 @@ da historische Versionen nicht vollständig implementiert sind.`;
       searchIntent: formData.searchIntent,
       keywordDensity: formData.keywordDensity,
       pageType: formData.pageType,
+      pageGoal: formData.pageGoal,
       targetAudience: formData.targetAudience,
       formOfAddress: formData.formOfAddress,
       contentLength: formData.contentLength,
+      tone: formData.tone,
       promptVersion: formData.promptVersion,
     });
-    
+
+    // Log SERP analysis status
+    if (serpAnalysis) {
+      log('state', 'SERP-Analyse verfügbar', {
+        mustHaveTerms: serpAnalysis.serpTerms?.mustHave?.length || 0,
+        shouldHaveTerms: serpAnalysis.serpTerms?.shouldHave?.length || 0,
+        paaQuestions: serpAnalysis.questions?.peopleAlsoAsk?.length || 0,
+        hasPromptContext: !!serpAnalysis.promptContext
+      });
+    } else {
+      log('state', 'SERP-Analyse nicht durchgeführt', { hinweis: 'Für bessere Ergebnisse SERP-Analyse vor Generierung ausführen' });
+    }
+
     const endTimer = logWithTimer('api', 'Content-Generierung');
-    log('api', 'generate-seo-content aufgerufen', { 
+    log('api', 'generate-seo-content aufgerufen', {
       promptVersion: formData.promptVersion,
+      hasSerpContext: !!serpAnalysis?.promptContext,
       hinweis: 'System-Prompt definiert WIE die AI arbeitet, User-Prompt definiert WAS generiert wird'
     });
 
+    // Build request body with optional SERP context
+    const requestBody = {
+      ...formData,
+      // Include SERP context if available
+      ...(serpAnalysis?.promptContext && { serpContext: serpAnalysis.promptContext }),
+      ...(serpAnalysis?.serpTerms && { serpTerms: serpAnalysis.serpTerms }),
+    };
+
     try {
       const { data, error } = await supabase.functions.invoke("generate-seo-content", {
-        body: formData,
+        body: requestBody,
       });
 
       if (error) {
@@ -969,37 +1146,83 @@ da historische Versionen nicht vollständig implementiert sind.`;
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* 1. Focus Keyword + Analyze Button */}
+                {/* 1. Focus Keyword + Analysis Buttons */}
                 <div>
                   <Label className="text-sm font-medium">Fokus-Keyword *</Label>
                   <div className="flex gap-2 mt-1">
                     <Input
                       value={formData.focusKeyword}
-                      onChange={(e) => setFormData({ ...formData, focusKeyword: e.target.value })}
+                      onChange={(e) => handleFormChange('focusKeyword', e.target.value)}
                       placeholder="z.B. Kinesiologie Tape"
                       className="flex-1"
                     />
+                  </div>
+                  {/* Analysis Buttons */}
+                  <div className="flex gap-2 mt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAnalyzeSerp}
+                      disabled={isAnalyzingSerp || isAnalyzingKeyword || !formData.focusKeyword.trim()}
+                      className="flex-1"
+                    >
+                      {isAnalyzingSerp ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Globe className="h-4 w-4 mr-1" />
+                          SERP
+                        </>
+                      )}
+                    </Button>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
                       onClick={handleAnalyzeKeyword}
-                      disabled={isAnalyzingKeyword || !formData.focusKeyword.trim()}
-                      className="shrink-0"
+                      disabled={isAnalyzingKeyword || isAnalyzingSerp || !formData.focusKeyword.trim()}
+                      className="flex-1"
                     >
                       {isAnalyzingKeyword ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <>
                           <Sparkles className="h-4 w-4 mr-1" />
-                          Analysieren
+                          Keywords
                         </>
                       )}
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Klicke "Analysieren" für AI-generierte Keyword-Vorschläge
+                    SERP = Google-Wettbewerberanalyse | Keywords = KI-Vorschläge
                   </p>
+
+                  {/* SERP Analysis Results Badge */}
+                  {serpAnalysis && (
+                    <div className="flex gap-1 mt-2 flex-wrap">
+                      <Badge variant="outline" className="text-xs bg-green-500/10 border-green-500/30 text-green-600">
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                        SERP: {serpAnalysis.serpTerms?.mustHave?.length || 0} Must-Have
+                      </Badge>
+                      {serpAnalysis.questions?.peopleAlsoAsk?.length > 0 && (
+                        <Badge variant="outline" className="text-xs">
+                          {serpAnalysis.questions.peopleAlsoAsk.length} Fragen
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+                  {keywordAnalysis && (
+                    <div className="flex gap-1 mt-1 flex-wrap">
+                      <Badge variant="outline" className="text-xs bg-blue-500/10 border-blue-500/30 text-blue-600">
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                        KI: {keywordAnalysis.secondaryKeywords?.length || 0} Keywords
+                      </Badge>
+                      <Badge variant="outline" className="text-xs">
+                        Intent: {keywordAnalysis.searchIntent || 'n/a'}
+                      </Badge>
+                    </div>
+                  )}
                 </div>
 
                 {/* SERP-Analyse (echte Google-Daten) */}
@@ -1033,7 +1256,7 @@ da historische Versionen nicht vollständig implementiert sind.`;
                           type="radio"
                           className="sr-only"
                           checked={formData.tone === value}
-                          onChange={() => setFormData({ ...formData, tone: value as any })}
+                          onChange={() => handleFormChange('tone', value as FormData['tone'])}
                         />
                         <span className="font-medium text-sm">{label}</span>
                         <span className="text-xs text-muted-foreground">{desc}</span>
@@ -1063,7 +1286,7 @@ da historische Versionen nicht vollständig implementiert sind.`;
                           type="radio"
                           className="sr-only"
                           checked={formData.contentLength === value}
-                          onChange={() => setFormData({ ...formData, contentLength: value as any })}
+                          onChange={() => handleFormChange('contentLength', value as FormData['contentLength'])}
                         />
                         <span className="font-medium">{label}</span>
                         <span className="text-xs text-muted-foreground">{desc}</span>
@@ -1083,7 +1306,7 @@ da historische Versionen nicht vollständig implementiert sind.`;
                         type="radio"
                         className="sr-only"
                         checked={formData.targetAudience === "endCustomers"}
-                        onChange={() => setFormData({ ...formData, targetAudience: "endCustomers" })}
+                        onChange={() => handleFormChange('targetAudience', 'endCustomers')}
                       />
                       <span className="font-medium text-sm">B2C</span>
                       <span className="text-xs text-muted-foreground">Endkunden</span>
@@ -1095,7 +1318,7 @@ da historische Versionen nicht vollständig implementiert sind.`;
                         type="radio"
                         className="sr-only"
                         checked={formData.targetAudience === "physiotherapists"}
-                        onChange={() => setFormData({ ...formData, targetAudience: "physiotherapists" })}
+                        onChange={() => handleFormChange('targetAudience', 'physiotherapists')}
                       />
                       <span className="font-medium text-sm">B2B</span>
                       <span className="text-xs text-muted-foreground">Fachpersonal</span>
@@ -1115,7 +1338,7 @@ da historische Versionen nicht vollständig implementiert sind.`;
                           type="radio"
                           className="sr-only"
                           checked={formData.formOfAddress === addr}
-                          onChange={() => setFormData({ ...formData, formOfAddress: addr })}
+                          onChange={() => handleFormChange('formOfAddress', addr)}
                         />
                         {addr === "neutral" ? "Neutral" : addr.toUpperCase()}
                       </label>
@@ -1154,66 +1377,116 @@ da historische Versionen nicht vollständig implementiert sind.`;
                     <ChevronDown className={`h-4 w-4 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
                   </CollapsibleTrigger>
                   <CollapsibleContent className="pt-4 space-y-4">
-                    {/* SERP Context Display (if available) */}
-                    {formData.serpContext && (
+                    {/* SERP Analysis Results */}
+                    {showSerpResults && serpAnalysis && (
                       <Card className="p-3 bg-green-500/5 border-green-500/20">
-                        <Collapsible>
-                          <CollapsibleTrigger className="flex items-center justify-between w-full">
-                            <div className="flex items-center gap-2">
-                              <CheckCircle2 className="h-4 w-4 text-green-500" />
-                              <span className="text-sm font-medium">SERP-Kontext aktiv</span>
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-sm font-medium flex items-center gap-1">
+                            <Globe className="h-4 w-4 text-green-600" />
+                            SERP-Analyse (Google Top 10)
+                          </h4>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowSerpResults(false)}
+                            className="h-6 w-6 p-0"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+
+                        {/* Must-Have Terms */}
+                        {serpAnalysis.serpTerms?.mustHave?.length > 0 && (
+                          <div className="mb-3">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                <CheckCircle2 className="h-3 w-3 text-green-600" />
+                                Pflicht-Begriffe
+                              </span>
                             </div>
-                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                          </CollapsibleTrigger>
-                          <CollapsibleContent className="pt-3">
-                            <pre className="text-xs bg-muted p-3 rounded-md overflow-auto max-h-48 whitespace-pre-wrap">
-                              {formData.serpContext}
-                            </pre>
-                            <p className="text-xs text-muted-foreground mt-2">
-                              Diese Daten werden automatisch an die KI übergeben, um den Content zu optimieren.
-                            </p>
-                          </CollapsibleContent>
-                        </Collapsible>
+                            <div className="flex flex-wrap gap-1">
+                              {serpAnalysis.serpTerms.mustHave.map((term) => (
+                                <Badge
+                                  key={term}
+                                  variant={formData.secondaryKeywords.includes(term) ? "secondary" : "outline"}
+                                  className="text-xs cursor-pointer hover:bg-green-500/20 border-green-500/30"
+                                  onClick={() => handleAddSuggestedKeyword(term)}
+                                >
+                                  {formData.secondaryKeywords.includes(term) ? (
+                                    <Check className="h-3 w-3 mr-1" />
+                                  ) : (
+                                    <ChevronRight className="h-3 w-3 mr-1" />
+                                  )}
+                                  {term}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Should-Have Terms */}
+                        {serpAnalysis.serpTerms?.shouldHave?.length > 0 && (
+                          <div className="mb-3">
+                            <span className="text-xs text-muted-foreground">Empfohlene Begriffe</span>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {serpAnalysis.serpTerms.shouldHave.slice(0, 8).map((term) => (
+                                <Badge
+                                  key={term}
+                                  variant="outline"
+                                  className="text-xs cursor-pointer hover:bg-primary/20"
+                                  onClick={() => handleAddSuggestedKeyword(term)}
+                                >
+                                  {term}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* People Also Ask */}
+                        {serpAnalysis.questions?.peopleAlsoAsk?.length > 0 && (
+                          <div>
+                            <span className="text-xs text-muted-foreground">Häufige Fragen</span>
+                            <div className="space-y-1 mt-1">
+                              {serpAnalysis.questions.peopleAlsoAsk.slice(0, 5).map((q) => (
+                                <div
+                                  key={q}
+                                  className={`text-xs p-1.5 rounded cursor-pointer flex items-center gap-1 ${
+                                    formData.wQuestions.includes(q)
+                                      ? 'bg-green-500/10 text-green-600'
+                                      : 'bg-muted hover:bg-muted/80'
+                                  }`}
+                                  onClick={() => handleAddSuggestedQuestion(q)}
+                                >
+                                  {formData.wQuestions.includes(q) ? (
+                                    <Check className="h-3 w-3 shrink-0" />
+                                  ) : (
+                                    <ChevronRight className="h-3 w-3 shrink-0" />
+                                  )}
+                                  {q}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Competitor Titles */}
+                        {serpAnalysis.competitors?.length > 0 && (
+                          <div className="mt-3 pt-3 border-t border-green-500/20">
+                            <span className="text-xs text-muted-foreground">Top 3 Wettbewerber</span>
+                            <div className="space-y-1 mt-1">
+                              {serpAnalysis.competitors.slice(0, 3).map((c, i) => (
+                                <div key={i} className="text-xs text-muted-foreground truncate">
+                                  {i + 1}. {c.title}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </Card>
                     )}
 
-                    {/* Prompt Preview */}
-                    <Card className="p-3 bg-blue-500/5 border-blue-500/20">
-                      <Collapsible open={showDebugPrompt} onOpenChange={setShowDebugPrompt}>
-                        <CollapsibleTrigger className="flex items-center justify-between w-full">
-                          <div className="flex items-center gap-2">
-                            <Code className="h-4 w-4 text-blue-500" />
-                            <span className="text-sm font-medium">Prompt-Vorschau</span>
-                          </div>
-                          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${showDebugPrompt ? 'rotate-180' : ''}`} />
-                        </CollapsibleTrigger>
-                        <CollapsibleContent className="pt-3 space-y-3">
-                          <div>
-                            <h5 className="text-xs font-medium text-muted-foreground mb-1">System-Prompt (Regeln & Rolle)</h5>
-                            <pre className="text-xs bg-muted p-3 rounded-md overflow-auto max-h-64 whitespace-pre-wrap">
-                              {buildSystemPromptPreview()}
-                            </pre>
-                          </div>
-                          <div>
-                            <h5 className="text-xs font-medium text-muted-foreground mb-1">User-Prompt (Auftrag & Inputs)</h5>
-                            <pre className="text-xs bg-muted p-3 rounded-md overflow-auto max-h-64 whitespace-pre-wrap">
-                              {buildUserPromptPreview()}
-                            </pre>
-                          </div>
-                          {formData.serpContext && (
-                            <div>
-                              <h5 className="text-xs font-medium text-muted-foreground mb-1">SERP-Kontext (wird angehängt)</h5>
-                              <pre className="text-xs bg-green-500/10 p-3 rounded-md overflow-auto max-h-48 whitespace-pre-wrap">
-                                {formData.serpContext}
-                              </pre>
-                            </div>
-                          )}
-                          <p className="text-xs text-muted-foreground">
-                            ℹ️ Dies ist eine Vorschau. Der tatsächliche Prompt im Backend kann leicht abweichen.
-                          </p>
-                        </CollapsibleContent>
-                      </Collapsible>
-                    </Card>
                     {/* Keyword Suggestions (if available) */}
                     {showKeywordSuggestions && keywordAnalysis && (
                       <Card className="p-3 bg-primary/5 border-primary/20">
