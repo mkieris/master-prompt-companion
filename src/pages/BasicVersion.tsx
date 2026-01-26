@@ -54,7 +54,7 @@ interface BasicVersionProps {
 interface FormData {
   // Kernfelder (immer sichtbar)
   focusKeyword: string;
-  tone: "sachlich" | "beratend" | "aktivierend";
+  tone: "factual" | "advisory" | "sales";
   contentLength: "short" | "medium" | "long";
   targetAudience: "endCustomers" | "physiotherapists";
   formOfAddress: "du" | "sie" | "neutral";
@@ -116,7 +116,7 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
   const [formData, setFormData] = useState<FormData>({
     // Kernfelder
     focusKeyword: "",
-    tone: "beratend",
+    tone: "advisory",
     contentLength: "medium",
     targetAudience: "endCustomers",
     formOfAddress: "du",
@@ -989,9 +989,9 @@ da historische Versionen nicht vollständig implementiert sind.`;
                   <Label className="text-sm font-medium">Schreibstil</Label>
                   <div className="grid grid-cols-3 gap-2 mt-1">
                     {[
-                      { value: "sachlich", label: "Sachlich", desc: "Faktenbasiert" },
-                      { value: "beratend", label: "Beratend", desc: "Nutzenorientiert" },
-                      { value: "aktivierend", label: "Aktivierend", desc: "Überzeugend" },
+                      { value: "factual", label: "Sachlich", desc: "Faktenbasiert" },
+                      { value: "advisory", label: "Beratend", desc: "Nutzenorientiert" },
+                      { value: "sales", label: "Aktivierend", desc: "Überzeugend" },
                     ].map(({ value, label, desc }) => (
                       <label
                         key={value}

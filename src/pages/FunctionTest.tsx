@@ -58,7 +58,7 @@ const FunctionTest = ({ session }: FunctionTestProps) => {
 
   // Content Generation State
   const [genKeyword, setGenKeyword] = useState("Kinesiologie Tape");
-  const [genTone, setGenTone] = useState("beratend");
+  const [genTone, setGenTone] = useState("advisory");
   const [genLength, setGenLength] = useState("short");
   const [genLoading, setGenLoading] = useState(false);
   const [genResult, setGenResult] = useState<TestResult | null>(null);
@@ -491,9 +491,9 @@ const FunctionTest = ({ session }: FunctionTestProps) => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="sachlich">Sachlich</SelectItem>
-                        <SelectItem value="beratend">Beratend</SelectItem>
-                        <SelectItem value="aktivierend">Aktivierend</SelectItem>
+                        <SelectItem value="factual">Sachlich</SelectItem>
+                        <SelectItem value="advisory">Beratend</SelectItem>
+                        <SelectItem value="sales">Aktivierend</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
