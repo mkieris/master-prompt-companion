@@ -81,9 +81,117 @@ function calculateCost(model: ModelConfig, inputTokens: number, outputTokens: nu
   };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// KEYWORD ANALYSIS (integrated mode)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+interface KeywordAnalysis {
+  secondaryKeywords: string[];
+  wQuestions: string[];
+  searchIntent: "know" | "do" | "buy" | "go";
+  suggestedTopics: string[];
+}
+
+async function handleKeywordAnalysis(
+  focusKeyword: string,
+  targetAudience: string | undefined,
+  language: string,
+  apiKey: string
+): Promise<KeywordAnalysis> {
+  const audienceContext = targetAudience === 'physiotherapists'
+    ? 'B2B-Zielgruppe (Fachpersonal, Therapeuten, medizinische Fachkräfte)'
+    : 'B2C-Zielgruppe (Endkunden, Verbraucher)';
+
+  const analysisPrompt = `Du bist ein SEO-Keyword-Experte. Analysiere das folgende Fokus-Keyword und generiere passende Vorschläge.
+
+FOKUS-KEYWORD: "${focusKeyword}"
+ZIELGRUPPE: ${audienceContext}
+SPRACHE: ${language === 'de' ? 'Deutsch' : 'Englisch'}
+
+AUFGABEN:
+
+1. **Sekundäre Keywords (8-12)**: Semantisch verwandte Begriffe, Long-Tail-Varianten und LSI-Keywords die zum Fokus-Keyword passen. Diese sollten natürlich in einem SEO-Text eingebaut werden können.
+
+2. **W-Fragen (5-8)**: Typische Fragen die Nutzer zu diesem Thema stellen würden. Beginne mit "Was", "Wie", "Warum", "Wann", "Welche", "Wo". Diese Fragen sollten für FAQ-Abschnitte geeignet sein.
+
+3. **Suchintention**: Bestimme die wahrscheinlichste Suchintention:
+   - "know": Informationssuche (Nutzer will etwas lernen/verstehen)
+   - "do": Transaktional (Nutzer will eine Aktion durchführen)
+   - "buy": Kaufabsicht (Nutzer will kaufen/bestellen)
+   - "go": Navigation (Nutzer sucht eine bestimmte Website)
+
+4. **Themen-Vorschläge (3-5)**: Hauptthemen/Abschnitte die in einem umfassenden Text zu diesem Keyword behandelt werden sollten.
+
+Antworte NUR mit validem JSON in diesem Format:
+{
+  "secondaryKeywords": ["keyword1", "keyword2", ...],
+  "wQuestions": ["Wie funktioniert...?", "Was ist...?", ...],
+  "searchIntent": "know",
+  "suggestedTopics": ["Thema 1", "Thema 2", ...]
+}`;
+
+  const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'google/gemini-2.5-flash',
+      messages: [
+        { role: 'system', content: 'Du bist ein SEO-Keyword-Analyse-Experte. Antworte nur mit validem JSON.' },
+        { role: 'user', content: analysisPrompt }
+      ],
+    }),
+  });
+
+  if (!aiResponse.ok) {
+    const errorText = await aiResponse.text();
+    console.error('AI API error:', aiResponse.status, errorText);
+
+    if (aiResponse.status === 429) {
+      throw new Error('Rate limit erreicht. Bitte versuche es später erneut.');
+    }
+    if (aiResponse.status === 402) {
+      throw new Error('AI-Credits aufgebraucht. Bitte Guthaben aufladen.');
+    }
+    throw new Error(`AI analysis failed: ${aiResponse.status}`);
+  }
+
+  const aiData = await aiResponse.json();
+  const analysisText = aiData.choices?.[0]?.message?.content || '';
+
+  // Parse AI response
+  let analysis: KeywordAnalysis = {
+    secondaryKeywords: [],
+    wQuestions: [],
+    searchIntent: "know",
+    suggestedTopics: [],
+  };
+
+  try {
+    const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      analysis = {
+        secondaryKeywords: parsed.secondaryKeywords || [],
+        wQuestions: parsed.wQuestions || [],
+        searchIntent: ['know', 'do', 'buy', 'go'].includes(parsed.searchIntent) ? parsed.searchIntent : 'know',
+        suggestedTopics: parsed.suggestedTopics || [],
+      };
+    }
+  } catch (e) {
+    console.error('Failed to parse AI analysis:', e);
+  }
+
+  return analysis;
+}
+
 // Input validation schema
 const formDataSchema = z.object({
+  mode: z.enum(['generate', 'analyze-keyword']).optional().default('generate'),
   focusKeyword: z.string().min(1, 'Fokus-Keyword ist erforderlich').max(200, 'Fokus-Keyword zu lang'),
+  language: z.string().optional().default('de'),
   pageType: z.string().max(100).optional(),
   targetAudience: z.string().max(100).optional(),
   formOfAddress: z.enum(['du', 'sie', 'neutral']).optional(),
@@ -172,9 +280,9 @@ serve(async (req) => {
 
     const formData = parseResult.data;
     // ===== END VALIDATION =====
-    
+
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    
+
     if (!LOVABLE_API_KEY) {
       console.error('LOVABLE_API_KEY not configured');
       return new Response(
@@ -183,6 +291,33 @@ serve(async (req) => {
       );
     }
 
+    // ═══ MODE: KEYWORD ANALYSIS ═══
+    if (formData.mode === 'analyze-keyword') {
+      console.log('Mode: analyze-keyword for:', formData.focusKeyword);
+
+      const analysis = await handleKeywordAnalysis(
+        formData.focusKeyword,
+        formData.targetAudience,
+        formData.language || 'de',
+        LOVABLE_API_KEY
+      );
+
+      console.log('Keyword analysis completed:', {
+        secondaryKeywordsCount: analysis.secondaryKeywords?.length,
+        wQuestionsCount: analysis.wQuestions?.length,
+        searchIntent: analysis.searchIntent,
+      });
+
+      return new Response(JSON.stringify({
+        success: true,
+        focusKeyword: formData.focusKeyword,
+        analysis,
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // ═══ MODE: GENERATE (default) ═══
     // ═══ LOGGING mit Prompt-Version ═══
     const promptVersion = formData.promptVersion || 'v9-master-prompt';
     const modelConfig = getModelConfig(formData.aiModel);
