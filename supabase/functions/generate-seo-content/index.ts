@@ -646,33 +646,57 @@ serve(async (req) => {
 
     // Single generation (for new content and refinement/quick change)
     const maxRetries = 3;
+    const TIMEOUT_MS = 90000; // 90 seconds timeout
     let response: Response | null = null;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Authorization': 'Bearer ' + LOVABLE_API_KEY, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: modelConfig.modelName, messages: messages, temperature: modelConfig.temperature }),
-        });
+        console.log(`API attempt ${attempt}/${maxRetries} starting...`);
+
+        // Create abort controller for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+        try {
+          response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + LOVABLE_API_KEY, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: modelConfig.modelName, messages: messages, temperature: modelConfig.temperature }),
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(timeoutId);
+        }
+
+        console.log(`API attempt ${attempt} response status: ${response.status}`);
 
         if (response.ok) break;
-        
-        if (response.status === 429) return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-        if (response.status === 402) return new Response(JSON.stringify({ error: 'Payment required' }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-        
+
+        if (response.status === 429) return new Response(JSON.stringify({ error: 'Rate limit erreicht. Bitte warte 1 Minute.' }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        if (response.status === 402) return new Response(JSON.stringify({ error: 'Keine AI-Credits mehr. Bitte Lovable-Guthaben aufladen.' }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
         if (response.status >= 500 && attempt < maxRetries) {
+          console.log(`Server error, retrying in ${Math.pow(2, attempt)} seconds...`);
           await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
           continue;
         }
-        throw new Error('AI Gateway error: ' + response.status);
+        throw new Error('AI Gateway Fehler: ' + response.status);
       } catch (err) {
-        if (attempt === maxRetries) throw err;
+        // Check if it's an abort error (timeout)
+        if (err instanceof Error && err.name === 'AbortError') {
+          console.error(`API attempt ${attempt} timed out after ${TIMEOUT_MS}ms`);
+          if (attempt === maxRetries) {
+            throw new Error('Zeitüberschreitung bei AI-Generierung. Bitte erneut versuchen.');
+          }
+        } else {
+          console.error(`API attempt ${attempt} failed:`, err);
+          if (attempt === maxRetries) throw err;
+        }
         await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
       }
     }
-    
-    if (!response || !response.ok) throw new Error('AI Gateway request failed');
+
+    if (!response || !response.ok) throw new Error('AI-Generierung fehlgeschlagen. Bitte erneut versuchen.');
 
     const data = await response.json();
     const parsedContent = parseGeneratedContent(data.choices[0].message.content, formData);
@@ -708,15 +732,23 @@ function buildSystemPrompt(formData: any): string {
   };
   
   // ═══ FIX: tone → tonality MAPPING ═══
+  // Support both English (from advanced forms) and German (from BasicVersion) tone values
   const toneToTonality: Record<string, string> = {
+    // English values
     'factual': 'Sachlich & Informativ',
     'advisory': 'Beratend & Nutzenorientiert',
-    'sales': 'Aktivierend & Überzeugend'
+    'sales': 'Aktivierend & Überzeugend',
+    // German values (from BasicVersion)
+    'sachlich': 'Sachlich & Informativ',
+    'beratend': 'Beratend & Nutzenorientiert',
+    'aktivierend': 'Aktivierend & Überzeugend'
   };
-  
-  const tonality = formData.tone 
+
+  const tonality = formData.tone
     ? toneToTonality[formData.tone] || tonalityMap[formData.tonality] || 'Balanced-Mix'
     : tonalityMap[formData.tonality] || 'Balanced-Mix';
+
+  console.log('Tone mapping:', formData.tone, '->', tonality);
   
   const maxPara = formData.maxParagraphLength || 300;
   
