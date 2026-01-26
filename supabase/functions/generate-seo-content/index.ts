@@ -645,17 +645,27 @@ serve(async (req) => {
     }
 
     // Single generation (for new content and refinement/quick change)
-    const maxRetries = 3;
-    const TIMEOUT_MS = 90000; // 90 seconds timeout
+    // IMPORTANT: Supabase Edge Functions have ~120s timeout
+    // We must complete within that time, so use shorter API timeout and fewer retries
+    const maxRetries = 2;
+    const TIMEOUT_MS = 55000; // 55 seconds per attempt (2 attempts + processing = ~115s max)
     let response: Response | null = null;
 
+    const startTime = Date.now();
+    console.log('=== STARTING CONTENT GENERATION ===');
+    console.log('Max retries:', maxRetries, 'Timeout per attempt:', TIMEOUT_MS, 'ms');
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const attemptStart = Date.now();
       try {
-        console.log(`API attempt ${attempt}/${maxRetries} starting...`);
+        console.log(`API attempt ${attempt}/${maxRetries} starting at ${attemptStart - startTime}ms...`);
 
         // Create abort controller for timeout
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+        const timeoutId = setTimeout(() => {
+          console.log(`Timeout triggered for attempt ${attempt}`);
+          controller.abort();
+        }, TIMEOUT_MS);
 
         try {
           response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -668,43 +678,81 @@ serve(async (req) => {
           clearTimeout(timeoutId);
         }
 
-        console.log(`API attempt ${attempt} response status: ${response.status}`);
+        const attemptDuration = Date.now() - attemptStart;
+        console.log(`API attempt ${attempt} completed in ${attemptDuration}ms, status: ${response.status}`);
 
-        if (response.ok) break;
+        if (response.ok) {
+          console.log('=== API CALL SUCCESSFUL ===');
+          break;
+        }
 
-        if (response.status === 429) return new Response(JSON.stringify({ error: 'Rate limit erreicht. Bitte warte 1 Minute.' }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-        if (response.status === 402) return new Response(JSON.stringify({ error: 'Keine AI-Credits mehr. Bitte Lovable-Guthaben aufladen.' }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        if (response.status === 429) {
+          console.log('Rate limit hit');
+          return new Response(JSON.stringify({ error: 'Rate limit erreicht. Bitte warte 1 Minute.' }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        if (response.status === 402) {
+          console.log('Payment required');
+          return new Response(JSON.stringify({ error: 'Keine AI-Credits mehr. Bitte Lovable-Guthaben aufladen.' }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
 
         if (response.status >= 500 && attempt < maxRetries) {
-          console.log(`Server error, retrying in ${Math.pow(2, attempt)} seconds...`);
-          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+          console.log(`Server error ${response.status}, retrying in 2 seconds...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
           continue;
         }
         throw new Error('AI Gateway Fehler: ' + response.status);
       } catch (err) {
+        const attemptDuration = Date.now() - attemptStart;
         // Check if it's an abort error (timeout)
         if (err instanceof Error && err.name === 'AbortError') {
-          console.error(`API attempt ${attempt} timed out after ${TIMEOUT_MS}ms`);
+          console.error(`API attempt ${attempt} TIMED OUT after ${attemptDuration}ms`);
           if (attempt === maxRetries) {
-            throw new Error('Zeitüberschreitung bei AI-Generierung. Bitte erneut versuchen.');
+            throw new Error('Zeitüberschreitung bei AI-Generierung (55s). Versuche es mit kürzerem Text oder erneut.');
           }
+          console.log('Waiting 2s before retry...');
+          await new Promise(resolve => setTimeout(resolve, 2000));
         } else {
-          console.error(`API attempt ${attempt} failed:`, err);
+          console.error(`API attempt ${attempt} failed after ${attemptDuration}ms:`, err);
           if (attempt === maxRetries) throw err;
+          await new Promise(resolve => setTimeout(resolve, 2000));
         }
-        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
       }
     }
 
-    if (!response || !response.ok) throw new Error('AI-Generierung fehlgeschlagen. Bitte erneut versuchen.');
+    if (!response || !response.ok) {
+      throw new Error('AI-Generierung fehlgeschlagen. Bitte erneut versuchen.');
+    }
+
+    console.log('=== PARSING RESPONSE ===');
 
     const data = await response.json();
-    const parsedContent = parseGeneratedContent(data.choices[0].message.content, formData);
+
+    // Validate response structure
+    if (!data || !data.choices || !Array.isArray(data.choices) || data.choices.length === 0) {
+      console.error('Invalid AI response structure:', JSON.stringify(data).substring(0, 500));
+      throw new Error('Ungültige AI-Antwort erhalten. Bitte erneut versuchen.');
+    }
+
+    const aiContent = data.choices[0]?.message?.content;
+    if (!aiContent || typeof aiContent !== 'string') {
+      console.error('Missing or invalid content in AI response');
+      throw new Error('AI-Antwort war leer. Bitte erneut versuchen.');
+    }
+
+    console.log('AI content received, length:', aiContent.length);
+
+    const parsedContent = parseGeneratedContent(aiContent, formData);
+
+    const totalDuration = Date.now() - startTime;
+    console.log(`=== GENERATION COMPLETE in ${totalDuration}ms ===`);
+
     return new Response(JSON.stringify(parsedContent), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    
+
   } catch (error) {
-    console.error('Error:', error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    console.error('=== GENERATION ERROR ===');
+    console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error);
+    console.error('Error message:', error instanceof Error ? error.message : String(error));
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unbekannter Fehler' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });
 
