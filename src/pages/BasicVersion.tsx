@@ -14,6 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ProcessFlowPanel } from "@/components/seo-generator/ProcessFlowPanel";
 import { ValidationPanel } from "@/components/seo-generator/ValidationPanel";
+import { SerpAnalysisPanel } from "@/components/seo-generator/SerpAnalysisPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useDebug } from "@/contexts/DebugContext";
@@ -76,6 +77,8 @@ interface FormData {
   checkMDR: boolean;
   checkHWG: boolean;
   checkStudies: boolean;
+  // SERP-Analyse
+  serpContext: string;
   // Intern verwendet (nicht in UI)
   promptVersion: string;
 }
@@ -172,6 +175,8 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
     checkMDR: false,
     checkHWG: false,
     checkStudies: false,
+    // SERP-Analyse
+    serpContext: "",
     // Intern
     promptVersion: "v9-master",
   });
@@ -405,6 +410,38 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
         wQuestions: [...formData.wQuestions, ...newQuestions],
       });
     }
+  };
+
+  // SERP-Analyse Handlers
+  const handleSerpAddKeywords = (keywords: string[]) => {
+    const newKeywords = keywords.filter(k => !formData.secondaryKeywords.includes(k));
+    if (newKeywords.length > 0) {
+      setFormData({
+        ...formData,
+        secondaryKeywords: [...formData.secondaryKeywords, ...newKeywords],
+      });
+      log('form', 'SERP-Keywords hinzugefügt', { count: newKeywords.length });
+    }
+  };
+
+  const handleSerpAddQuestions = (questions: string[]) => {
+    const newQuestions = questions.filter(q => !formData.wQuestions.includes(q));
+    if (newQuestions.length > 0) {
+      setFormData({
+        ...formData,
+        wQuestions: [...formData.wQuestions, ...newQuestions],
+      });
+      log('form', 'SERP-Fragen hinzugefügt', { count: newQuestions.length });
+    }
+  };
+
+  const handleSerpContextReady = (context: string) => {
+    setFormData({
+      ...formData,
+      serpContext: context,
+    });
+    log('form', 'SERP-Kontext übernommen', { length: context.length });
+    setShowAdvanced(true); // Erweiterte Optionen öffnen
   };
 
   // Build preview of System-Prompt based on selected version
@@ -659,11 +696,9 @@ Du bist erfahrener SEO-Content-Stratege für Texte die bei Google UND Menschen f
 ❌ H1 → H3 Sprung (H2 fehlt)
 
 ═══ AKTUELLE KONFIGURATION ═══
-TONALITÄT: ${formData.tone === 'factual' ? 'Sachlich & Informativ' : formData.tone === 'sales' ? 'Aktivierend & Überzeugend' : 'Beratend & Nutzenorientiert'}
-SEITENZIEL: ${formData.pageGoal === 'inform' ? 'Informieren' : formData.pageGoal === 'advise' ? 'Beraten' : formData.pageGoal === 'preparePurchase' ? 'Kauf vorbereiten' : 'Kauf auslösen'}
+TONALITÄT: ${formData.tone === 'sachlich' ? 'Sachlich & Informativ' : formData.tone === 'aktivierend' ? 'Aktivierend & Überzeugend' : 'Beratend & Nutzenorientiert'}
 ANREDE: ${formData.formOfAddress === 'du' ? 'Du-Form' : formData.formOfAddress === 'sie' ? 'Sie-Form' : 'Neutral'}
-ZIELGRUPPE: ${formData.targetAudience === 'physiotherapists' ? 'B2B (Fachpersonal)' : 'B2C (Endkunden)'}
-${formData.complianceCheck ? `\n⚠️ COMPLIANCE AKTIV: ${[formData.checkMDR ? 'MDR' : '', formData.checkHWG ? 'HWG' : '', formData.checkStudies ? 'Studien' : ''].filter(Boolean).join(', ')}` : ''}`,
+ZIELGRUPPE: ${formData.targetAudience === 'physiotherapists' ? 'B2B (Fachpersonal)' : 'B2C (Endkunden)'}`,
 
       'v10-geo-optimized': `[v10-geo-optimized: GEO-OPTIMIZED 2026] 🚀 NEU
 
@@ -709,7 +744,7 @@ Ziel: Inhalte die (1) von Google AI Overviews zitiert werden und (2) echten Info
 ✅ Valides JSON-LD FAQ-Schema am Ende generieren
 
 ═══ AKTUELLE KONFIGURATION ═══
-TONALITÄT: ${formData.tone === 'factual' ? 'Sachlich' : formData.tone === 'sales' ? 'Aktivierend' : 'Beratend'}
+TONALITÄT: ${formData.tone === 'sachlich' ? 'Sachlich' : formData.tone === 'aktivierend' ? 'Aktivierend' : 'Beratend'}
 ANREDE: ${formData.formOfAddress === 'du' ? 'Du-Form' : formData.formOfAddress === 'sie' ? 'Sie-Form' : 'Neutral'}
 ZIELGRUPPE: ${formData.targetAudience === 'physiotherapists' ? 'B2B (Fachpersonal)' : 'B2C (Endkunden)'}`,
     };
@@ -730,17 +765,6 @@ da historische Versionen nicht vollständig implementiert sind.`;
 
   // Build preview of User-Prompt (mirrors backend buildUserPrompt logic)
   const buildUserPromptPreview = () => {
-    const intentMap: Record<string, string> = {
-      'know': 'Know (Informationssuche)',
-      'do': 'Do (Transaktional)',
-      'buy': 'Buy (Kaufabsicht)',
-      'go': 'Go (Navigation)'
-    };
-    const densityMap: Record<string, string> = {
-      'low': 'Niedrig (1-2%)',
-      'medium': 'Mittel (2-3%)',
-      'high': 'Hoch (3-4%)'
-    };
     const lengthMap: Record<string, string> = {
       'short': '~400 Wörter',
       'medium': '~800 Wörter',
@@ -748,33 +772,27 @@ da historische Versionen nicht vollständig implementiert sind.`;
     };
 
     let prompt = '=== GRUNDINFORMATIONEN ===\n';
-    if (formData.manufacturerInfo) prompt += `Info: ${formData.manufacturerInfo.substring(0, 200)}...\n`;
-    if (formData.additionalInfo) prompt += `USPs: ${formData.additionalInfo}\n`;
-    
+    if (formData.brandName) prompt += `Marke: ${formData.brandName}\n`;
+    if (formData.additionalInfo) prompt += `USPs/Zusatzinfos: ${formData.additionalInfo}\n`;
+
     prompt += '\n=== ZIELGRUPPE ===\n';
     prompt += `Audience: ${formData.targetAudience === 'endCustomers' ? 'B2C (Endkunden)' : 'B2B (Fachpersonal)'}\n`;
     prompt += `Anrede: ${formData.formOfAddress}\n`;
     prompt += `Tonalität: ${formData.tone}\n`;
-    
+
     prompt += '\n=== SEO-STRUKTUR ===\n';
     prompt += `Fokus-Keyword: ${formData.focusKeyword || '(nicht gesetzt)'}\n`;
     if (formData.secondaryKeywords.length > 0) {
       prompt += `Sekundär-Keywords: ${formData.secondaryKeywords.join(', ')}\n`;
     }
-    if (formData.searchIntent.length > 0) {
-      prompt += `SUCHINTENTION: ${formData.searchIntent.map(i => intentMap[i] || i).join(', ')}\n`;
-      prompt += `WICHTIG: Struktur MUSS zur Suchintention passen!\n`;
-    }
-    prompt += `KEYWORD-DICHTE: ${densityMap[formData.keywordDensity]}\n`;
     if (formData.wQuestions.length > 0) {
       prompt += `W-FRAGEN (müssen beantwortet werden):\n${formData.wQuestions.map(q => `  - ${q}`).join('\n')}\n`;
     }
     prompt += `Wortanzahl: ${lengthMap[formData.contentLength]}\n`;
-    prompt += `Seitentyp: ${formData.pageType === 'product' ? 'Produktseite' : 'Kategorieseite'}\n`;
-    
+
     prompt += '\n=== AUFGABE ===\n';
     prompt += 'Erstelle hochwertigen, SEO-optimierten Text der alle Vorgaben erfüllt.';
-    
+
     return prompt;
   };
 
@@ -1207,6 +1225,16 @@ da historische Versionen nicht vollständig implementiert sind.`;
                   )}
                 </div>
 
+                {/* SERP-Analyse (echte Google-Daten) */}
+                <SerpAnalysisPanel
+                  keyword={formData.focusKeyword}
+                  onAddKeywords={handleSerpAddKeywords}
+                  onAddWQuestions={handleSerpAddQuestions}
+                  onSerpContextReady={handleSerpContextReady}
+                  currentKeywords={formData.secondaryKeywords}
+                  currentQuestions={formData.wQuestions}
+                />
+
                 {/* 2. Writing Style (Tone) */}
                 <div>
                   <Label className="text-sm font-medium">Schreibstil</Label>
@@ -1343,6 +1371,9 @@ da historische Versionen nicht vollständig implementiert sind.`;
                   <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground w-full justify-center pt-2">
                     <Settings className="h-4 w-4" />
                     Erweiterte Optionen
+                    {formData.serpContext && (
+                      <Badge variant="secondary" className="text-xs">SERP</Badge>
+                    )}
                     <ChevronDown className={`h-4 w-4 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
                   </CollapsibleTrigger>
                   <CollapsibleContent className="pt-4 space-y-4">
