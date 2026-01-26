@@ -19,7 +19,8 @@ import {
   GraduationCap,
   Clock,
   Brain,
-  Code
+  Code,
+  Zap
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -52,6 +53,7 @@ const navigation = [
 
 const adminNavigation = [
   { name: "KI-Insights", href: "/dashboard/insights", icon: Brain },
+  { name: "Funktionstest", href: "/function-test", icon: Zap },
   { name: "Code-Analyse", href: "/dashboard/code-analysis", icon: Code },
   { name: "System Prompts", href: "/dashboard/system-prompts", icon: FileText },
   { name: "User Prompts", href: "/dashboard/user-prompts", icon: FileText },

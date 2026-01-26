@@ -29,6 +29,7 @@ import UserPromptVersions from "./pages/UserPromptVersions";
 import SloganCreator from "./pages/SloganCreator";
 import CodeAnalysis from "./pages/CodeAnalysis";
 import TextCheck from "./pages/TextCheck";
+import FunctionTest from "./pages/FunctionTest";
 
 const queryClient = new QueryClient();
 
@@ -65,6 +66,7 @@ const App = () => {
               <Route path="/auth" element={<Auth />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/seo-check" element={<SEOCheck session={session} />} />
+              <Route path="/function-test" element={<FunctionTest session={session} />} />
               <Route path="/onboarding" element={<Onboarding session={session} />} />
               <Route path="/dashboard" element={<Dashboard session={session} />}>
                 <Route path="domain" element={<DomainLearning session={session} />} />
