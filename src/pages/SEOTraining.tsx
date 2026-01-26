@@ -20,14 +20,22 @@ import { LocalSEOModule } from "@/components/training/modules/LocalSEOModule";
 import { SEOToolsModule } from "@/components/training/modules/SEOToolsModule";
 import { RankingFactorsModule } from "@/components/training/modules/RankingFactorsModule";
 import { AISEOModule } from "@/components/training/modules/AISEOModule";
+import { SchemaOrgModule } from "@/components/training/modules/SchemaOrgModule";
+import { SEOAuditModule } from "@/components/training/modules/SEOAuditModule";
+import { TechnicalSEOAdvancedModule } from "@/components/training/modules/TechnicalSEOAdvancedModule";
+import { JavaScriptSEOModule } from "@/components/training/modules/JavaScriptSEOModule";
+import { SiteMigrationModule } from "@/components/training/modules/SiteMigrationModule";
+import { InternationalSEOModule } from "@/components/training/modules/InternationalSEOModule";
+import { SEOKPIsModule } from "@/components/training/modules/SEOKPIsModule";
 import {
   Accordion, AccordionContent, AccordionItem, AccordionTrigger,
 } from "@/components/ui/accordion";
 import { 
-  BookOpen, Search, Layout, CheckCircle2, AlertTriangle, Star, Lightbulb, 
-  GraduationCap, ListChecks, Shield, Zap, Users, Type, HelpCircle, Compass, 
-  ShoppingCart, MapPin, Brain, PenTool, Bold, ArrowRight, Trophy, Server, 
-  FileText, Link2, Layers, Wrench, TrendingUp, Globe, Bot
+  BookOpen, Search, Layout, CheckCircle2, AlertTriangle, Star, Lightbulb,
+  GraduationCap, ListChecks, Shield, Zap, Users, Type, HelpCircle, Compass,
+  ShoppingCart, MapPin, Brain, PenTool, Bold, ArrowRight, Trophy, Server,
+  FileText, Link2, Layers, Wrench, TrendingUp, Globe, Bot, Code, ClipboardCheck,
+  Settings, ArrowRightLeft, Languages, BarChart3
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 
@@ -72,14 +80,21 @@ const SEOTraining = ({ session }: SEOTrainingProps) => {
     { id: "writing", label: "Schreibstil", icon: PenTool },
     { id: "formatting", label: "Formatierung", icon: Bold },
     { id: "technical", label: "Technische SEO", icon: Server },
+    { id: "technical-advanced", label: "Technische SEO+", icon: Settings },
     { id: "onpage", label: "OnPage-SEO", icon: FileText },
+    { id: "schema", label: "Schema.org", icon: Code },
     { id: "content-strategy", label: "Content-Strategie", icon: Layers },
     { id: "linkbuilding", label: "Linkbuilding", icon: Link2 },
     { id: "local", label: "Local SEO", icon: MapPin },
+    { id: "international", label: "Internationales SEO", icon: Languages },
     { id: "tools", label: "SEO-Tools", icon: Wrench },
+    { id: "audit", label: "SEO-Audit", icon: ClipboardCheck },
+    { id: "javascript-seo", label: "JavaScript SEO", icon: Code },
+    { id: "migration", label: "Site Migration", icon: ArrowRightLeft },
     { id: "eeat", label: "E-E-A-T", icon: Shield },
     { id: "helpful", label: "Helpful Content", icon: Users },
     { id: "ranking", label: "Ranking-Faktoren", icon: TrendingUp },
+    { id: "kpis", label: "KPIs & Reporting", icon: BarChart3 },
     { id: "ai-seo", label: "KI & SEO", icon: Bot },
     { id: "checklist", label: "Checkliste", icon: ListChecks },
   ];
@@ -107,7 +122,7 @@ const SEOTraining = ({ session }: SEOTrainingProps) => {
           </div>
           <div className="flex-1">
             <h1 className="text-3xl font-bold">SEO-Content Schulung</h1>
-            <p className="text-muted-foreground">18 Module • ~3 Stunden • Vom Anfänger zum SEO-Profi</p>
+            <p className="text-muted-foreground">25 Module • ~5 Stunden • Vom Anfänger zum SEO-Experten</p>
           </div>
           {overallProgress === 100 && (
             <Badge className="bg-amber-500 text-white gap-1"><Trophy className="h-3 w-3" />Abgeschlossen!</Badge>
@@ -131,18 +146,18 @@ const SEOTraining = ({ session }: SEOTrainingProps) => {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2"><BookOpen className="h-5 w-5 text-primary" />Willkommen zur SEO-Schulung</CardTitle>
-                  <CardDescription>In 3 Tagen zum SEO-Experten – von den Grundlagen bis zu fortgeschrittenen Strategien</CardDescription>
+                  <CardDescription>In 30 Tagen zum SEO-Experten – von den Grundlagen bis zu fortgeschrittenen Strategien</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-6 rounded-lg border">
                     <h3 className="text-lg font-semibold mb-4">🎯 Das erwartet Sie:</h3>
                     <div className="grid sm:grid-cols-3 gap-4 mb-4">
                       <div className="bg-background/80 p-4 rounded-lg text-center">
-                        <div className="text-3xl font-bold text-primary">18</div>
+                        <div className="text-3xl font-bold text-primary">25</div>
                         <div className="text-sm text-muted-foreground">Module</div>
                       </div>
                       <div className="bg-background/80 p-4 rounded-lg text-center">
-                        <div className="text-3xl font-bold text-primary">~3h</div>
+                        <div className="text-3xl font-bold text-primary">~5h</div>
                         <div className="text-sm text-muted-foreground">Lernzeit</div>
                       </div>
                       <div className="bg-background/80 p-4 rounded-lg text-center">
@@ -153,9 +168,10 @@ const SEOTraining = ({ session }: SEOTrainingProps) => {
                   </div>
 
                   <div className="grid sm:grid-cols-2 gap-3">
-                  {["Search Intent (Know/Do/Buy/Go)", "Keyword-Recherche & -Integration", "Textstruktur & Lesbarkeit", "Technische SEO & Core Web Vitals", 
-                      "OnPage-Optimierung", "Content-Strategie & Themencluster", "Linkbuilding-Strategien", "Local SEO", 
-                      "SEO-Tools (GSC, Screaming Frog)", "E-E-A-T Framework", "Helpful Content Guidelines", "KI & SEO (AI Overviews, ChatGPT)"
+                  {["Search Intent (Know/Do/Buy/Go)", "Keyword-Recherche & -Integration", "Textstruktur & Lesbarkeit", "Technische SEO & Core Web Vitals",
+                      "Schema.org & Strukturierte Daten", "JavaScript SEO & Rendering", "Site Migration & Relaunch", "Internationales SEO & hreflang",
+                      "SEO-Audit durchführen", "SEO-Tools (GSC, Screaming Frog)", "E-E-A-T Framework", "KPIs & Reporting",
+                      "Linkbuilding-Strategien", "Local SEO & Google Business", "KI & SEO (AI Overviews, ChatGPT)", "Content-Strategie & Themencluster"
                     ].map((item, i) => (
                       <div key={i} className="flex items-start gap-2 p-3 bg-muted/50 rounded-lg">
                         <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
@@ -473,12 +489,18 @@ const SEOTraining = ({ session }: SEOTrainingProps) => {
           )}
 
           {/* Module Components */}
-          {activeModule === "technical" && (<><TechnicalSEOModule /><NavigationButtons prevModule="formatting" nextLabel="Weiter zu OnPage-SEO" /></>)}
-          {activeModule === "onpage" && (<><OnPageModule /><NavigationButtons prevModule="technical" nextLabel="Weiter zu Content-Strategie" /></>)}
-          {activeModule === "content-strategy" && (<><ContentStrategyModule /><NavigationButtons prevModule="onpage" nextLabel="Weiter zu Linkbuilding" /></>)}
+          {activeModule === "technical" && (<><TechnicalSEOModule /><NavigationButtons prevModule="formatting" nextLabel="Weiter zu Technische SEO+" /></>)}
+          {activeModule === "technical-advanced" && (<><TechnicalSEOAdvancedModule /><NavigationButtons prevModule="technical" nextLabel="Weiter zu OnPage-SEO" /></>)}
+          {activeModule === "onpage" && (<><OnPageModule /><NavigationButtons prevModule="technical-advanced" nextLabel="Weiter zu Schema.org" /></>)}
+          {activeModule === "schema" && (<><SchemaOrgModule /><NavigationButtons prevModule="onpage" nextLabel="Weiter zu Content-Strategie" /></>)}
+          {activeModule === "content-strategy" && (<><ContentStrategyModule /><NavigationButtons prevModule="schema" nextLabel="Weiter zu Linkbuilding" /></>)}
           {activeModule === "linkbuilding" && (<><LinkbuildingModule /><NavigationButtons prevModule="content-strategy" nextLabel="Weiter zu Local SEO" /></>)}
-          {activeModule === "local" && (<><LocalSEOModule /><NavigationButtons prevModule="linkbuilding" nextLabel="Weiter zu SEO-Tools" /></>)}
-          {activeModule === "tools" && (<><SEOToolsModule /><NavigationButtons prevModule="local" nextLabel="Weiter zu E-E-A-T" /></>)}
+          {activeModule === "local" && (<><LocalSEOModule /><NavigationButtons prevModule="linkbuilding" nextLabel="Weiter zu Internationales SEO" /></>)}
+          {activeModule === "international" && (<><InternationalSEOModule /><NavigationButtons prevModule="local" nextLabel="Weiter zu SEO-Tools" /></>)}
+          {activeModule === "tools" && (<><SEOToolsModule /><NavigationButtons prevModule="international" nextLabel="Weiter zu SEO-Audit" /></>)}
+          {activeModule === "audit" && (<><SEOAuditModule /><NavigationButtons prevModule="tools" nextLabel="Weiter zu JavaScript SEO" /></>)}
+          {activeModule === "javascript-seo" && (<><JavaScriptSEOModule /><NavigationButtons prevModule="audit" nextLabel="Weiter zu Site Migration" /></>)}
+          {activeModule === "migration" && (<><SiteMigrationModule /><NavigationButtons prevModule="javascript-seo" nextLabel="Weiter zu E-E-A-T" /></>)}
 
           {/* E-E-A-T */}
           {activeModule === "eeat" && (
@@ -531,7 +553,7 @@ const SEOTraining = ({ session }: SEOTrainingProps) => {
                 ]}
               />
 
-              <NavigationButtons prevModule="tools" nextLabel="Weiter zu Helpful Content" />
+              <NavigationButtons prevModule="migration" nextLabel="Weiter zu Helpful Content" />
             </div>
           )}
 
@@ -581,10 +603,11 @@ const SEOTraining = ({ session }: SEOTrainingProps) => {
             </div>
           )}
 
-          {activeModule === "ranking" && (<><RankingFactorsModule /><NavigationButtons prevModule="helpful" nextLabel="Weiter zu KI & SEO" /></>)}
+          {activeModule === "ranking" && (<><RankingFactorsModule /><NavigationButtons prevModule="helpful" nextLabel="Weiter zu KPIs & Reporting" /></>)}
+          {activeModule === "kpis" && (<><SEOKPIsModule /><NavigationButtons prevModule="ranking" nextLabel="Weiter zu KI & SEO" /></>)}
 
           {/* KI & SEO Module */}
-          {activeModule === "ai-seo" && (<><AISEOModule /><NavigationButtons prevModule="ranking" nextLabel="Weiter zur Checkliste" /></>)}
+          {activeModule === "ai-seo" && (<><AISEOModule /><NavigationButtons prevModule="kpis" nextLabel="Weiter zur Checkliste" /></>)}
 
           {/* Checkliste */}
           {activeModule === "checklist" && (
@@ -604,12 +627,12 @@ const SEOTraining = ({ session }: SEOTrainingProps) => {
                   <div className="grid sm:grid-cols-3 gap-4 text-center">
                     <div className="p-4 bg-background/60 rounded-lg">
                       <div className="text-3xl mb-1">📚</div>
-                      <div className="font-semibold">18 Module</div>
+                      <div className="font-semibold">25 Module</div>
                       <div className="text-xs text-muted-foreground">absolviert</div>
                     </div>
                     <div className="p-4 bg-background/60 rounded-lg">
                       <div className="text-3xl mb-1">✅</div>
-                      <div className="font-semibold">60+ Punkte</div>
+                      <div className="font-semibold">80+ Punkte</div>
                       <div className="text-xs text-muted-foreground">in der Checkliste</div>
                     </div>
                     <div className="p-4 bg-background/60 rounded-lg">
