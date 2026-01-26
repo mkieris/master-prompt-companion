@@ -28,6 +28,7 @@ import {
   XCircle
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 interface EEATScore {
   score: number;
@@ -387,7 +388,7 @@ export const OutputPanel = ({ content, isLoading, onContentUpdate }: OutputPanel
                 </div>
                 <div 
                   className="prose prose-sm max-w-none dark:prose-invert"
-                  dangerouslySetInnerHTML={{ __html: content.seoText || '' }} 
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(content.seoText || '') }} 
                 />
               </>
             )}

@@ -7,6 +7,80 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// AI MODEL CONFIGURATION
+// ═══════════════════════════════════════════════════════════════════════════════
+
+type AIModelId = 'gemini-flash' | 'gemini-pro' | 'claude-sonnet';
+
+interface ModelConfig {
+  id: AIModelId;
+  modelName: string;
+  provider: 'lovable' | 'anthropic';
+  temperature: number;
+  costPerMillionInput: number;  // in USD
+  costPerMillionOutput: number; // in USD
+}
+
+const AI_MODELS: Record<AIModelId, ModelConfig> = {
+  'gemini-flash': {
+    id: 'gemini-flash',
+    modelName: 'google/gemini-2.5-flash',
+    provider: 'lovable',
+    temperature: 0.55,
+    costPerMillionInput: 0.15,
+    costPerMillionOutput: 3.50,
+  },
+  'gemini-pro': {
+    id: 'gemini-pro',
+    modelName: 'google/gemini-2.5-pro',
+    provider: 'lovable',
+    temperature: 0.55,
+    costPerMillionInput: 1.25,
+    costPerMillionOutput: 10.00,
+  },
+  'claude-sonnet': {
+    id: 'claude-sonnet',
+    modelName: 'anthropic/claude-sonnet-4',
+    provider: 'lovable', // Using Lovable gateway for Claude
+    temperature: 0.6,
+    costPerMillionInput: 3.00,
+    costPerMillionOutput: 15.00,
+  },
+};
+
+function getModelConfig(modelId?: string): ModelConfig {
+  if (modelId && modelId in AI_MODELS) {
+    return AI_MODELS[modelId as AIModelId];
+  }
+  return AI_MODELS['gemini-flash']; // Default
+}
+
+function estimateTokens(text: string): number {
+  // Rough estimation: 1 token ≈ 4 characters for English, ~3 for German
+  return Math.ceil(text.length / 3.5);
+}
+
+function calculateCost(model: ModelConfig, inputTokens: number, outputTokens: number): {
+  inputCost: number;
+  outputCost: number;
+  totalCost: number;
+  formatted: string;
+} {
+  const inputCost = (inputTokens / 1_000_000) * model.costPerMillionInput;
+  const outputCost = (outputTokens / 1_000_000) * model.costPerMillionOutput;
+  const totalCost = inputCost + outputCost;
+
+  return {
+    inputCost,
+    outputCost,
+    totalCost,
+    formatted: totalCost < 0.01
+      ? `${(totalCost * 100).toFixed(2)} Cent`
+      : `$${totalCost.toFixed(4)}`,
+  };
+}
+
 // Input validation schema
 const formDataSchema = z.object({
   focusKeyword: z.string().min(1, 'Fokus-Keyword ist erforderlich').max(200, 'Fokus-Keyword zu lang'),
@@ -41,11 +115,13 @@ const formDataSchema = z.object({
   tonality: z.string().max(100).optional(),
   wordCount: z.string().max(20).optional(),
   maxParagraphLength: z.number().int().min(100).max(1000).optional(),
+  aiModel: z.enum(['gemini-flash', 'gemini-pro', 'claude-sonnet']).optional(),
   complianceChecks: z.object({
     mdr: z.boolean().optional(),
     hwg: z.boolean().optional(),
     studies: z.boolean().optional(),
   }).optional(),
+  serpContext: z.string().max(10000).optional(),
 }).passthrough();
 
 serve(async (req) => {
@@ -109,9 +185,14 @@ serve(async (req) => {
 
     // ═══ LOGGING mit Prompt-Version ═══
     const promptVersion = formData.promptVersion || 'v9-master-prompt';
+    const modelConfig = getModelConfig(formData.aiModel);
+
     console.log('=== SEO Generator - Version: ' + promptVersion + ' ===');
+    console.log('=== AI Model: ' + modelConfig.modelName + ' ===');
     console.log('Generating SEO content with params:', {
       promptVersion: promptVersion,
+      aiModel: modelConfig.id,
+      modelName: modelConfig.modelName,
       pageType: formData.pageType,
       targetAudience: formData.targetAudience,
       focusKeyword: formData.focusKeyword,
@@ -251,16 +332,16 @@ serve(async (req) => {
       ];
     }
 
-    // Refinement/quick change - single generation
+    // Single generation (for new content and refinement/quick change)
     const maxRetries = 3;
     let response: Response | null = null;
-    
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
           method: 'POST',
           headers: { 'Authorization': 'Bearer ' + LOVABLE_API_KEY, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: 'google/gemini-2.5-pro', messages: messages, temperature: 0.6 }),
+          body: JSON.stringify({ model: modelConfig.modelName, messages: messages, temperature: modelConfig.temperature }),
         });
 
         if (response.ok) break;
@@ -348,13 +429,20 @@ function buildSystemPrompt(formData: any): string {
   const hasMDR = formData.complianceChecks?.mdr || formData.checkMDR;
   const hasHWG = formData.complianceChecks?.hwg || formData.checkHWG;
   const hasStudies = formData.complianceChecks?.studies || formData.checkStudies;
-  
+
   if (formData.complianceCheck && (hasMDR || hasHWG || hasStudies)) {
     const checks = [];
     if (hasMDR) checks.push('MDR/MPDG beachten');
     if (hasHWG) checks.push('HWG beachten');
     if (hasStudies) checks.push('Studien korrekt zitieren');
     compliance = '\n\nCOMPLIANCE: ' + checks.join(', ');
+  }
+
+  // ═══ SERP-ANALYSE KONTEXT ═══
+  let serpBlock = '';
+  if (formData.serpContext && formData.serpContext.trim().length > 0) {
+    serpBlock = '\n\n# SERP-ANALYSE (Google Top-10)\n\n' + formData.serpContext.trim() + '\n\nWICHTIG: Integriere die PFLICHT-BEGRIFFE natürlich in den Text. Die EMPFOHLENEN BEGRIFFE sollten ebenfalls vorkommen. Nutze die HÄUFIGEN FRAGEN als Inspiration für FAQ und Zwischenüberschriften.';
+    console.log('SERP-Kontext integriert: ' + formData.serpContext.length + ' Zeichen');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════════
@@ -568,7 +656,7 @@ Liefere das Ergebnis als JSON:
 
   // ═══ VERSION 9: MASTER-PROMPT (DEFAULT) ═══
   // Enthält ALLE Fixes und das Beste aus allen Versionen
-  return buildV9MasterPrompt(formData, tonality, addressStyle, wordCount, minKeywords, maxKeywords, density, compliance);
+  return buildV9MasterPrompt(formData, tonality, addressStyle, wordCount, minKeywords, maxKeywords, density, compliance, serpBlock);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -576,14 +664,15 @@ Liefere das Ergebnis als JSON:
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function buildV9MasterPrompt(
-  formData: any, 
-  tonality: string, 
-  addressStyle: string, 
-  wordCount: number, 
-  minKeywords: number, 
+  formData: any,
+  tonality: string,
+  addressStyle: string,
+  wordCount: number,
+  minKeywords: number,
   maxKeywords: number,
   density: { min: number; max: number; label: string },
-  compliance: string
+  compliance: string,
+  serpBlock: string = ''
 ): string {
 
   const maxPara = formData.maxParagraphLength || 300;
@@ -922,7 +1011,7 @@ Prüfe BEVOR du ausgibst:
 □ Mindestens 2-3 Listen im Text? ✓
 □ Keine verbotenen Phrasen? ✓
 □ FAQ mit direkten Antworten? ✓
-□ E-E-A-T-Signale vorhanden? ✓`;
+□ E-E-A-T-Signale vorhanden? ✓${serpBlock}`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

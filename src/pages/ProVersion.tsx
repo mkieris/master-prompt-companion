@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, PanelLeftClose, PanelLeft } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
+import type { AIModel } from "@/components/ProSteps/ModelSelector";
 
 export type PageType = 'product' | 'category' | 'guide';
 
@@ -49,6 +50,7 @@ export interface FormData {
   includeIntro: boolean;
   includeFAQ: boolean;
   pageGoal: string;
+  aiModel: AIModel;
   complianceChecks: {
     mdr: boolean;
     hwg: boolean;
@@ -80,6 +82,7 @@ const ProVersion = ({ session }: ProVersionProps) => {
   const [allVariants, setAllVariants] = useState<any[]>([]);
   const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
+  const [generationMeta, setGenerationMeta] = useState<any>(null);
   
   const [formData, setFormData] = useState<FormData>({
     pageType: 'product',
@@ -111,6 +114,7 @@ const ProVersion = ({ session }: ProVersionProps) => {
     includeIntro: true,
     includeFAQ: true,
     pageGoal: "",
+    aiModel: 'gemini-flash',
     complianceChecks: {
       mdr: false,
       hwg: false,
@@ -159,14 +163,20 @@ const ProVersion = ({ session }: ProVersionProps) => {
         const validVariants = data.variants.filter((v: any) => v && v.seoText && v.seoText.length > 0);
         console.log('Received', data.variants.length, 'variants,', validVariants.length, 'valid');
         console.info('Received variants:', validVariants.length);
-        
+
         if (validVariants.length === 0) {
           throw new Error('Keine gültigen Content-Varianten generiert');
         }
-        
+
         setAllVariants(validVariants);
         setSelectedVariantIndex(0);
-        
+
+        // Store generation meta data (model, cost, tokens)
+        if (data._meta) {
+          setGenerationMeta(data._meta);
+          console.log('Generation cost:', data._meta.cost?.formatted);
+        }
+
         toast({
           title: "Erfolg!",
           description: `${validVariants.length} Content-Varianten generiert`,
@@ -515,6 +525,7 @@ const ProVersion = ({ session }: ProVersionProps) => {
                           includeIntro: formData.includeIntro,
                           includeFAQ: formData.includeFAQ,
                           pageGoal: formData.pageGoal,
+                          aiModel: formData.aiModel || "gemini-pro",
                           complianceChecks: formData.complianceChecks,
                         }}
                         onUpdate={updateFormData}
@@ -525,7 +536,9 @@ const ProVersion = ({ session }: ProVersionProps) => {
 
                     {currentStep === 4 && (
                       <Step4Preview
-                        generatedContent={allVariants.length > 1 ? { variants: allVariants, selectedVariant: selectedVariantIndex } : allVariants[0]}
+                        generatedContent={allVariants.length > 1
+                          ? { variants: allVariants, selectedVariant: selectedVariantIndex, _meta: generationMeta }
+                          : { ...allVariants[0], _meta: generationMeta }}
                         onRefine={handleRefineContent}
                         onQuickChange={handleQuickChange}
                         onBack={() => setCurrentStep(3)}
