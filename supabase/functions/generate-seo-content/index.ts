@@ -82,7 +82,7 @@ function calculateCost(model: ModelConfig, inputTokens: number, outputTokens: nu
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// KEYWORD ANALYSIS (integrated mode)
+// KEYWORD ANALYSIS (integrated mode) - PROFESSIONAL GRADE
 // ═══════════════════════════════════════════════════════════════════════════════
 
 interface KeywordAnalysis {
@@ -92,99 +92,276 @@ interface KeywordAnalysis {
   suggestedTopics: string[];
 }
 
+/**
+ * Extracts JSON from AI response text using multiple strategies
+ */
+function extractJsonFromText(text: string): any | null {
+  // Strategy 1: Direct parse (if response is pure JSON)
+  try {
+    return JSON.parse(text.trim());
+  } catch (e) {
+    // Continue to next strategy
+  }
+
+  // Strategy 2: Extract from markdown code block
+  const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeBlockMatch) {
+    try {
+      return JSON.parse(codeBlockMatch[1].trim());
+    } catch (e) {
+      // Continue to next strategy
+    }
+  }
+
+  // Strategy 3: Find JSON object with greedy match
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    try {
+      return JSON.parse(jsonMatch[0]);
+    } catch (e) {
+      // Continue to next strategy
+    }
+  }
+
+  // Strategy 4: Find JSON by looking for opening/closing braces more carefully
+  const startIdx = text.indexOf('{');
+  const endIdx = text.lastIndexOf('}');
+  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+    try {
+      return JSON.parse(text.substring(startIdx, endIdx + 1));
+    } catch (e) {
+      // All strategies failed
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Validates and sanitizes keyword analysis results
+ */
+function validateKeywordAnalysis(parsed: any, focusKeyword: string): KeywordAnalysis {
+  const validIntents = ['know', 'do', 'buy', 'go'];
+
+  // Extract arrays safely
+  const extractStringArray = (arr: any, fallback: string[] = []): string[] => {
+    if (!Array.isArray(arr)) return fallback;
+    return arr.filter((item: any) => typeof item === 'string' && item.trim().length > 0).slice(0, 15);
+  };
+
+  const secondaryKeywords = extractStringArray(parsed.secondaryKeywords);
+  const wQuestions = extractStringArray(parsed.wQuestions);
+  const suggestedTopics = extractStringArray(parsed.suggestedTopics);
+
+  // Validate search intent
+  let searchIntent: "know" | "do" | "buy" | "go" = 'know';
+  if (parsed.searchIntent && validIntents.includes(parsed.searchIntent)) {
+    searchIntent = parsed.searchIntent;
+  }
+
+  return {
+    secondaryKeywords,
+    wQuestions,
+    searchIntent,
+    suggestedTopics,
+  };
+}
+
+/**
+ * Generates fallback keyword suggestions when AI fails
+ */
+function generateFallbackAnalysis(focusKeyword: string, targetAudience: string | undefined): KeywordAnalysis {
+  const keyword = focusKeyword.toLowerCase();
+  const isB2B = targetAudience === 'physiotherapists';
+
+  // Generate basic secondary keywords
+  const secondaryKeywords = [
+    `${focusKeyword} kaufen`,
+    `${focusKeyword} Anwendung`,
+    `${focusKeyword} Vorteile`,
+    `beste ${focusKeyword}`,
+    `${focusKeyword} Erfahrungen`,
+    `${focusKeyword} Test`,
+    isB2B ? `${focusKeyword} Therapie` : `${focusKeyword} Tipps`,
+    isB2B ? `${focusKeyword} Indikation` : `${focusKeyword} für Anfänger`,
+  ];
+
+  // Generate basic W-questions
+  const wQuestions = [
+    `Was ist ${focusKeyword}?`,
+    `Wie funktioniert ${focusKeyword}?`,
+    `Wann sollte man ${focusKeyword} verwenden?`,
+    `Welche Vorteile hat ${focusKeyword}?`,
+    `Wo kann man ${focusKeyword} kaufen?`,
+    isB2B ? `Welche Kontraindikationen gibt es bei ${focusKeyword}?` : `Wie wendet man ${focusKeyword} richtig an?`,
+  ];
+
+  // Generate basic topics
+  const suggestedTopics = [
+    `Was ist ${focusKeyword}`,
+    `Anwendungsbereiche`,
+    `Vorteile und Nutzen`,
+    isB2B ? 'Evidenz und Studien' : 'Tipps zur Anwendung',
+    'Häufige Fragen',
+  ];
+
+  return {
+    secondaryKeywords,
+    wQuestions,
+    searchIntent: 'know',
+    suggestedTopics,
+  };
+}
+
 async function handleKeywordAnalysis(
   focusKeyword: string,
   targetAudience: string | undefined,
   language: string,
   apiKey: string
 ): Promise<KeywordAnalysis> {
-  const audienceContext = targetAudience === 'physiotherapists'
-    ? 'B2B-Zielgruppe (Fachpersonal, Therapeuten, medizinische Fachkräfte)'
-    : 'B2C-Zielgruppe (Endkunden, Verbraucher)';
+  console.log('=== KEYWORD ANALYSIS START ===');
+  console.log('Focus Keyword:', focusKeyword);
+  console.log('Target Audience:', targetAudience);
+  console.log('Language:', language);
 
-  const analysisPrompt = `Du bist ein SEO-Keyword-Experte. Analysiere das folgende Fokus-Keyword und generiere passende Vorschläge.
+  const audienceContext = targetAudience === 'physiotherapists'
+    ? 'B2B-Zielgruppe: Therapeuten, Ärzte, medizinisches Fachpersonal. Verwende Fachterminologie.'
+    : 'B2C-Zielgruppe: Endkunden, Patienten, Verbraucher. Verwende allgemeinverständliche Sprache.';
+
+  const analysisPrompt = `Analysiere das Fokus-Keyword für SEO-Content-Erstellung.
 
 FOKUS-KEYWORD: "${focusKeyword}"
 ZIELGRUPPE: ${audienceContext}
 SPRACHE: ${language === 'de' ? 'Deutsch' : 'Englisch'}
 
-AUFGABEN:
+Generiere:
 
-1. **Sekundäre Keywords (8-12)**: Semantisch verwandte Begriffe, Long-Tail-Varianten und LSI-Keywords die zum Fokus-Keyword passen. Diese sollten natürlich in einem SEO-Text eingebaut werden können.
+1. SEKUNDÄRE KEYWORDS (10-12 Stück):
+   - Long-Tail-Varianten (z.B. "${focusKeyword} kaufen", "${focusKeyword} Anwendung")
+   - LSI-Keywords (semantisch verwandte Begriffe)
+   - Synonyme und verwandte Suchbegriffe
+   - Kombinationen mit Adjektiven (beste, günstige, professionelle)
 
-2. **W-Fragen (5-8)**: Typische Fragen die Nutzer zu diesem Thema stellen würden. Beginne mit "Was", "Wie", "Warum", "Wann", "Welche", "Wo". Diese Fragen sollten für FAQ-Abschnitte geeignet sein.
+2. W-FRAGEN (6-8 Stück):
+   - Beginne mit: Was, Wie, Warum, Wann, Welche, Wo, Wer
+   - Typische Fragen die Nutzer bei Google stellen
+   - Fragen die im FAQ beantwortet werden können
 
-3. **Suchintention**: Bestimme die wahrscheinlichste Suchintention:
-   - "know": Informationssuche (Nutzer will etwas lernen/verstehen)
-   - "do": Transaktional (Nutzer will eine Aktion durchführen)
-   - "buy": Kaufabsicht (Nutzer will kaufen/bestellen)
-   - "go": Navigation (Nutzer sucht eine bestimmte Website)
+3. SUCHINTENTION (eine der folgenden):
+   - "know": Nutzer sucht Informationen/Wissen
+   - "do": Nutzer will etwas tun/anwenden
+   - "buy": Nutzer hat Kaufabsicht
+   - "go": Nutzer sucht bestimmte Website/Marke
 
-4. **Themen-Vorschläge (3-5)**: Hauptthemen/Abschnitte die in einem umfassenden Text zu diesem Keyword behandelt werden sollten.
+4. THEMEN-VORSCHLÄGE (4-6 Stück):
+   - Hauptabschnitte für einen umfassenden Artikel
+   - Logische Gliederung des Themas
 
-Antworte NUR mit validem JSON in diesem Format:
-{
-  "secondaryKeywords": ["keyword1", "keyword2", ...],
-  "wQuestions": ["Wie funktioniert...?", "Was ist...?", ...],
-  "searchIntent": "know",
-  "suggestedTopics": ["Thema 1", "Thema 2", ...]
-}`;
+WICHTIG: Antworte AUSSCHLIESSLICH mit diesem JSON-Format, KEIN anderer Text:
+{"secondaryKeywords":["keyword1","keyword2"],"wQuestions":["Frage 1?","Frage 2?"],"searchIntent":"know","suggestedTopics":["Thema 1","Thema 2"]}`;
 
-  const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        { role: 'system', content: 'Du bist ein SEO-Keyword-Analyse-Experte. Antworte nur mit validem JSON.' },
-        { role: 'user', content: analysisPrompt }
-      ],
-    }),
-  });
+  let lastError: Error | null = null;
 
-  if (!aiResponse.ok) {
-    const errorText = await aiResponse.text();
-    console.error('AI API error:', aiResponse.status, errorText);
+  // Try up to 2 times with different temperatures
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      console.log(`API Attempt ${attempt}/2...`);
 
-    if (aiResponse.status === 429) {
-      throw new Error('Rate limit erreicht. Bitte versuche es später erneut.');
+      const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            {
+              role: 'system',
+              content: 'Du bist ein SEO-Experte. Antworte NUR mit validem JSON, ohne Erklärungen oder Markdown.'
+            },
+            { role: 'user', content: analysisPrompt }
+          ],
+          temperature: attempt === 1 ? 0.3 : 0.5, // Lower temp first for more consistent JSON
+        }),
+      });
+
+      if (!aiResponse.ok) {
+        const errorText = await aiResponse.text();
+        console.error(`API Error (attempt ${attempt}):`, aiResponse.status, errorText);
+
+        if (aiResponse.status === 429) {
+          throw new Error('Rate limit erreicht. Bitte versuche es in 1 Minute erneut.');
+        }
+        if (aiResponse.status === 402) {
+          throw new Error('AI-Credits aufgebraucht. Bitte Lovable-Guthaben prüfen.');
+        }
+        if (aiResponse.status === 401) {
+          throw new Error('API-Authentifizierung fehlgeschlagen. Bitte Support kontaktieren.');
+        }
+
+        lastError = new Error(`AI API Fehler: ${aiResponse.status}`);
+        continue;
+      }
+
+      const aiData = await aiResponse.json();
+      const analysisText = aiData.choices?.[0]?.message?.content || '';
+
+      console.log('Raw AI Response (first 500 chars):', analysisText.substring(0, 500));
+
+      if (!analysisText || analysisText.trim().length < 10) {
+        console.error('Empty or too short AI response');
+        lastError = new Error('AI-Antwort war leer');
+        continue;
+      }
+
+      // Try to extract JSON
+      const parsed = extractJsonFromText(analysisText);
+
+      if (!parsed) {
+        console.error('Failed to extract JSON from response');
+        console.error('Full response:', analysisText);
+        lastError = new Error('JSON-Parsing fehlgeschlagen');
+        continue;
+      }
+
+      // Validate and sanitize
+      const analysis = validateKeywordAnalysis(parsed, focusKeyword);
+
+      // Check if we got meaningful results
+      if (analysis.secondaryKeywords.length === 0 && analysis.wQuestions.length === 0) {
+        console.error('Parsed JSON but arrays are empty');
+        lastError = new Error('Keine Keywords in der Analyse gefunden');
+        continue;
+      }
+
+      console.log('=== KEYWORD ANALYSIS SUCCESS ===');
+      console.log('Secondary Keywords:', analysis.secondaryKeywords.length);
+      console.log('W-Questions:', analysis.wQuestions.length);
+      console.log('Search Intent:', analysis.searchIntent);
+      console.log('Suggested Topics:', analysis.suggestedTopics.length);
+
+      return analysis;
+
+    } catch (error) {
+      console.error(`Attempt ${attempt} failed:`, error);
+      lastError = error instanceof Error ? error : new Error(String(error));
+
+      // Wait before retry
+      if (attempt < 2) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
     }
-    if (aiResponse.status === 402) {
-      throw new Error('AI-Credits aufgebraucht. Bitte Guthaben aufladen.');
-    }
-    throw new Error(`AI analysis failed: ${aiResponse.status}`);
   }
 
-  const aiData = await aiResponse.json();
-  const analysisText = aiData.choices?.[0]?.message?.content || '';
+  // All attempts failed - use fallback
+  console.warn('=== USING FALLBACK ANALYSIS ===');
+  console.warn('Reason:', lastError?.message || 'Unknown error');
 
-  // Parse AI response
-  let analysis: KeywordAnalysis = {
-    secondaryKeywords: [],
-    wQuestions: [],
-    searchIntent: "know",
-    suggestedTopics: [],
-  };
+  const fallback = generateFallbackAnalysis(focusKeyword, targetAudience);
+  console.log('Fallback generated:', fallback.secondaryKeywords.length, 'keywords,', fallback.wQuestions.length, 'questions');
 
-  try {
-    const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      analysis = {
-        secondaryKeywords: parsed.secondaryKeywords || [],
-        wQuestions: parsed.wQuestions || [],
-        searchIntent: ['know', 'do', 'buy', 'go'].includes(parsed.searchIntent) ? parsed.searchIntent : 'know',
-        suggestedTopics: parsed.suggestedTopics || [],
-      };
-    }
-  } catch (e) {
-    console.error('Failed to parse AI analysis:', e);
-  }
-
-  return analysis;
+  return fallback;
 }
 
 // Input validation schema
