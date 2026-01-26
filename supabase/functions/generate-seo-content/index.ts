@@ -232,106 +232,23 @@ serve(async (req) => {
         { role: 'user', content: 'Hier ist der aktuelle Text:\n\n' + JSON.stringify(formData.existingContent, null, 2) + '\n\nBitte ueberarbeite:\n' + formData.refinementPrompt + '\n\nGib den Text im gleichen JSON-Format zurueck.' }
       ];
     } else {
-      console.log('Generating 3 content variants in parallel...');
-      
-      // v9.0 Varianten-Stile
-      const variantApproaches = [
-        { 
-          name: 'Variante A', 
-          description: 'Sachlich & Strukturiert', 
-          instruction: 'STIL: SACHLICH & STRUKTURIERT\n- Faktenbasiert mit klarer Hierarchie\n- Nutze Listen und Aufzählungen wo sinnvoll\n- Ruhiger, vertrauensbildender Ton\n- Daten und Fakten zur Untermauerung\n- Objektiv und informativ' 
-        },
-        { 
-          name: 'Variante B', 
-          description: 'Nutzenorientiert & Aktivierend', 
-          instruction: 'STIL: NUTZENORIENTIERT & AKTIVIEREND\n- Starte Abschnitte mit Nutzenversprechen\n- Zeige Transformation (vorher → nachher)\n- Integriere CTAs an passenden Stellen\n- Konkrete Ergebnisse hervorheben\n- Aktivierende Verben und Sprache' 
-        },
-        { 
-          name: 'Variante C', 
-          description: 'Nahbar & Authentisch', 
-          instruction: 'STIL: NAHBAR & AUTHENTISCH\n- Beginne mit realem Szenario aus dem Alltag\n- "Kennst du das?"-Einstiege\n- Nutze bildhafte, sensorische Sprache\n- Zeige Empathie für Nutzerbedürfnisse\n- Warmherziger, menschlicher Ton' 
-        }
-      ];
-      
-      const generateVariant = async (variantIndex: number): Promise<any> => {
-        const approach = variantApproaches[variantIndex];
-        
-        // Kombiniere System-Prompt mit Varianten-Stil
-        const enhancedUserPrompt = approach.instruction + '\n\n' + userPrompt;
-        
-        const variantMessages = [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: enhancedUserPrompt }
-        ];
-        
-        const maxRetries = 3;
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-          try {
-            console.log('Variant ' + (variantIndex + 1) + ' (' + approach.name + '): attempt ' + attempt);
-            console.log('System prompt length:', systemPrompt?.length || 0);
-            console.log('User prompt length:', enhancedUserPrompt?.length || 0);
-            
-            const requestBody = { 
-              model: 'google/gemini-2.5-pro', 
-              messages: variantMessages, 
-              temperature: 0.55
-            };
-            
-            const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-              method: 'POST',
-              headers: { 'Authorization': 'Bearer ' + LOVABLE_API_KEY, 'Content-Type': 'application/json' },
-              body: JSON.stringify(requestBody),
-            });
-            
-            if (!response.ok) {
-              const errorText = await response.text();
-              console.error('API Error Response:', response.status, errorText);
-            }
+      // Single content generation based on tone
+      console.log('Generating single content with tone:', formData.tone);
 
-            if (response.ok) {
-              const data = await response.json();
-              const rawContent = data.choices[0].message.content;
-              console.log('Variant ' + (variantIndex + 1) + ' raw response length:', rawContent?.length || 0);
-              
-              const parsed = parseGeneratedContent(rawContent, formData);
-              
-              if (!parsed.seoText || parsed.seoText.length < 50) {
-                console.error('CRITICAL: Variant ' + (variantIndex + 1) + ' has empty or too short seoText:', parsed.seoText?.length || 0);
-                if (attempt < maxRetries) {
-                  console.log('Retrying variant ' + (variantIndex + 1) + ' due to empty content...');
-                  await new Promise(resolve => setTimeout(resolve, 1000));
-                  continue;
-                }
-              }
-              
-              parsed._variantInfo = { name: approach.name, description: approach.description, index: variantIndex };
-              console.log('Variant ' + (variantIndex + 1) + ' successfully parsed. seoText length:', parsed.seoText?.length || 0);
-              return parsed;
-            }
-            
-            if (response.status === 429 || response.status === 402) {
-              throw new Error(response.status === 429 ? 'Rate limit exceeded' : 'Payment required');
-            }
-            
-            if (response.status >= 500 && attempt < maxRetries) {
-              console.log('Server error for variant ' + (variantIndex + 1) + ', retrying...');
-              await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
-              continue;
-            }
-            
-            throw new Error('AI Gateway error: ' + response.status);
-          } catch (err) {
-            console.error('Error generating variant ' + (variantIndex + 1) + ':', err);
-            if (attempt === maxRetries) throw err;
-            await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
-          }
-        }
-        throw new Error('Failed to generate variant ' + variantIndex + ' after ' + maxRetries + ' attempts');
+      // Map tone to writing style instruction
+      const toneInstructions: Record<string, string> = {
+        'sachlich': 'SCHREIBSTIL: SACHLICH & STRUKTURIERT\n- Faktenbasiert mit klarer Hierarchie\n- Nutze Listen und Aufzählungen wo sinnvoll\n- Ruhiger, vertrauensbildender Ton\n- Daten und Fakten zur Untermauerung\n- Objektiv und informativ',
+        'beratend': 'SCHREIBSTIL: BERATEND & NUTZENORIENTIERT\n- Fokus auf praktischen Nutzen und Lösungen\n- Empathisch und hilfreich\n- "Du fragst dich..."-Einstiege\n- Konkrete Empfehlungen und Tipps\n- Vertrauensaufbauend und unterstützend',
+        'aktivierend': 'SCHREIBSTIL: AKTIVIEREND & ÜBERZEUGEND\n- Starte mit starkem Nutzenversprechen\n- Zeige Transformation (vorher → nachher)\n- Integriere CTAs an passenden Stellen\n- Konkrete Ergebnisse hervorheben\n- Aktivierende Verben und überzeugende Sprache'
       };
-      
-      const variants = await Promise.all([generateVariant(0), generateVariant(1), generateVariant(2)]);
-      console.log('Successfully generated 3 variants');
-      return new Response(JSON.stringify({ variants, selectedVariant: 0, variantDescriptions: variantApproaches.map(a => ({ name: a.name, description: a.description })) }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+      const toneInstruction = toneInstructions[formData.tone] || toneInstructions['beratend'];
+      const enhancedUserPrompt = toneInstruction + '\n\n' + userPrompt;
+
+      messages = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: enhancedUserPrompt }
+      ];
     }
 
     // Refinement/quick change - single generation
