@@ -111,6 +111,16 @@ interface KeywordAnalysis {
   suggestedTopics: string[];
 }
 
+// Domain/Topic Learning Analysis
+interface DomainAnalysis {
+  success: boolean;
+  url: string;
+  mode: 'topic' | 'category' | 'company';
+  pagesAnalyzed: number;
+  analysis: any;
+  contentContext: string;
+}
+
 interface SeoTextContent {
   type: string;
   text?: string;
@@ -188,6 +198,12 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
   const [serpAnalysis, setSerpAnalysis] = useState<SerpAnalysis | null>(null);
   const [showKeywordSuggestions, setShowKeywordSuggestions] = useState(false);
   const [showSerpResults, setShowSerpResults] = useState(false);
+
+  // Domain/Topic Learning State
+  const [isAnalyzingDomain, setIsAnalyzingDomain] = useState(false);
+  const [domainAnalysis, setDomainAnalysis] = useState<DomainAnalysis | null>(null);
+  const [showDomainResults, setShowDomainResults] = useState(false);
+  const [domainUrl, setDomainUrl] = useState("");
 
   useEffect(() => {
     if (!session) {
@@ -358,6 +374,71 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
       serpAnalysis: !!serpAnalysis,
       keywordAnalysis: !!keywordAnalysis
     });
+  };
+
+  // Domain/Topic Learning Handler
+  const handleAnalyzeDomain = async () => {
+    if (!domainUrl.trim()) {
+      toast({ title: "Fehler", description: "Bitte eine URL eingeben", variant: "destructive" });
+      return;
+    }
+
+    setIsAnalyzingDomain(true);
+    setDomainAnalysis(null);
+    const endTimer = logWithTimer('api', 'Domain-Analyse');
+    log('api', 'analyze-domain aufgerufen', { url: domainUrl, mode: 'topic' });
+
+    try {
+      const { data, error } = await supabase.functions.invoke("analyze-domain", {
+        body: {
+          url: domainUrl,
+          mode: 'topic',
+          depth: 'single',
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        log('response', 'Domain-Analyse erfolgreich', {
+          pagesAnalyzed: data.pagesAnalyzed,
+          hasContentContext: !!data.contentContext,
+        });
+
+        setDomainAnalysis(data);
+        setShowDomainResults(true);
+        setShowAdvanced(true);
+
+        // Auto-add contentContext to additionalInfo
+        if (data.contentContext) {
+          setFormData(prev => ({
+            ...prev,
+            additionalInfo: prev.additionalInfo
+              ? `${prev.additionalInfo}\n\n--- Themen-Kontext ---\n${data.contentContext}`
+              : `--- Themen-Kontext ---\n${data.contentContext}`
+          }));
+          log('form', 'Themen-Kontext automatisch zu Zusatzinfos hinzugefügt');
+        }
+
+        toast({
+          title: "Thema gelernt!",
+          description: "Kontext wurde zu Zusatzinfos hinzugefügt"
+        });
+      } else {
+        throw new Error(data.error || 'Analyse fehlgeschlagen');
+      }
+    } catch (error: any) {
+      log('error', 'Domain-Analyse fehlgeschlagen', { error: String(error) });
+      console.error("Domain analysis error:", error);
+      toast({
+        title: "Fehler",
+        description: error.message || "Domain-Analyse fehlgeschlagen",
+        variant: "destructive"
+      });
+    } finally {
+      endTimer();
+      setIsAnalyzingDomain(false);
+    }
   };
 
   // Form change handler with logging
@@ -1223,6 +1304,48 @@ da historische Versionen nicht vollständig implementiert sind.`;
                       </Badge>
                     </div>
                   )}
+                  {domainAnalysis && (
+                    <div className="flex gap-1 mt-1 flex-wrap">
+                      <Badge variant="outline" className="text-xs bg-purple-500/10 border-purple-500/30 text-purple-600">
+                        <BookOpen className="h-3 w-3 mr-1" />
+                        Thema gelernt
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+
+                {/* Thema lernen (Domain-Analyse) */}
+                <div className="p-3 border border-dashed rounded-lg bg-muted/30">
+                  <Label className="text-xs font-medium flex items-center gap-1 mb-2">
+                    <BookOpen className="h-3 w-3" />
+                    Thema lernen (optional)
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={domainUrl}
+                      onChange={(e) => setDomainUrl(e.target.value)}
+                      placeholder="URL einer Website zum Thema..."
+                      className="flex-1 h-8 text-sm"
+                      disabled={isAnalyzingDomain}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAnalyzeDomain}
+                      disabled={isAnalyzingDomain || !domainUrl.trim()}
+                      className="h-8"
+                    >
+                      {isAnalyzingDomain ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3 w-3" />
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Analysiert eine Website um das Thema zu verstehen (z.B. Coaching, Medizinprodukte)
+                  </p>
                 </div>
 
                 {/* SERP-Analyse (echte Google-Daten) */}
@@ -1594,6 +1717,62 @@ da historische Versionen nicht vollständig implementiert sind.`;
                       </Card>
                     )}
 
+                    {/* Domain Analysis Results */}
+                    {showDomainResults && domainAnalysis && (
+                      <Card className="p-3 bg-purple-500/5 border-purple-500/20">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-sm font-medium flex items-center gap-1">
+                            <BookOpen className="h-4 w-4 text-purple-600" />
+                            Thema gelernt
+                          </h4>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowDomainResults(false)}
+                            className="h-6 w-6 p-0"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+
+                        {domainAnalysis.analysis?.topicName && (
+                          <div className="mb-2">
+                            <span className="text-xs text-muted-foreground">Thema:</span>
+                            <p className="text-sm font-medium">{domainAnalysis.analysis.topicName}</p>
+                          </div>
+                        )}
+
+                        {domainAnalysis.analysis?.industry && (
+                          <div className="mb-2">
+                            <span className="text-xs text-muted-foreground">Branche:</span>
+                            <p className="text-sm">{domainAnalysis.analysis.industry}</p>
+                          </div>
+                        )}
+
+                        {domainAnalysis.analysis?.targetAudience?.demographics && (
+                          <div className="mb-2">
+                            <span className="text-xs text-muted-foreground">Zielgruppe:</span>
+                            <p className="text-sm">{domainAnalysis.analysis.targetAudience.demographics}</p>
+                          </div>
+                        )}
+
+                        {domainAnalysis.analysis?.toneRecommendation && (
+                          <div className="mb-2">
+                            <span className="text-xs text-muted-foreground">Empfohlene Tonalität:</span>
+                            <p className="text-sm">{domainAnalysis.analysis.toneRecommendation}</p>
+                          </div>
+                        )}
+
+                        <div className="mt-2 pt-2 border-t border-purple-500/20">
+                          <Badge variant="outline" className="text-xs bg-purple-500/10 text-purple-600">
+                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                            Kontext in Zusatzinfos übernommen
+                          </Badge>
+                        </div>
+                      </Card>
+                    )}
+
                     {/* Secondary Keywords */}
                     <div>
                       <Label className="text-xs">Sekundär-Keywords</Label>
@@ -1669,7 +1848,7 @@ da historische Versionen nicht vollständig implementiert sind.`;
                 {/* Hint for other tools */}
                 <div className="text-center pt-2 border-t">
                   <p className="text-xs text-muted-foreground">
-                    Keyword-Recherche? <a href="/domain-learning" className="text-primary hover:underline">Domain Learning</a>
+                    Mehr Tools? <a href="/domain-learning" className="text-primary hover:underline">Wissensmanagement</a> | <a href="/seo-check" className="text-primary hover:underline">SEO-Check</a>
                   </p>
                 </div>
               </CardContent>
