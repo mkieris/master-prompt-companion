@@ -14,6 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ProcessFlowPanel } from "@/components/seo-generator/ProcessFlowPanel";
 import { ValidationPanel } from "@/components/seo-generator/ValidationPanel";
+import { SerpAnalysisPanel } from "@/components/seo-generator/SerpAnalysisPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useDebug } from "@/contexts/DebugContext";
@@ -63,6 +64,8 @@ interface FormData {
   wQuestions: string[];
   brandName: string;
   additionalInfo: string;
+  // SERP-Analyse
+  serpContext: string;
   // Intern verwendet (nicht in UI)
   promptVersion: string;
 }
@@ -125,6 +128,8 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
     wQuestions: [],
     brandName: "",
     additionalInfo: "",
+    // SERP-Analyse
+    serpContext: "",
     // Intern
     promptVersion: "v9-master",
   });
@@ -251,6 +256,38 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
         wQuestions: [...formData.wQuestions, ...newQuestions],
       });
     }
+  };
+
+  // SERP-Analyse Handlers
+  const handleSerpAddKeywords = (keywords: string[]) => {
+    const newKeywords = keywords.filter(k => !formData.secondaryKeywords.includes(k));
+    if (newKeywords.length > 0) {
+      setFormData({
+        ...formData,
+        secondaryKeywords: [...formData.secondaryKeywords, ...newKeywords],
+      });
+      log('form', 'SERP-Keywords hinzugefügt', { count: newKeywords.length });
+    }
+  };
+
+  const handleSerpAddQuestions = (questions: string[]) => {
+    const newQuestions = questions.filter(q => !formData.wQuestions.includes(q));
+    if (newQuestions.length > 0) {
+      setFormData({
+        ...formData,
+        wQuestions: [...formData.wQuestions, ...newQuestions],
+      });
+      log('form', 'SERP-Fragen hinzugefügt', { count: newQuestions.length });
+    }
+  };
+
+  const handleSerpContextReady = (context: string) => {
+    setFormData({
+      ...formData,
+      serpContext: context,
+    });
+    log('form', 'SERP-Kontext übernommen', { length: context.length });
+    setShowAdvanced(true); // Erweiterte Optionen öffnen
   };
 
   // Build preview of System-Prompt based on selected version
@@ -980,9 +1017,19 @@ da historische Versionen nicht vollständig implementiert sind.`;
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Klicke "Analysieren" für Keyword- und W-Fragen-Vorschläge
+                    Klicke "Analysieren" für AI-generierte Keyword-Vorschläge
                   </p>
                 </div>
+
+                {/* SERP-Analyse (echte Google-Daten) */}
+                <SerpAnalysisPanel
+                  keyword={formData.focusKeyword}
+                  onAddKeywords={handleSerpAddKeywords}
+                  onAddWQuestions={handleSerpAddQuestions}
+                  onSerpContextReady={handleSerpContextReady}
+                  currentKeywords={formData.secondaryKeywords}
+                  currentQuestions={formData.wQuestions}
+                />
 
                 {/* 2. Writing Style (Tone) */}
                 <div>
