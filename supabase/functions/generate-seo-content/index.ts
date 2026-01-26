@@ -82,7 +82,7 @@ function calculateCost(model: ModelConfig, inputTokens: number, outputTokens: nu
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// KEYWORD ANALYSIS (integrated mode)
+// KEYWORD ANALYSIS (integrated mode) - PROFESSIONAL GRADE
 // ═══════════════════════════════════════════════════════════════════════════════
 
 interface KeywordAnalysis {
@@ -92,99 +92,276 @@ interface KeywordAnalysis {
   suggestedTopics: string[];
 }
 
+/**
+ * Extracts JSON from AI response text using multiple strategies
+ */
+function extractJsonFromText(text: string): any | null {
+  // Strategy 1: Direct parse (if response is pure JSON)
+  try {
+    return JSON.parse(text.trim());
+  } catch (e) {
+    // Continue to next strategy
+  }
+
+  // Strategy 2: Extract from markdown code block
+  const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeBlockMatch) {
+    try {
+      return JSON.parse(codeBlockMatch[1].trim());
+    } catch (e) {
+      // Continue to next strategy
+    }
+  }
+
+  // Strategy 3: Find JSON object with greedy match
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    try {
+      return JSON.parse(jsonMatch[0]);
+    } catch (e) {
+      // Continue to next strategy
+    }
+  }
+
+  // Strategy 4: Find JSON by looking for opening/closing braces more carefully
+  const startIdx = text.indexOf('{');
+  const endIdx = text.lastIndexOf('}');
+  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+    try {
+      return JSON.parse(text.substring(startIdx, endIdx + 1));
+    } catch (e) {
+      // All strategies failed
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Validates and sanitizes keyword analysis results
+ */
+function validateKeywordAnalysis(parsed: any, focusKeyword: string): KeywordAnalysis {
+  const validIntents = ['know', 'do', 'buy', 'go'];
+
+  // Extract arrays safely
+  const extractStringArray = (arr: any, fallback: string[] = []): string[] => {
+    if (!Array.isArray(arr)) return fallback;
+    return arr.filter((item: any) => typeof item === 'string' && item.trim().length > 0).slice(0, 15);
+  };
+
+  const secondaryKeywords = extractStringArray(parsed.secondaryKeywords);
+  const wQuestions = extractStringArray(parsed.wQuestions);
+  const suggestedTopics = extractStringArray(parsed.suggestedTopics);
+
+  // Validate search intent
+  let searchIntent: "know" | "do" | "buy" | "go" = 'know';
+  if (parsed.searchIntent && validIntents.includes(parsed.searchIntent)) {
+    searchIntent = parsed.searchIntent;
+  }
+
+  return {
+    secondaryKeywords,
+    wQuestions,
+    searchIntent,
+    suggestedTopics,
+  };
+}
+
+/**
+ * Generates fallback keyword suggestions when AI fails
+ */
+function generateFallbackAnalysis(focusKeyword: string, targetAudience: string | undefined): KeywordAnalysis {
+  const keyword = focusKeyword.toLowerCase();
+  const isB2B = targetAudience === 'physiotherapists';
+
+  // Generate basic secondary keywords
+  const secondaryKeywords = [
+    `${focusKeyword} kaufen`,
+    `${focusKeyword} Anwendung`,
+    `${focusKeyword} Vorteile`,
+    `beste ${focusKeyword}`,
+    `${focusKeyword} Erfahrungen`,
+    `${focusKeyword} Test`,
+    isB2B ? `${focusKeyword} Therapie` : `${focusKeyword} Tipps`,
+    isB2B ? `${focusKeyword} Indikation` : `${focusKeyword} für Anfänger`,
+  ];
+
+  // Generate basic W-questions
+  const wQuestions = [
+    `Was ist ${focusKeyword}?`,
+    `Wie funktioniert ${focusKeyword}?`,
+    `Wann sollte man ${focusKeyword} verwenden?`,
+    `Welche Vorteile hat ${focusKeyword}?`,
+    `Wo kann man ${focusKeyword} kaufen?`,
+    isB2B ? `Welche Kontraindikationen gibt es bei ${focusKeyword}?` : `Wie wendet man ${focusKeyword} richtig an?`,
+  ];
+
+  // Generate basic topics
+  const suggestedTopics = [
+    `Was ist ${focusKeyword}`,
+    `Anwendungsbereiche`,
+    `Vorteile und Nutzen`,
+    isB2B ? 'Evidenz und Studien' : 'Tipps zur Anwendung',
+    'Häufige Fragen',
+  ];
+
+  return {
+    secondaryKeywords,
+    wQuestions,
+    searchIntent: 'know',
+    suggestedTopics,
+  };
+}
+
 async function handleKeywordAnalysis(
   focusKeyword: string,
   targetAudience: string | undefined,
   language: string,
   apiKey: string
 ): Promise<KeywordAnalysis> {
-  const audienceContext = targetAudience === 'physiotherapists'
-    ? 'B2B-Zielgruppe (Fachpersonal, Therapeuten, medizinische Fachkräfte)'
-    : 'B2C-Zielgruppe (Endkunden, Verbraucher)';
+  console.log('=== KEYWORD ANALYSIS START ===');
+  console.log('Focus Keyword:', focusKeyword);
+  console.log('Target Audience:', targetAudience);
+  console.log('Language:', language);
 
-  const analysisPrompt = `Du bist ein SEO-Keyword-Experte. Analysiere das folgende Fokus-Keyword und generiere passende Vorschläge.
+  const audienceContext = targetAudience === 'physiotherapists'
+    ? 'B2B-Zielgruppe: Therapeuten, Ärzte, medizinisches Fachpersonal. Verwende Fachterminologie.'
+    : 'B2C-Zielgruppe: Endkunden, Patienten, Verbraucher. Verwende allgemeinverständliche Sprache.';
+
+  const analysisPrompt = `Analysiere das Fokus-Keyword für SEO-Content-Erstellung.
 
 FOKUS-KEYWORD: "${focusKeyword}"
 ZIELGRUPPE: ${audienceContext}
 SPRACHE: ${language === 'de' ? 'Deutsch' : 'Englisch'}
 
-AUFGABEN:
+Generiere:
 
-1. **Sekundäre Keywords (8-12)**: Semantisch verwandte Begriffe, Long-Tail-Varianten und LSI-Keywords die zum Fokus-Keyword passen. Diese sollten natürlich in einem SEO-Text eingebaut werden können.
+1. SEKUNDÄRE KEYWORDS (10-12 Stück):
+   - Long-Tail-Varianten (z.B. "${focusKeyword} kaufen", "${focusKeyword} Anwendung")
+   - LSI-Keywords (semantisch verwandte Begriffe)
+   - Synonyme und verwandte Suchbegriffe
+   - Kombinationen mit Adjektiven (beste, günstige, professionelle)
 
-2. **W-Fragen (5-8)**: Typische Fragen die Nutzer zu diesem Thema stellen würden. Beginne mit "Was", "Wie", "Warum", "Wann", "Welche", "Wo". Diese Fragen sollten für FAQ-Abschnitte geeignet sein.
+2. W-FRAGEN (6-8 Stück):
+   - Beginne mit: Was, Wie, Warum, Wann, Welche, Wo, Wer
+   - Typische Fragen die Nutzer bei Google stellen
+   - Fragen die im FAQ beantwortet werden können
 
-3. **Suchintention**: Bestimme die wahrscheinlichste Suchintention:
-   - "know": Informationssuche (Nutzer will etwas lernen/verstehen)
-   - "do": Transaktional (Nutzer will eine Aktion durchführen)
-   - "buy": Kaufabsicht (Nutzer will kaufen/bestellen)
-   - "go": Navigation (Nutzer sucht eine bestimmte Website)
+3. SUCHINTENTION (eine der folgenden):
+   - "know": Nutzer sucht Informationen/Wissen
+   - "do": Nutzer will etwas tun/anwenden
+   - "buy": Nutzer hat Kaufabsicht
+   - "go": Nutzer sucht bestimmte Website/Marke
 
-4. **Themen-Vorschläge (3-5)**: Hauptthemen/Abschnitte die in einem umfassenden Text zu diesem Keyword behandelt werden sollten.
+4. THEMEN-VORSCHLÄGE (4-6 Stück):
+   - Hauptabschnitte für einen umfassenden Artikel
+   - Logische Gliederung des Themas
 
-Antworte NUR mit validem JSON in diesem Format:
-{
-  "secondaryKeywords": ["keyword1", "keyword2", ...],
-  "wQuestions": ["Wie funktioniert...?", "Was ist...?", ...],
-  "searchIntent": "know",
-  "suggestedTopics": ["Thema 1", "Thema 2", ...]
-}`;
+WICHTIG: Antworte AUSSCHLIESSLICH mit diesem JSON-Format, KEIN anderer Text:
+{"secondaryKeywords":["keyword1","keyword2"],"wQuestions":["Frage 1?","Frage 2?"],"searchIntent":"know","suggestedTopics":["Thema 1","Thema 2"]}`;
 
-  const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        { role: 'system', content: 'Du bist ein SEO-Keyword-Analyse-Experte. Antworte nur mit validem JSON.' },
-        { role: 'user', content: analysisPrompt }
-      ],
-    }),
-  });
+  let lastError: Error | null = null;
 
-  if (!aiResponse.ok) {
-    const errorText = await aiResponse.text();
-    console.error('AI API error:', aiResponse.status, errorText);
+  // Try up to 2 times with different temperatures
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      console.log(`API Attempt ${attempt}/2...`);
 
-    if (aiResponse.status === 429) {
-      throw new Error('Rate limit erreicht. Bitte versuche es später erneut.');
+      const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            {
+              role: 'system',
+              content: 'Du bist ein SEO-Experte. Antworte NUR mit validem JSON, ohne Erklärungen oder Markdown.'
+            },
+            { role: 'user', content: analysisPrompt }
+          ],
+          temperature: attempt === 1 ? 0.3 : 0.5, // Lower temp first for more consistent JSON
+        }),
+      });
+
+      if (!aiResponse.ok) {
+        const errorText = await aiResponse.text();
+        console.error(`API Error (attempt ${attempt}):`, aiResponse.status, errorText);
+
+        if (aiResponse.status === 429) {
+          throw new Error('Rate limit erreicht. Bitte versuche es in 1 Minute erneut.');
+        }
+        if (aiResponse.status === 402) {
+          throw new Error('AI-Credits aufgebraucht. Bitte Lovable-Guthaben prüfen.');
+        }
+        if (aiResponse.status === 401) {
+          throw new Error('API-Authentifizierung fehlgeschlagen. Bitte Support kontaktieren.');
+        }
+
+        lastError = new Error(`AI API Fehler: ${aiResponse.status}`);
+        continue;
+      }
+
+      const aiData = await aiResponse.json();
+      const analysisText = aiData.choices?.[0]?.message?.content || '';
+
+      console.log('Raw AI Response (first 500 chars):', analysisText.substring(0, 500));
+
+      if (!analysisText || analysisText.trim().length < 10) {
+        console.error('Empty or too short AI response');
+        lastError = new Error('AI-Antwort war leer');
+        continue;
+      }
+
+      // Try to extract JSON
+      const parsed = extractJsonFromText(analysisText);
+
+      if (!parsed) {
+        console.error('Failed to extract JSON from response');
+        console.error('Full response:', analysisText);
+        lastError = new Error('JSON-Parsing fehlgeschlagen');
+        continue;
+      }
+
+      // Validate and sanitize
+      const analysis = validateKeywordAnalysis(parsed, focusKeyword);
+
+      // Check if we got meaningful results
+      if (analysis.secondaryKeywords.length === 0 && analysis.wQuestions.length === 0) {
+        console.error('Parsed JSON but arrays are empty');
+        lastError = new Error('Keine Keywords in der Analyse gefunden');
+        continue;
+      }
+
+      console.log('=== KEYWORD ANALYSIS SUCCESS ===');
+      console.log('Secondary Keywords:', analysis.secondaryKeywords.length);
+      console.log('W-Questions:', analysis.wQuestions.length);
+      console.log('Search Intent:', analysis.searchIntent);
+      console.log('Suggested Topics:', analysis.suggestedTopics.length);
+
+      return analysis;
+
+    } catch (error) {
+      console.error(`Attempt ${attempt} failed:`, error);
+      lastError = error instanceof Error ? error : new Error(String(error));
+
+      // Wait before retry
+      if (attempt < 2) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
     }
-    if (aiResponse.status === 402) {
-      throw new Error('AI-Credits aufgebraucht. Bitte Guthaben aufladen.');
-    }
-    throw new Error(`AI analysis failed: ${aiResponse.status}`);
   }
 
-  const aiData = await aiResponse.json();
-  const analysisText = aiData.choices?.[0]?.message?.content || '';
+  // All attempts failed - use fallback
+  console.warn('=== USING FALLBACK ANALYSIS ===');
+  console.warn('Reason:', lastError?.message || 'Unknown error');
 
-  // Parse AI response
-  let analysis: KeywordAnalysis = {
-    secondaryKeywords: [],
-    wQuestions: [],
-    searchIntent: "know",
-    suggestedTopics: [],
-  };
+  const fallback = generateFallbackAnalysis(focusKeyword, targetAudience);
+  console.log('Fallback generated:', fallback.secondaryKeywords.length, 'keywords,', fallback.wQuestions.length, 'questions');
 
-  try {
-    const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      analysis = {
-        secondaryKeywords: parsed.secondaryKeywords || [],
-        wQuestions: parsed.wQuestions || [],
-        searchIntent: ['know', 'do', 'buy', 'go'].includes(parsed.searchIntent) ? parsed.searchIntent : 'know',
-        suggestedTopics: parsed.suggestedTopics || [],
-      };
-    }
-  } catch (e) {
-    console.error('Failed to parse AI analysis:', e);
-  }
-
-  return analysis;
+  return fallback;
 }
 
 // Input validation schema
@@ -468,42 +645,114 @@ serve(async (req) => {
     }
 
     // Single generation (for new content and refinement/quick change)
-    const maxRetries = 3;
+    // IMPORTANT: Supabase Edge Functions have ~120s timeout
+    // We must complete within that time, so use shorter API timeout and fewer retries
+    const maxRetries = 2;
+    const TIMEOUT_MS = 55000; // 55 seconds per attempt (2 attempts + processing = ~115s max)
     let response: Response | null = null;
 
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Authorization': 'Bearer ' + LOVABLE_API_KEY, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: modelConfig.modelName, messages: messages, temperature: modelConfig.temperature }),
-        });
+    const startTime = Date.now();
+    console.log('=== STARTING CONTENT GENERATION ===');
+    console.log('Max retries:', maxRetries, 'Timeout per attempt:', TIMEOUT_MS, 'ms');
 
-        if (response.ok) break;
-        
-        if (response.status === 429) return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-        if (response.status === 402) return new Response(JSON.stringify({ error: 'Payment required' }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-        
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const attemptStart = Date.now();
+      try {
+        console.log(`API attempt ${attempt}/${maxRetries} starting at ${attemptStart - startTime}ms...`);
+
+        // Create abort controller for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+          console.log(`Timeout triggered for attempt ${attempt}`);
+          controller.abort();
+        }, TIMEOUT_MS);
+
+        try {
+          response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + LOVABLE_API_KEY, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: modelConfig.modelName, messages: messages, temperature: modelConfig.temperature }),
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(timeoutId);
+        }
+
+        const attemptDuration = Date.now() - attemptStart;
+        console.log(`API attempt ${attempt} completed in ${attemptDuration}ms, status: ${response.status}`);
+
+        if (response.ok) {
+          console.log('=== API CALL SUCCESSFUL ===');
+          break;
+        }
+
+        if (response.status === 429) {
+          console.log('Rate limit hit');
+          return new Response(JSON.stringify({ error: 'Rate limit erreicht. Bitte warte 1 Minute.' }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        if (response.status === 402) {
+          console.log('Payment required');
+          return new Response(JSON.stringify({ error: 'Keine AI-Credits mehr. Bitte Lovable-Guthaben aufladen.' }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+
         if (response.status >= 500 && attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+          console.log(`Server error ${response.status}, retrying in 2 seconds...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
           continue;
         }
-        throw new Error('AI Gateway error: ' + response.status);
+        throw new Error('AI Gateway Fehler: ' + response.status);
       } catch (err) {
-        if (attempt === maxRetries) throw err;
-        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+        const attemptDuration = Date.now() - attemptStart;
+        // Check if it's an abort error (timeout)
+        if (err instanceof Error && err.name === 'AbortError') {
+          console.error(`API attempt ${attempt} TIMED OUT after ${attemptDuration}ms`);
+          if (attempt === maxRetries) {
+            throw new Error('Zeitüberschreitung bei AI-Generierung (55s). Versuche es mit kürzerem Text oder erneut.');
+          }
+          console.log('Waiting 2s before retry...');
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        } else {
+          console.error(`API attempt ${attempt} failed after ${attemptDuration}ms:`, err);
+          if (attempt === maxRetries) throw err;
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
       }
     }
-    
-    if (!response || !response.ok) throw new Error('AI Gateway request failed');
+
+    if (!response || !response.ok) {
+      throw new Error('AI-Generierung fehlgeschlagen. Bitte erneut versuchen.');
+    }
+
+    console.log('=== PARSING RESPONSE ===');
 
     const data = await response.json();
-    const parsedContent = parseGeneratedContent(data.choices[0].message.content, formData);
+
+    // Validate response structure
+    if (!data || !data.choices || !Array.isArray(data.choices) || data.choices.length === 0) {
+      console.error('Invalid AI response structure:', JSON.stringify(data).substring(0, 500));
+      throw new Error('Ungültige AI-Antwort erhalten. Bitte erneut versuchen.');
+    }
+
+    const aiContent = data.choices[0]?.message?.content;
+    if (!aiContent || typeof aiContent !== 'string') {
+      console.error('Missing or invalid content in AI response');
+      throw new Error('AI-Antwort war leer. Bitte erneut versuchen.');
+    }
+
+    console.log('AI content received, length:', aiContent.length);
+
+    const parsedContent = parseGeneratedContent(aiContent, formData);
+
+    const totalDuration = Date.now() - startTime;
+    console.log(`=== GENERATION COMPLETE in ${totalDuration}ms ===`);
+
     return new Response(JSON.stringify(parsedContent), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    
+
   } catch (error) {
-    console.error('Error:', error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    console.error('=== GENERATION ERROR ===');
+    console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error);
+    console.error('Error message:', error instanceof Error ? error.message : String(error));
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unbekannter Fehler' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });
 
@@ -531,15 +780,23 @@ function buildSystemPrompt(formData: any): string {
   };
   
   // ═══ FIX: tone → tonality MAPPING ═══
+  // Support both English (from advanced forms) and German (from BasicVersion) tone values
   const toneToTonality: Record<string, string> = {
+    // English values
     'factual': 'Sachlich & Informativ',
     'advisory': 'Beratend & Nutzenorientiert',
-    'sales': 'Aktivierend & Überzeugend'
+    'sales': 'Aktivierend & Überzeugend',
+    // German values (from BasicVersion)
+    'sachlich': 'Sachlich & Informativ',
+    'beratend': 'Beratend & Nutzenorientiert',
+    'aktivierend': 'Aktivierend & Überzeugend'
   };
-  
-  const tonality = formData.tone 
+
+  const tonality = formData.tone
     ? toneToTonality[formData.tone] || tonalityMap[formData.tonality] || 'Balanced-Mix'
     : tonalityMap[formData.tonality] || 'Balanced-Mix';
+
+  console.log('Tone mapping:', formData.tone, '->', tonality);
   
   const maxPara = formData.maxParagraphLength || 300;
   
