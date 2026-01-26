@@ -60,10 +60,18 @@ interface FormData {
   formOfAddress: "du" | "sie" | "neutral";
   // Erweiterte Optionen (optional)
   secondaryKeywords: string[];
+  wQuestions: string[];
   brandName: string;
   additionalInfo: string;
   // Intern verwendet (nicht in UI)
   promptVersion: string;
+}
+
+interface KeywordAnalysis {
+  secondaryKeywords: string[];
+  wQuestions: string[];
+  searchIntent: "know" | "do" | "buy" | "go";
+  suggestedTopics: string[];
 }
 
 interface SeoTextContent {
@@ -114,6 +122,7 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
     formOfAddress: "du",
     // Erweiterte Optionen
     secondaryKeywords: [],
+    wQuestions: [],
     brandName: "",
     additionalInfo: "",
     // Intern
@@ -121,6 +130,9 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
   });
 
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [isAnalyzingKeyword, setIsAnalyzingKeyword] = useState(false);
+  const [keywordAnalysis, setKeywordAnalysis] = useState<KeywordAnalysis | null>(null);
+  const [showKeywordSuggestions, setShowKeywordSuggestions] = useState(false);
 
   useEffect(() => {
     if (!session) {
@@ -147,6 +159,96 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
       ...formData,
       secondaryKeywords: formData.secondaryKeywords.filter((k) => k !== keyword),
     });
+  };
+
+  const handleRemoveWQuestion = (question: string) => {
+    setFormData({
+      ...formData,
+      wQuestions: formData.wQuestions.filter((q) => q !== question),
+    });
+  };
+
+  const handleAnalyzeKeyword = async () => {
+    if (!formData.focusKeyword.trim()) {
+      toast({ title: "Fehler", description: "Bitte zuerst ein Fokus-Keyword eingeben", variant: "destructive" });
+      return;
+    }
+
+    setIsAnalyzingKeyword(true);
+    const endTimer = logWithTimer('api', 'Keyword-Analyse');
+    log('api', 'analyze-keyword aufgerufen', { focusKeyword: formData.focusKeyword });
+
+    try {
+      const { data, error } = await supabase.functions.invoke("analyze-keyword", {
+        body: {
+          focusKeyword: formData.focusKeyword,
+          targetAudience: formData.targetAudience,
+          language: 'de'
+        },
+      });
+
+      if (error) throw error;
+
+      log('response', 'analyze-keyword erfolgreich', {
+        secondaryKeywordsCount: data.analysis?.secondaryKeywords?.length,
+        wQuestionsCount: data.analysis?.wQuestions?.length,
+        searchIntent: data.analysis?.searchIntent,
+      });
+
+      setKeywordAnalysis(data.analysis);
+      setShowKeywordSuggestions(true);
+      setShowAdvanced(true); // Erweiterte Optionen öffnen um Übernahme zu sehen
+      toast({ title: "Analyse abgeschlossen", description: "Keyword-Vorschläge wurden generiert" });
+    } catch (error) {
+      log('error', 'analyze-keyword fehlgeschlagen', { error: String(error) });
+      console.error("Keyword analysis error:", error);
+      toast({ title: "Fehler", description: "Keyword-Analyse fehlgeschlagen", variant: "destructive" });
+    } finally {
+      endTimer();
+      setIsAnalyzingKeyword(false);
+    }
+  };
+
+  const handleAddSuggestedKeyword = (keyword: string) => {
+    if (!formData.secondaryKeywords.includes(keyword)) {
+      setFormData({
+        ...formData,
+        secondaryKeywords: [...formData.secondaryKeywords, keyword],
+      });
+    }
+  };
+
+  const handleAddSuggestedQuestion = (question: string) => {
+    if (!formData.wQuestions.includes(question)) {
+      setFormData({
+        ...formData,
+        wQuestions: [...formData.wQuestions, question],
+      });
+    }
+  };
+
+  const handleAddAllSuggestedKeywords = () => {
+    if (keywordAnalysis?.secondaryKeywords) {
+      const newKeywords = keywordAnalysis.secondaryKeywords.filter(
+        k => !formData.secondaryKeywords.includes(k)
+      );
+      setFormData({
+        ...formData,
+        secondaryKeywords: [...formData.secondaryKeywords, ...newKeywords],
+      });
+    }
+  };
+
+  const handleAddAllSuggestedQuestions = () => {
+    if (keywordAnalysis?.wQuestions) {
+      const newQuestions = keywordAnalysis.wQuestions.filter(
+        q => !formData.wQuestions.includes(q)
+      );
+      setFormData({
+        ...formData,
+        wQuestions: [...formData.wQuestions, ...newQuestions],
+      });
+    }
   };
 
   // Build preview of System-Prompt based on selected version
@@ -847,15 +949,37 @@ da historische Versionen nicht vollständig implementiert sind.`;
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* 1. Focus Keyword */}
+                {/* 1. Focus Keyword + Analyze Button */}
                 <div>
                   <Label className="text-sm font-medium">Fokus-Keyword *</Label>
-                  <Input
-                    value={formData.focusKeyword}
-                    onChange={(e) => setFormData({ ...formData, focusKeyword: e.target.value })}
-                    placeholder="z.B. Kinesiologie Tape"
-                    className="mt-1"
-                  />
+                  <div className="flex gap-2 mt-1">
+                    <Input
+                      value={formData.focusKeyword}
+                      onChange={(e) => setFormData({ ...formData, focusKeyword: e.target.value })}
+                      placeholder="z.B. Kinesiologie Tape"
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAnalyzeKeyword}
+                      disabled={isAnalyzingKeyword || !formData.focusKeyword.trim()}
+                      className="shrink-0"
+                    >
+                      {isAnalyzingKeyword ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Sparkles className="h-4 w-4 mr-1" />
+                          Analysieren
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Klicke "Analysieren" für Keyword- und W-Fragen-Vorschläge
+                  </p>
                 </div>
 
                 {/* 2. Writing Style (Tone) */}
@@ -997,6 +1121,113 @@ da historische Versionen nicht vollständig implementiert sind.`;
                     <ChevronDown className={`h-4 w-4 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
                   </CollapsibleTrigger>
                   <CollapsibleContent className="pt-4 space-y-4">
+                    {/* Keyword Suggestions (if available) */}
+                    {showKeywordSuggestions && keywordAnalysis && (
+                      <Card className="p-3 bg-primary/5 border-primary/20">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-sm font-medium flex items-center gap-1">
+                            <Sparkles className="h-4 w-4 text-primary" />
+                            Keyword-Vorschläge
+                          </h4>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowKeywordSuggestions(false)}
+                            className="h-6 w-6 p-0"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+
+                        {/* Search Intent Info */}
+                        {keywordAnalysis.searchIntent && (
+                          <div className="mb-2">
+                            <Badge variant="outline" className="text-xs">
+                              Suchintention: {
+                                keywordAnalysis.searchIntent === 'know' ? 'Informationssuche' :
+                                keywordAnalysis.searchIntent === 'do' ? 'Transaktional' :
+                                keywordAnalysis.searchIntent === 'buy' ? 'Kaufabsicht' : 'Navigation'
+                              }
+                            </Badge>
+                          </div>
+                        )}
+
+                        {/* Secondary Keywords Suggestions */}
+                        {keywordAnalysis.secondaryKeywords && keywordAnalysis.secondaryKeywords.length > 0 && (
+                          <div className="mb-3">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs text-muted-foreground">Sekundär-Keywords</span>
+                              <Button
+                                type="button"
+                                variant="link"
+                                size="sm"
+                                onClick={handleAddAllSuggestedKeywords}
+                                className="h-auto p-0 text-xs"
+                              >
+                                Alle hinzufügen
+                              </Button>
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {keywordAnalysis.secondaryKeywords.map((kw) => (
+                                <Badge
+                                  key={kw}
+                                  variant={formData.secondaryKeywords.includes(kw) ? "secondary" : "outline"}
+                                  className="text-xs cursor-pointer hover:bg-primary/20"
+                                  onClick={() => handleAddSuggestedKeyword(kw)}
+                                >
+                                  {formData.secondaryKeywords.includes(kw) ? (
+                                    <Check className="h-3 w-3 mr-1" />
+                                  ) : (
+                                    <ChevronRight className="h-3 w-3 mr-1" />
+                                  )}
+                                  {kw}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* W-Questions Suggestions */}
+                        {keywordAnalysis.wQuestions && keywordAnalysis.wQuestions.length > 0 && (
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs text-muted-foreground">W-Fragen</span>
+                              <Button
+                                type="button"
+                                variant="link"
+                                size="sm"
+                                onClick={handleAddAllSuggestedQuestions}
+                                className="h-auto p-0 text-xs"
+                              >
+                                Alle hinzufügen
+                              </Button>
+                            </div>
+                            <div className="space-y-1">
+                              {keywordAnalysis.wQuestions.map((q) => (
+                                <div
+                                  key={q}
+                                  className={`text-xs p-1.5 rounded cursor-pointer flex items-center gap-1 ${
+                                    formData.wQuestions.includes(q)
+                                      ? 'bg-primary/10 text-primary'
+                                      : 'bg-muted hover:bg-muted/80'
+                                  }`}
+                                  onClick={() => handleAddSuggestedQuestion(q)}
+                                >
+                                  {formData.wQuestions.includes(q) ? (
+                                    <Check className="h-3 w-3 shrink-0" />
+                                  ) : (
+                                    <ChevronRight className="h-3 w-3 shrink-0" />
+                                  )}
+                                  {q}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </Card>
+                    )}
+
                     {/* Secondary Keywords */}
                     <div>
                       <Label className="text-xs">Sekundär-Keywords</Label>
@@ -1025,6 +1256,24 @@ da historische Versionen nicht vollständig implementiert sind.`;
                         </div>
                       )}
                     </div>
+
+                    {/* W-Questions (selected) */}
+                    {formData.wQuestions.length > 0 && (
+                      <div>
+                        <Label className="text-xs">W-Fragen für FAQ</Label>
+                        <div className="space-y-1 mt-1">
+                          {formData.wQuestions.map((q) => (
+                            <div key={q} className="flex items-center gap-1 text-xs bg-muted p-1.5 rounded">
+                              <MessageSquare className="h-3 w-3 shrink-0 text-muted-foreground" />
+                              <span className="flex-1">{q}</span>
+                              <button onClick={() => handleRemoveWQuestion(q)} className="hover:text-destructive">
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Brand Name */}
                     <div>
