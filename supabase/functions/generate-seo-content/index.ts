@@ -87,7 +87,7 @@ const formDataSchema = z.object({
   pageType: z.string().max(100).optional(),
   targetAudience: z.string().max(100).optional(),
   formOfAddress: z.enum(['du', 'sie', 'neutral']).optional(),
-  tone: z.enum(['factual', 'advisory', 'sales']).optional(),
+  tone: z.enum(['factual', 'advisory', 'sales', 'sachlich', 'beratend', 'aktivierend']).optional(),
   contentLength: z.enum(['short', 'medium', 'long']).optional(),
   keywordDensity: z.enum(['minimal', 'low', 'normal', 'medium', 'high']).optional(),
   secondaryKeywords: z.array(z.string().max(100)).max(20).optional(),
@@ -313,145 +313,28 @@ serve(async (req) => {
         { role: 'user', content: 'Hier ist der aktuelle Text:\n\n' + JSON.stringify(formData.existingContent, null, 2) + '\n\nBitte ueberarbeite:\n' + formData.refinementPrompt + '\n\nGib den Text im gleichen JSON-Format zurueck.' }
       ];
     } else {
-      console.log('Generating 3 content variants in parallel with model: ' + modelConfig.modelName);
+      // Single content generation based on tone
+      console.log('Generating single content with tone:', formData.tone);
 
-      // v9.0 Varianten-Stile
-      const variantApproaches = [
-        {
-          name: 'Variante A',
-          description: 'Sachlich & Strukturiert',
-          instruction: 'STIL: SACHLICH & STRUKTURIERT\n- Faktenbasiert mit klarer Hierarchie\n- Nutze Listen und Aufzählungen wo sinnvoll\n- Ruhiger, vertrauensbildender Ton\n- Daten und Fakten zur Untermauerung\n- Objektiv und informativ'
-        },
-        {
-          name: 'Variante B',
-          description: 'Nutzenorientiert & Aktivierend',
-          instruction: 'STIL: NUTZENORIENTIERT & AKTIVIEREND\n- Starte Abschnitte mit Nutzenversprechen\n- Zeige Transformation (vorher → nachher)\n- Integriere CTAs an passenden Stellen\n- Konkrete Ergebnisse hervorheben\n- Aktivierende Verben und Sprache'
-        },
-        {
-          name: 'Variante C',
-          description: 'Nahbar & Authentisch',
-          instruction: 'STIL: NAHBAR & AUTHENTISCH\n- Beginne mit realem Szenario aus dem Alltag\n- "Kennst du das?"-Einstiege\n- Nutze bildhafte, sensorische Sprache\n- Zeige Empathie für Nutzerbedürfnisse\n- Warmherziger, menschlicher Ton'
-        }
-      ];
-
-      // Track total costs across variants
-      let totalInputTokens = 0;
-      let totalOutputTokens = 0;
-
-      const generateVariant = async (variantIndex: number): Promise<any> => {
-        const approach = variantApproaches[variantIndex];
-
-        // Kombiniere System-Prompt mit Varianten-Stil
-        const enhancedUserPrompt = approach.instruction + '\n\n' + userPrompt;
-
-        const variantMessages = [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: enhancedUserPrompt }
-        ];
-
-        // Estimate input tokens for cost tracking
-        const inputTokens = estimateTokens(systemPrompt + enhancedUserPrompt);
-
-        const maxRetries = 3;
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-          try {
-            console.log('Variant ' + (variantIndex + 1) + ' (' + approach.name + '): attempt ' + attempt + ' | Model: ' + modelConfig.modelName);
-            console.log('System prompt length:', systemPrompt?.length || 0);
-            console.log('User prompt length:', enhancedUserPrompt?.length || 0);
-
-            const requestBody = {
-              model: modelConfig.modelName,
-              messages: variantMessages,
-              temperature: modelConfig.temperature
-            };
-            
-            const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-              method: 'POST',
-              headers: { 'Authorization': 'Bearer ' + LOVABLE_API_KEY, 'Content-Type': 'application/json' },
-              body: JSON.stringify(requestBody),
-            });
-            
-            if (!response.ok) {
-              const errorText = await response.text();
-              console.error('API Error Response:', response.status, errorText);
-            }
-
-            if (response.ok) {
-              const data = await response.json();
-              const rawContent = data.choices[0].message.content;
-              console.log('Variant ' + (variantIndex + 1) + ' raw response length:', rawContent?.length || 0);
-
-              // Track tokens for cost calculation
-              const outputTokens = estimateTokens(rawContent || '');
-              totalInputTokens += inputTokens;
-              totalOutputTokens += outputTokens;
-
-              const parsed = parseGeneratedContent(rawContent, formData);
-
-              if (!parsed.seoText || parsed.seoText.length < 50) {
-                console.error('CRITICAL: Variant ' + (variantIndex + 1) + ' has empty or too short seoText:', parsed.seoText?.length || 0);
-                if (attempt < maxRetries) {
-                  console.log('Retrying variant ' + (variantIndex + 1) + ' due to empty content...');
-                  await new Promise(resolve => setTimeout(resolve, 1000));
-                  continue;
-                }
-              }
-
-              parsed._variantInfo = { name: approach.name, description: approach.description, index: variantIndex };
-              console.log('Variant ' + (variantIndex + 1) + ' successfully parsed. seoText length:', parsed.seoText?.length || 0);
-              return parsed;
-            }
-            
-            if (response.status === 429 || response.status === 402) {
-              throw new Error(response.status === 429 ? 'Rate limit exceeded' : 'Payment required');
-            }
-            
-            if (response.status >= 500 && attempt < maxRetries) {
-              console.log('Server error for variant ' + (variantIndex + 1) + ', retrying...');
-              await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
-              continue;
-            }
-            
-            throw new Error('AI Gateway error: ' + response.status);
-          } catch (err) {
-            console.error('Error generating variant ' + (variantIndex + 1) + ':', err);
-            if (attempt === maxRetries) throw err;
-            await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
-          }
-        }
-        throw new Error('Failed to generate variant ' + variantIndex + ' after ' + maxRetries + ' attempts');
+      // Map tone to writing style instruction
+      const toneInstructions: Record<string, string> = {
+        'sachlich': 'SCHREIBSTIL: SACHLICH & STRUKTURIERT\n- Faktenbasiert mit klarer Hierarchie\n- Nutze Listen und Aufzählungen wo sinnvoll\n- Ruhiger, vertrauensbildender Ton\n- Daten und Fakten zur Untermauerung\n- Objektiv und informativ',
+        'beratend': 'SCHREIBSTIL: BERATEND & NUTZENORIENTIERT\n- Fokus auf praktischen Nutzen und Lösungen\n- Empathisch und hilfreich\n- "Du fragst dich..."-Einstiege\n- Konkrete Empfehlungen und Tipps\n- Vertrauensaufbauend und unterstützend',
+        'aktivierend': 'SCHREIBSTIL: AKTIVIEREND & ÜBERZEUGEND\n- Starte mit starkem Nutzenversprechen\n- Zeige Transformation (vorher → nachher)\n- Integriere CTAs an passenden Stellen\n- Konkrete Ergebnisse hervorheben\n- Aktivierende Verben und überzeugende Sprache'
       };
-      
-      const variants = await Promise.all([generateVariant(0), generateVariant(1), generateVariant(2)]);
-      console.log('Successfully generated 3 variants');
 
-      // Calculate and log costs
-      const costInfo = calculateCost(modelConfig, totalInputTokens, totalOutputTokens);
-      console.log('=== COST SUMMARY ===');
-      console.log('Model:', modelConfig.modelName);
-      console.log('Input tokens:', totalInputTokens);
-      console.log('Output tokens:', totalOutputTokens);
-      console.log('Total cost:', costInfo.formatted);
+      const toneInstruction = toneInstructions[formData.tone] || toneInstructions['beratend'];
+      const enhancedUserPrompt = toneInstruction + '\n\n' + userPrompt;
 
-      return new Response(JSON.stringify({
-        variants,
-        selectedVariant: 0,
-        variantDescriptions: variantApproaches.map(a => ({ name: a.name, description: a.description })),
-        _meta: {
-          model: modelConfig.id,
-          modelName: modelConfig.modelName,
-          inputTokens: totalInputTokens,
-          outputTokens: totalOutputTokens,
-          cost: costInfo
-        }
-      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      messages = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: enhancedUserPrompt }
+      ];
     }
 
-    // Refinement/quick change - single generation
+    // Single generation (for new content and refinement/quick change)
     const maxRetries = 3;
     let response: Response | null = null;
-
-    console.log('Refinement/Quick-Change with model:', modelConfig.modelName);
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
@@ -1448,7 +1331,7 @@ function parseGeneratedContent(text: string, formData: any): any {
 function validateAndFixContent(content: any, mainTopic: string): any {
   const seoText = content.seoText || content.text || '';
   const faq = Array.isArray(content.faq) ? content.faq : [];
-  
+
   if (!seoText || seoText.length < 100) {
     console.error('VALIDATION FAILED: seoText too short or empty:', seoText.length);
     return {
@@ -1458,23 +1341,66 @@ function validateAndFixContent(content: any, mainTopic: string): any {
       metaDescription: '',
       internalLinks: [],
       technicalHints: '',
-      qualityReport: { status: 'error', flags: ['Content too short'], evidenceTable: [] }
+      qualityReport: { status: 'error', flags: ['Content too short'], evidenceTable: [] },
+      guidelineValidation: { overallScore: 0, googleEEAT: {} }
     };
   }
-  
+
+  // Analyze content for quality metrics
+  const plainText = seoText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  const wordCount = plainText.split(' ').filter((w: string) => w.length > 0).length;
+  const h1Count = (seoText.match(/<h1[^>]*>/gi) || []).length;
+  const h2Count = (seoText.match(/<h2[^>]*>/gi) || []).length;
+  const h3Count = (seoText.match(/<h3[^>]*>/gi) || []).length;
+  const listCount = (seoText.match(/<ul[^>]*>|<ol[^>]*>/gi) || []).length;
+  const strongCount = (seoText.match(/<strong[^>]*>/gi) || []).length;
+  const faqCount = faq.length;
+
+  // Calculate E-E-A-T scores based on content analysis
+  const experienceScore = Math.min(100, 50 + (listCount * 10) + (faqCount * 5));
+  const expertiseScore = Math.min(100, 40 + (h2Count * 10) + (h3Count * 5) + (strongCount * 2));
+  const authorityScore = Math.min(100, 50 + (wordCount > 600 ? 20 : wordCount > 400 ? 10 : 0) + (h2Count * 5));
+  const trustScore = Math.min(100, 60 + (faqCount >= 5 ? 20 : faqCount * 4) + (h1Count === 1 ? 10 : 0));
+
+  // Calculate overall score
+  const overallScore = Math.round((experienceScore + expertiseScore + authorityScore + trustScore) / 4);
+
+  // Determine status based on score
+  const getStatus = (score: number) => score >= 70 ? 'green' : score >= 50 ? 'yellow' : 'red';
+
+  const guidelineValidation = {
+    overallScore,
+    googleEEAT: {
+      experience: { score: experienceScore, status: getStatus(experienceScore) },
+      expertise: { score: expertiseScore, status: getStatus(expertiseScore) },
+      authoritativeness: { score: authorityScore, status: getStatus(authorityScore) },
+      trustworthiness: { score: trustScore, status: getStatus(trustScore) }
+    },
+    metrics: {
+      wordCount,
+      h1Count,
+      h2Count,
+      h3Count,
+      listCount,
+      strongCount,
+      faqCount
+    }
+  };
+
   const validated = {
     seoText: seoText,
-    faq: faq.length > 0 ? faq : [{ 
-      question: 'Was zeichnet ' + mainTopic + ' aus?', 
-      answer: 'Detaillierte Informationen finden Sie im Text oben.' 
+    faq: faq.length > 0 ? faq : [{
+      question: 'Was zeichnet ' + mainTopic + ' aus?',
+      answer: 'Detaillierte Informationen finden Sie im Text oben.'
     }],
     title: content.title || mainTopic.substring(0, 60),
     metaDescription: content.metaDescription || content.meta_description || seoText.replace(/<[^>]*>/g, '').substring(0, 155),
     internalLinks: Array.isArray(content.internalLinks) ? content.internalLinks : [],
     technicalHints: content.technicalHints || 'Schema.org Product/Article Markup empfohlen',
-    qualityReport: content.qualityReport || { status: 'green', flags: [], evidenceTable: [] }
+    qualityReport: content.qualityReport || { status: getStatus(overallScore), flags: [], evidenceTable: [] },
+    guidelineValidation
   };
-  
-  console.log('Content validated successfully. seoText length:', validated.seoText.length);
+
+  console.log('Content validated successfully. seoText length:', validated.seoText.length, 'Overall score:', overallScore);
   return validated;
 }

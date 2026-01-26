@@ -52,26 +52,26 @@ interface BasicVersionProps {
 }
 
 interface FormData {
+  // Kernfelder (immer sichtbar)
   focusKeyword: string;
-  secondaryKeywords: string[];
-  wQuestions: string[];
-  searchIntent: ("know" | "do" | "buy" | "go")[];
-  keywordDensity: "low" | "medium" | "high";
-  pageType: "product" | "category";
+  tone: "sachlich" | "beratend" | "aktivierend";
+  contentLength: "short" | "medium" | "long";
   targetAudience: "endCustomers" | "physiotherapists";
   formOfAddress: "du" | "sie" | "neutral";
-  contentLength: "short" | "medium" | "long";
-  tone: string;
-  manufacturerWebsite: string;
-  manufacturerInfo: string;
-  additionalInfo: string;
+  // Erweiterte Optionen (optional)
+  secondaryKeywords: string[];
+  wQuestions: string[];
   brandName: string;
+  additionalInfo: string;
+  // Intern verwendet (nicht in UI)
   promptVersion: string;
-  pageGoal: "inform" | "advise" | "preparePurchase" | "triggerPurchase";
-  complianceCheck: boolean;
-  checkMDR: boolean;
-  checkHWG: boolean;
-  checkStudies: boolean;
+}
+
+interface KeywordAnalysis {
+  secondaryKeywords: string[];
+  wQuestions: string[];
+  searchIntent: "know" | "do" | "buy" | "go";
+  suggestedTopics: string[];
 }
 
 interface SeoTextContent {
@@ -114,29 +114,25 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
   const [keywordInput, setKeywordInput] = useState("");
 
   const [formData, setFormData] = useState<FormData>({
+    // Kernfelder
     focusKeyword: "",
-    secondaryKeywords: [],
-    wQuestions: [],
-    searchIntent: [],
-    keywordDensity: "medium",
-    pageType: "product",
+    tone: "beratend",
+    contentLength: "medium",
     targetAudience: "endCustomers",
     formOfAddress: "du",
-    contentLength: "medium",
-    tone: "advisory",
-    manufacturerWebsite: "",
-    manufacturerInfo: "",
-    additionalInfo: "",
+    // Erweiterte Optionen
+    secondaryKeywords: [],
+    wQuestions: [],
     brandName: "",
+    additionalInfo: "",
+    // Intern
     promptVersion: "v9-master",
-    pageGoal: "inform",
-    complianceCheck: false,
-    checkMDR: false,
-    checkHWG: false,
-    checkStudies: false,
   });
-  
-  const [wQuestionInput, setWQuestionInput] = useState("");
+
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [isAnalyzingKeyword, setIsAnalyzingKeyword] = useState(false);
+  const [keywordAnalysis, setKeywordAnalysis] = useState<KeywordAnalysis | null>(null);
+  const [showKeywordSuggestions, setShowKeywordSuggestions] = useState(false);
 
   useEffect(() => {
     if (!session) {
@@ -165,16 +161,6 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
     });
   };
 
-  const handleAddWQuestion = () => {
-    if (wQuestionInput.trim() && !formData.wQuestions.includes(wQuestionInput.trim())) {
-      setFormData({
-        ...formData,
-        wQuestions: [...formData.wQuestions, wQuestionInput.trim()],
-      });
-      setWQuestionInput("");
-    }
-  };
-
   const handleRemoveWQuestion = (question: string) => {
     setFormData({
       ...formData,
@@ -182,13 +168,87 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
     });
   };
 
-  const toggleSearchIntent = (intent: "know" | "do" | "buy" | "go") => {
-    setFormData({
-      ...formData,
-      searchIntent: formData.searchIntent.includes(intent)
-        ? formData.searchIntent.filter((i) => i !== intent)
-        : [...formData.searchIntent, intent],
-    });
+  const handleAnalyzeKeyword = async () => {
+    if (!formData.focusKeyword.trim()) {
+      toast({ title: "Fehler", description: "Bitte zuerst ein Fokus-Keyword eingeben", variant: "destructive" });
+      return;
+    }
+
+    setIsAnalyzingKeyword(true);
+    const endTimer = logWithTimer('api', 'Keyword-Analyse');
+    log('api', 'analyze-keyword aufgerufen', { focusKeyword: formData.focusKeyword });
+
+    try {
+      const { data, error } = await supabase.functions.invoke("analyze-keyword", {
+        body: {
+          focusKeyword: formData.focusKeyword,
+          targetAudience: formData.targetAudience,
+          language: 'de'
+        },
+      });
+
+      if (error) throw error;
+
+      log('response', 'analyze-keyword erfolgreich', {
+        secondaryKeywordsCount: data.analysis?.secondaryKeywords?.length,
+        wQuestionsCount: data.analysis?.wQuestions?.length,
+        searchIntent: data.analysis?.searchIntent,
+      });
+
+      setKeywordAnalysis(data.analysis);
+      setShowKeywordSuggestions(true);
+      setShowAdvanced(true); // Erweiterte Optionen öffnen um Übernahme zu sehen
+      toast({ title: "Analyse abgeschlossen", description: "Keyword-Vorschläge wurden generiert" });
+    } catch (error) {
+      log('error', 'analyze-keyword fehlgeschlagen', { error: String(error) });
+      console.error("Keyword analysis error:", error);
+      toast({ title: "Fehler", description: "Keyword-Analyse fehlgeschlagen", variant: "destructive" });
+    } finally {
+      endTimer();
+      setIsAnalyzingKeyword(false);
+    }
+  };
+
+  const handleAddSuggestedKeyword = (keyword: string) => {
+    if (!formData.secondaryKeywords.includes(keyword)) {
+      setFormData({
+        ...formData,
+        secondaryKeywords: [...formData.secondaryKeywords, keyword],
+      });
+    }
+  };
+
+  const handleAddSuggestedQuestion = (question: string) => {
+    if (!formData.wQuestions.includes(question)) {
+      setFormData({
+        ...formData,
+        wQuestions: [...formData.wQuestions, question],
+      });
+    }
+  };
+
+  const handleAddAllSuggestedKeywords = () => {
+    if (keywordAnalysis?.secondaryKeywords) {
+      const newKeywords = keywordAnalysis.secondaryKeywords.filter(
+        k => !formData.secondaryKeywords.includes(k)
+      );
+      setFormData({
+        ...formData,
+        secondaryKeywords: [...formData.secondaryKeywords, ...newKeywords],
+      });
+    }
+  };
+
+  const handleAddAllSuggestedQuestions = () => {
+    if (keywordAnalysis?.wQuestions) {
+      const newQuestions = keywordAnalysis.wQuestions.filter(
+        q => !formData.wQuestions.includes(q)
+      );
+      setFormData({
+        ...formData,
+        wQuestions: [...formData.wQuestions, ...newQuestions],
+      });
+    }
   };
 
   // Build preview of System-Prompt based on selected version
@@ -658,17 +718,12 @@ da historische Versionen nicht vollständig implementiert sind.`;
         return;
       }
 
-      log('response', 'generate-seo-content erfolgreich', { 
-        hasVariants: !!data?.variants,
-        variantCount: data?.variants?.length,
-        selectedVariant: data?.selectedVariant 
+      log('response', 'generate-seo-content erfolgreich', {
+        hasSeoText: !!data?.seoText,
+        hasFaq: !!data?.faq
       });
 
-      let content = data;
-      if (data?.variants && Array.isArray(data.variants) && data.variants.length > 0) {
-        log('state', 'Variante ausgewählt', { index: 0, name: data.variants[0]?._variantInfo?.name });
-        content = data.variants[0];
-      }
+      const content = data;
 
       log('response', 'Content-Struktur', { 
         seoTextLength: content?.seoText?.length,
@@ -885,372 +940,162 @@ da historische Versionen nicht vollständig implementiert sind.`;
               <ProcessFlowPanel currentStep={currentStep} formData={formData} />
             )}
 
-            {/* Compact Input Form */}
+            {/* Simplified Input Form */}
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <Settings className="h-5 w-5" />
-                  Eingaben
+                  <Sparkles className="h-5 w-5" />
+                  Content Basic
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Focus Keyword */}
+                {/* 1. Focus Keyword + Analyze Button */}
                 <div>
                   <Label className="text-sm font-medium">Fokus-Keyword *</Label>
-                  <Input
-                    value={formData.focusKeyword}
-                    onChange={(e) => setFormData({ ...formData, focusKeyword: e.target.value })}
-                    placeholder="z.B. Kinesiologie Tape"
-                    className="mt-1"
-                  />
-                </div>
-
-                {/* Secondary Keywords */}
-                <div>
-                  <Label className="text-sm font-medium">Sekundär-Keywords</Label>
                   <div className="flex gap-2 mt-1">
                     <Input
-                      value={keywordInput}
-                      onChange={(e) => setKeywordInput(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddKeyword())}
-                      placeholder="+ Enter"
+                      value={formData.focusKeyword}
+                      onChange={(e) => setFormData({ ...formData, focusKeyword: e.target.value })}
+                      placeholder="z.B. Kinesiologie Tape"
                       className="flex-1"
                     />
-                    <Button type="button" onClick={handleAddKeyword} variant="outline" size="icon">
-                      <ChevronRight className="h-4 w-4" />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAnalyzeKeyword}
+                      disabled={isAnalyzingKeyword || !formData.focusKeyword.trim()}
+                      className="shrink-0"
+                    >
+                      {isAnalyzingKeyword ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Sparkles className="h-4 w-4 mr-1" />
+                          Analysieren
+                        </>
+                      )}
                     </Button>
                   </div>
-                  {formData.secondaryKeywords.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {formData.secondaryKeywords.map((kw) => (
-                        <Badge key={kw} variant="secondary" className="gap-1 pr-1 text-xs">
-                          {kw}
-                          <button onClick={() => handleRemoveKeyword(kw)} className="hover:text-destructive">
-                            <X className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Klicke "Analysieren" für Keyword- und W-Fragen-Vorschläge
+                  </p>
                 </div>
 
-                {/* W-Fragen */}
+                {/* 2. Writing Style (Tone) */}
                 <div>
-                  <Label className="text-sm font-medium flex items-center gap-2">
-                    <MessageSquare className="h-4 w-4" />
-                    W-Fragen
-                  </Label>
-                  <div className="flex gap-2 mt-1">
-                    <Input
-                      value={wQuestionInput}
-                      onChange={(e) => setWQuestionInput(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddWQuestion())}
-                      placeholder="z.B. Was ist Kinesiologie Tape?"
-                      className="flex-1"
-                    />
-                    <Button type="button" onClick={handleAddWQuestion} variant="outline" size="icon">
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  {formData.wQuestions.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {formData.wQuestions.map((q) => (
-                        <Badge key={q} variant="outline" className="gap-1 pr-1 text-xs bg-accent/50">
-                          {q}
-                          <button onClick={() => handleRemoveWQuestion(q)} className="hover:text-destructive">
-                            <X className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Suchintention */}
-                <div>
-                  <Label className="text-sm font-medium">Suchintention</Label>
-                  <div className="grid grid-cols-4 gap-2 mt-1">
+                  <Label className="text-sm font-medium">Schreibstil</Label>
+                  <div className="grid grid-cols-3 gap-2 mt-1">
                     {[
-                      { value: "know", label: "Know", icon: "📚" },
-                      { value: "do", label: "Do", icon: "⚡" },
-                      { value: "buy", label: "Buy", icon: "🛒" },
-                      { value: "go", label: "Go", icon: "📍" },
-                    ].map(({ value, label, icon }) => (
+                      { value: "sachlich", label: "Sachlich", desc: "Faktenbasiert" },
+                      { value: "beratend", label: "Beratend", desc: "Nutzenorientiert" },
+                      { value: "aktivierend", label: "Aktivierend", desc: "Überzeugend" },
+                    ].map(({ value, label, desc }) => (
                       <label
                         key={value}
-                        className={`flex flex-col items-center justify-center p-2 border rounded-lg cursor-pointer transition-colors text-xs ${
-                          formData.searchIntent.includes(value as any)
+                        className={`flex flex-col items-center justify-center p-3 border rounded-lg cursor-pointer transition-colors ${
+                          formData.tone === value
                             ? "border-primary bg-primary/10 text-primary"
                             : "hover:bg-muted"
                         }`}
                       >
                         <input
-                          type="checkbox"
+                          type="radio"
                           className="sr-only"
-                          checked={formData.searchIntent.includes(value as any)}
-                          onChange={() => toggleSearchIntent(value as any)}
+                          checked={formData.tone === value}
+                          onChange={() => setFormData({ ...formData, tone: value as any })}
                         />
-                        <span className="text-base mb-0.5">{icon}</span>
-                        <span>{label}</span>
+                        <span className="font-medium text-sm">{label}</span>
+                        <span className="text-xs text-muted-foreground">{desc}</span>
                       </label>
                     ))}
                   </div>
                 </div>
 
-                {/* Quick Settings Row */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <Label className="text-xs">Seitentyp</Label>
-                    <Select 
-                      value={formData.pageType} 
-                      onValueChange={(v: "product" | "category") => setFormData({ ...formData, pageType: v })}
-                    >
-                      <SelectTrigger className="mt-1 h-9 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="product">Produkt</SelectItem>
-                        <SelectItem value="category">Kategorie</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs">Textlänge</Label>
-                    <Select 
-                      value={formData.contentLength} 
-                      onValueChange={(v: "short" | "medium" | "long") => setFormData({ ...formData, contentLength: v })}
-                    >
-                      <SelectTrigger className="mt-1 h-9 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="short">Kurz (~400)</SelectItem>
-                        <SelectItem value="medium">Mittel (~800)</SelectItem>
-                        <SelectItem value="long">Lang (~1200)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs">Keyword-Dichte</Label>
-                    <Select 
-                      value={formData.keywordDensity} 
-                      onValueChange={(v: "low" | "medium" | "high") => setFormData({ ...formData, keywordDensity: v })}
-                    >
-                      <SelectTrigger className="mt-1 h-9 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">Niedrig (1-2%)</SelectItem>
-                        <SelectItem value="medium">Mittel (2-3%)</SelectItem>
-                        <SelectItem value="high">Hoch (3-4%)</SelectItem>
-                      </SelectContent>
-                    </Select>
+                {/* 3. Content Length */}
+                <div>
+                  <Label className="text-sm font-medium">Textlänge</Label>
+                  <div className="grid grid-cols-3 gap-2 mt-1">
+                    {[
+                      { value: "short", label: "Kurz", desc: "~400 Wörter" },
+                      { value: "medium", label: "Mittel", desc: "~800 Wörter" },
+                      { value: "long", label: "Lang", desc: "~1200 Wörter" },
+                    ].map(({ value, label, desc }) => (
+                      <label
+                        key={value}
+                        className={`flex flex-col items-center justify-center p-2 border rounded-lg cursor-pointer transition-colors text-sm ${
+                          formData.contentLength === value
+                            ? "border-primary bg-primary/10"
+                            : "hover:bg-muted"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          className="sr-only"
+                          checked={formData.contentLength === value}
+                          onChange={() => setFormData({ ...formData, contentLength: value as any })}
+                        />
+                        <span className="font-medium">{label}</span>
+                        <span className="text-xs text-muted-foreground">{desc}</span>
+                      </label>
+                    ))}
                   </div>
                 </div>
 
-                {/* Target Audience */}
+                {/* 4. Target Audience */}
                 <div>
-                  <Label className="text-xs">Zielgruppe</Label>
+                  <Label className="text-sm font-medium">Zielgruppe</Label>
                   <div className="flex gap-2 mt-1">
-                    <label className={`flex-1 flex items-center justify-center gap-2 p-2 border rounded-lg cursor-pointer transition-colors text-xs ${
+                    <label className={`flex-1 flex flex-col items-center justify-center p-2 border rounded-lg cursor-pointer transition-colors ${
                       formData.targetAudience === "endCustomers" ? "border-primary bg-primary/10" : "hover:bg-muted"
                     }`}>
-                      <input 
-                        type="radio" 
-                        className="sr-only" 
+                      <input
+                        type="radio"
+                        className="sr-only"
                         checked={formData.targetAudience === "endCustomers"}
                         onChange={() => setFormData({ ...formData, targetAudience: "endCustomers" })}
                       />
-                      B2C
+                      <span className="font-medium text-sm">B2C</span>
+                      <span className="text-xs text-muted-foreground">Endkunden</span>
                     </label>
-                    <label className={`flex-1 flex items-center justify-center gap-2 p-2 border rounded-lg cursor-pointer transition-colors text-xs ${
+                    <label className={`flex-1 flex flex-col items-center justify-center p-2 border rounded-lg cursor-pointer transition-colors ${
                       formData.targetAudience === "physiotherapists" ? "border-primary bg-primary/10" : "hover:bg-muted"
                     }`}>
-                      <input 
-                        type="radio" 
-                        className="sr-only" 
+                      <input
+                        type="radio"
+                        className="sr-only"
                         checked={formData.targetAudience === "physiotherapists"}
                         onChange={() => setFormData({ ...formData, targetAudience: "physiotherapists" })}
                       />
-                      B2B/Fach
+                      <span className="font-medium text-sm">B2B</span>
+                      <span className="text-xs text-muted-foreground">Fachpersonal</span>
                     </label>
                   </div>
                 </div>
 
-                {/* Address Form */}
+                {/* 5. Form of Address */}
                 <div>
-                  <Label className="text-xs">Anrede</Label>
+                  <Label className="text-sm font-medium">Anrede</Label>
                   <div className="flex gap-2 mt-1">
                     {(["du", "sie", "neutral"] as const).map((addr) => (
-                      <label key={addr} className={`flex-1 flex items-center justify-center p-2 border rounded-lg cursor-pointer transition-colors text-xs capitalize ${
+                      <label key={addr} className={`flex-1 flex items-center justify-center p-2 border rounded-lg cursor-pointer transition-colors text-sm capitalize ${
                         formData.formOfAddress === addr ? "border-primary bg-primary/10" : "hover:bg-muted"
                       }`}>
-                        <input 
-                          type="radio" 
-                          className="sr-only" 
+                        <input
+                          type="radio"
+                          className="sr-only"
                           checked={formData.formOfAddress === addr}
                           onChange={() => setFormData({ ...formData, formOfAddress: addr })}
                         />
-                        {addr}
+                        {addr === "neutral" ? "Neutral" : addr.toUpperCase()}
                       </label>
                     ))}
                   </div>
                 </div>
 
-                {/* Brand Name */}
-                <div>
-                  <Label className="text-xs">Markenname (optional)</Label>
-                  <Input
-                    value={formData.brandName}
-                    onChange={(e) => setFormData({ ...formData, brandName: e.target.value })}
-                    placeholder="z.B. K-Active, Musterfirma GmbH"
-                    className="mt-1 h-9 text-xs"
-                  />
-                </div>
-
-                {/* Prompt Version */}
-                <div>
-                  <Label className="text-xs">Prompt-Strategie</Label>
-                  <Select
-                    value={formData.promptVersion}
-                    onValueChange={(v) => setFormData({ ...formData, promptVersion: v })}
-                  >
-                    <SelectTrigger className="mt-1 h-9 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="v9-master">v9: Master Prompt ⭐ (Standard)</SelectItem>
-                      <SelectItem value="v10-geo-optimized">v10: GEO-Optimized (AI-Ready) 🚀</SelectItem>
-                      <SelectItem value="v6-quality-auditor">v6: Quality-Auditor (Anti-Fluff)</SelectItem>
-                      <SelectItem value="v8-natural-seo">v8: Natural SEO (Natürlich)</SelectItem>
-                      <SelectItem value="v2-marketing-first">v2: Marketing-First (Emotional)</SelectItem>
-                      <SelectItem value="v1-kompakt-seo">v1: Kompakt-SEO (Schnell)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Website Scrape */}
-                <Collapsible>
-                  <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-                    <ChevronDown className="h-4 w-4" />
-                    Website analysieren (optional)
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="pt-3 space-y-3">
-                    <div className="flex gap-2">
-                      <Input
-                        value={formData.manufacturerWebsite}
-                        onChange={(e) => setFormData({ ...formData, manufacturerWebsite: e.target.value })}
-                        placeholder="https://example.com"
-                        className="flex-1"
-                      />
-                      <Button
-                        type="button"
-                        onClick={handleScrapeWebsite}
-                        disabled={isScraping || !formData.manufacturerWebsite.trim()}
-                        variant="secondary"
-                        size="icon"
-                      >
-                        {isScraping ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                    {formData.manufacturerInfo && (
-                      <Textarea
-                        value={formData.manufacturerInfo}
-                        onChange={(e) => setFormData({ ...formData, manufacturerInfo: e.target.value })}
-                        rows={4}
-                        className="text-xs"
-                      />
-                    )}
-                  </CollapsibleContent>
-                </Collapsible>
-
-                {/* Additional Info */}
-                <Collapsible>
-                  <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-                    <ChevronDown className="h-4 w-4" />
-                    Zusatzinfos / USPs (optional)
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="pt-3">
-                    <Textarea
-                      value={formData.additionalInfo}
-                      onChange={(e) => setFormData({ ...formData, additionalInfo: e.target.value })}
-                      placeholder="Besonderheiten, Alleinstellungsmerkmale..."
-                      rows={3}
-                      className="text-sm"
-                    />
-                  </CollapsibleContent>
-                </Collapsible>
-
-                {/* Debug Prompt Preview */}
-                <Collapsible open={showDebugPrompt} onOpenChange={setShowDebugPrompt}>
-                  <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-                    <Code className="h-4 w-4" />
-                    <span className="flex-1 text-left">Debug: Prompt-Vorschau (System + User)</span>
-                    <ChevronDown className={`h-4 w-4 transition-transform ${showDebugPrompt ? 'rotate-180' : ''}`} />
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="pt-3 space-y-3">
-                    {/* System Prompt */}
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-medium text-primary">🎯 System-Prompt ({formData.promptVersion})</span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 text-xs"
-                          onClick={() => copyToClipboard(buildSystemPromptPreview(), "System-Prompt")}
-                        >
-                          {copiedSection === "System-Prompt" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                        </Button>
-                      </div>
-                      <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
-                        <pre className="text-xs font-mono whitespace-pre-wrap text-muted-foreground overflow-x-auto max-h-48 overflow-y-auto">
-                          {buildSystemPromptPreview()}
-                        </pre>
-                      </div>
-                    </div>
-
-                    {/* User Prompt */}
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-medium text-blue-600 dark:text-blue-400">📝 User-Prompt (dynamisch)</span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 text-xs"
-                          onClick={() => copyToClipboard(buildUserPromptPreview(), "User-Prompt")}
-                        >
-                          {copiedSection === "User-Prompt" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                        </Button>
-                      </div>
-                      <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                        <pre className="text-xs font-mono whitespace-pre-wrap text-muted-foreground overflow-x-auto max-h-48 overflow-y-auto">
-                          {buildUserPromptPreview()}
-                        </pre>
-                      </div>
-                    </div>
-
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Info className="h-3 w-3" />
-                      Beide Prompts werden zusammen an die KI gesendet
-                    </p>
-                  </CollapsibleContent>
-                </Collapsible>
-
-                {/* Validation Panel */}
-                <Collapsible open={showValidation} onOpenChange={setShowValidation}>
-                  <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-                    <CheckCircle2 className="h-4 w-4" />
-                    <span className="flex-1 text-left">Feld-Mapping Validierung</span>
-                    <ChevronDown className={`h-4 w-4 transition-transform ${showValidation ? 'rotate-180' : ''}`} />
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="pt-3">
-                    <ValidationPanel formData={formData} autoValidate={true} />
-                  </CollapsibleContent>
-                </Collapsible>
-
                 {/* Generate Button */}
-                <Button 
-                  onClick={handleGenerate} 
+                <Button
+                  onClick={handleGenerate}
                   disabled={isLoading || !formData.focusKeyword.trim()}
                   className="w-full"
                   size="lg"
@@ -1267,6 +1112,200 @@ da historische Versionen nicht vollständig implementiert sind.`;
                     </>
                   )}
                 </Button>
+
+                {/* Advanced Options (Collapsible) */}
+                <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
+                  <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground w-full justify-center pt-2">
+                    <Settings className="h-4 w-4" />
+                    Erweiterte Optionen
+                    <ChevronDown className={`h-4 w-4 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-4 space-y-4">
+                    {/* Keyword Suggestions (if available) */}
+                    {showKeywordSuggestions && keywordAnalysis && (
+                      <Card className="p-3 bg-primary/5 border-primary/20">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-sm font-medium flex items-center gap-1">
+                            <Sparkles className="h-4 w-4 text-primary" />
+                            Keyword-Vorschläge
+                          </h4>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowKeywordSuggestions(false)}
+                            className="h-6 w-6 p-0"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+
+                        {/* Search Intent Info */}
+                        {keywordAnalysis.searchIntent && (
+                          <div className="mb-2">
+                            <Badge variant="outline" className="text-xs">
+                              Suchintention: {
+                                keywordAnalysis.searchIntent === 'know' ? 'Informationssuche' :
+                                keywordAnalysis.searchIntent === 'do' ? 'Transaktional' :
+                                keywordAnalysis.searchIntent === 'buy' ? 'Kaufabsicht' : 'Navigation'
+                              }
+                            </Badge>
+                          </div>
+                        )}
+
+                        {/* Secondary Keywords Suggestions */}
+                        {keywordAnalysis.secondaryKeywords && keywordAnalysis.secondaryKeywords.length > 0 && (
+                          <div className="mb-3">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs text-muted-foreground">Sekundär-Keywords</span>
+                              <Button
+                                type="button"
+                                variant="link"
+                                size="sm"
+                                onClick={handleAddAllSuggestedKeywords}
+                                className="h-auto p-0 text-xs"
+                              >
+                                Alle hinzufügen
+                              </Button>
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {keywordAnalysis.secondaryKeywords.map((kw) => (
+                                <Badge
+                                  key={kw}
+                                  variant={formData.secondaryKeywords.includes(kw) ? "secondary" : "outline"}
+                                  className="text-xs cursor-pointer hover:bg-primary/20"
+                                  onClick={() => handleAddSuggestedKeyword(kw)}
+                                >
+                                  {formData.secondaryKeywords.includes(kw) ? (
+                                    <Check className="h-3 w-3 mr-1" />
+                                  ) : (
+                                    <ChevronRight className="h-3 w-3 mr-1" />
+                                  )}
+                                  {kw}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* W-Questions Suggestions */}
+                        {keywordAnalysis.wQuestions && keywordAnalysis.wQuestions.length > 0 && (
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs text-muted-foreground">W-Fragen</span>
+                              <Button
+                                type="button"
+                                variant="link"
+                                size="sm"
+                                onClick={handleAddAllSuggestedQuestions}
+                                className="h-auto p-0 text-xs"
+                              >
+                                Alle hinzufügen
+                              </Button>
+                            </div>
+                            <div className="space-y-1">
+                              {keywordAnalysis.wQuestions.map((q) => (
+                                <div
+                                  key={q}
+                                  className={`text-xs p-1.5 rounded cursor-pointer flex items-center gap-1 ${
+                                    formData.wQuestions.includes(q)
+                                      ? 'bg-primary/10 text-primary'
+                                      : 'bg-muted hover:bg-muted/80'
+                                  }`}
+                                  onClick={() => handleAddSuggestedQuestion(q)}
+                                >
+                                  {formData.wQuestions.includes(q) ? (
+                                    <Check className="h-3 w-3 shrink-0" />
+                                  ) : (
+                                    <ChevronRight className="h-3 w-3 shrink-0" />
+                                  )}
+                                  {q}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </Card>
+                    )}
+
+                    {/* Secondary Keywords */}
+                    <div>
+                      <Label className="text-xs">Sekundär-Keywords</Label>
+                      <div className="flex gap-2 mt-1">
+                        <Input
+                          value={keywordInput}
+                          onChange={(e) => setKeywordInput(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddKeyword())}
+                          placeholder="Keyword + Enter"
+                          className="flex-1 h-9 text-sm"
+                        />
+                        <Button type="button" onClick={handleAddKeyword} variant="outline" size="icon" className="h-9 w-9">
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      {formData.secondaryKeywords.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {formData.secondaryKeywords.map((kw) => (
+                            <Badge key={kw} variant="secondary" className="gap-1 pr-1 text-xs">
+                              {kw}
+                              <button onClick={() => handleRemoveKeyword(kw)} className="hover:text-destructive">
+                                <X className="h-3 w-3" />
+                              </button>
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* W-Questions (selected) */}
+                    {formData.wQuestions.length > 0 && (
+                      <div>
+                        <Label className="text-xs">W-Fragen für FAQ</Label>
+                        <div className="space-y-1 mt-1">
+                          {formData.wQuestions.map((q) => (
+                            <div key={q} className="flex items-center gap-1 text-xs bg-muted p-1.5 rounded">
+                              <MessageSquare className="h-3 w-3 shrink-0 text-muted-foreground" />
+                              <span className="flex-1">{q}</span>
+                              <button onClick={() => handleRemoveWQuestion(q)} className="hover:text-destructive">
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Brand Name */}
+                    <div>
+                      <Label className="text-xs">Markenname</Label>
+                      <Input
+                        value={formData.brandName}
+                        onChange={(e) => setFormData({ ...formData, brandName: e.target.value })}
+                        placeholder="z.B. K-Active, Musterfirma GmbH"
+                        className="mt-1 h-9 text-sm"
+                      />
+                    </div>
+
+                    {/* Additional Info */}
+                    <div>
+                      <Label className="text-xs">Zusatzinfos / USPs</Label>
+                      <Textarea
+                        value={formData.additionalInfo}
+                        onChange={(e) => setFormData({ ...formData, additionalInfo: e.target.value })}
+                        placeholder="Besonderheiten, Alleinstellungsmerkmale..."
+                        rows={3}
+                        className="mt-1 text-sm"
+                      />
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+
+                {/* Hint for other tools */}
+                <div className="text-center pt-2 border-t">
+                  <p className="text-xs text-muted-foreground">
+                    Keyword-Recherche? <a href="/domain-learning" className="text-primary hover:underline">Domain Learning</a>
+                  </p>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -1297,8 +1336,11 @@ da historische Versionen nicht vollständig implementiert sind.`;
                       <div className="absolute -inset-2 rounded-full bg-primary/10 animate-pulse" />
                     </div>
                     <div>
-                      <h3 className="font-semibold">Generiere 3 Content-Varianten...</h3>
-                      <p className="text-sm text-muted-foreground">KI analysiert Eingaben und erstellt optimierten SEO-Content</p>
+                      <h3 className="font-semibold">Generiere SEO-Content...</h3>
+                      <p className="text-sm text-muted-foreground">KI analysiert Eingaben und erstellt optimierten Text</p>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        ⏱️ Dies dauert ca. 15-25 Sekunden
+                      </p>
                     </div>
                   </div>
                 </CardContent>
@@ -1315,8 +1357,9 @@ da historische Versionen nicht vollständig implementiert sind.`;
                   </div>
                 </CardContent>
               ) : (
-                <Tabs defaultValue="text" className="flex-1">
-                  <TabsList className="mx-4 grid grid-cols-5 h-auto p-1">
+                <>
+                  <Tabs defaultValue="text" className="flex-1">
+                    <TabsList className="mx-4 grid grid-cols-5 h-auto p-1">
                     <TabsTrigger value="text" className="text-xs py-2">
                       <FileText className="h-3.5 w-3.5 mr-1.5" />
                       Text
@@ -1464,7 +1507,8 @@ da historische Versionen nicht vollständig implementiert sind.`;
                       )}
                     </TabsContent>
                   </ScrollArea>
-                </Tabs>
+                  </Tabs>
+                </>
               )}
             </Card>
           </div>
