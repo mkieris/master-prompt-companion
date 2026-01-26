@@ -19,13 +19,6 @@ const MODEL_DISPLAY: Record<string, { name: string; icon: React.ReactNode }> = {
   'claude-sonnet': { name: 'Claude Sonnet', icon: <Crown className="h-3 w-3 text-purple-500" /> },
 };
 
-// Model display names and icons
-const MODEL_DISPLAY: Record<string, { name: string; icon: React.ReactNode }> = {
-  'gemini-flash': { name: 'Gemini Flash', icon: <Zap className="h-3 w-3 text-yellow-500" /> },
-  'gemini-pro': { name: 'Gemini Pro', icon: <Sparkles className="h-3 w-3 text-blue-500" /> },
-  'claude-sonnet': { name: 'Claude Sonnet', icon: <Crown className="h-3 w-3 text-purple-500" /> },
-};
-
 interface Step4Props {
   generatedContent: any;
   onRefine: (prompt: string) => Promise<void>;
