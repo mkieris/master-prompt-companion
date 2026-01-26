@@ -46,7 +46,7 @@ import {
   AlertTriangle,
   XCircle
 } from "lucide-react";
-
+import { sanitizeHtml, escapeHtml } from "@/lib/sanitize";
 interface BasicVersionProps {
   session: Session | null;
 }
@@ -1346,7 +1346,7 @@ da historische Versionen nicht vollständig implementiert sind.`;
                       </div>
                       <div 
                         className="prose prose-sm max-w-none dark:prose-invert"
-                        dangerouslySetInnerHTML={{ __html: getSeoTextHtml(generatedContent.seoText) }} 
+                        dangerouslySetInnerHTML={{ __html: sanitizeHtml(getSeoTextHtml(generatedContent.seoText)) }} 
                       />
                     </TabsContent>
 

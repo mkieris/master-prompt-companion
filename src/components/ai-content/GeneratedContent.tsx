@@ -13,6 +13,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
 import { saveAs } from "file-saver";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 interface GeneratedContentProps {
   content: {
@@ -494,13 +495,15 @@ ${content.faq?.length ? `FAQ:\n${content.faq.map(f => `Q: ${f.question}\nA: ${f.
             <div className="prose prose-sm max-w-none dark:prose-invert">
               <div 
                 dangerouslySetInnerHTML={{ 
-                  __html: content.mainContent
-                    .replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold mt-6 mb-3">$1</h1>')
-                    .replace(/^## (.*$)/gim, '<h2 class="text-xl font-semibold mt-5 mb-2">$1</h2>')
-                    .replace(/^### (.*$)/gim, '<h3 class="text-lg font-medium mt-4 mb-2">$1</h3>')
-                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                    .replace(/\n\n/g, '</p><p class="my-3">')
-                    .replace(/^- (.*$)/gim, '<li class="ml-4">$1</li>')
+                  __html: sanitizeHtml(
+                    content.mainContent
+                      .replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold mt-6 mb-3">$1</h1>')
+                      .replace(/^## (.*$)/gim, '<h2 class="text-xl font-semibold mt-5 mb-2">$1</h2>')
+                      .replace(/^### (.*$)/gim, '<h3 class="text-lg font-medium mt-4 mb-2">$1</h3>')
+                      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                      .replace(/\n\n/g, '</p><p class="my-3">')
+                      .replace(/^- (.*$)/gim, '<li class="ml-4">$1</li>')
+                  )
                 }}
               />
             </div>
