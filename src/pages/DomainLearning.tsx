@@ -7,12 +7,14 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { 
-  Globe, 
-  Loader2, 
-  CheckCircle2, 
+import {
+  Globe,
+  Loader2,
+  CheckCircle2,
   AlertCircle,
   Building2,
   Target,
@@ -20,7 +22,12 @@ import {
   Sparkles,
   RefreshCw,
   AlertTriangle,
-  Swords
+  Swords,
+  BookOpen,
+  ShoppingBag,
+  Copy,
+  Check,
+  ArrowRight
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { useOrganization } from "@/hooks/useOrganization";
@@ -48,6 +55,21 @@ interface DomainKnowledge {
   crawled_at: string | null;
 }
 
+// Quick Analysis Result Interface
+interface QuickAnalysisResult {
+  success: boolean;
+  url: string;
+  mode: 'topic' | 'category' | 'company';
+  pagesAnalyzed: number;
+  analysis: any;
+  contentContext: string;
+  metadata: {
+    title: string | null;
+    description: string | null;
+    analyzedAt: string;
+  };
+}
+
 const DomainLearning = ({ session }: DomainLearningProps) => {
   const { toast } = useToast();
   const { currentOrg } = useOrganization(session);
@@ -56,6 +78,14 @@ const DomainLearning = ({ session }: DomainLearningProps) => {
   const [isFetching, setIsFetching] = useState(true);
   const [domainData, setDomainData] = useState<DomainKnowledge | null>(null);
   const [progress, setProgress] = useState(0);
+
+  // Quick Analysis State
+  const [quickUrl, setQuickUrl] = useState("");
+  const [quickMode, setQuickMode] = useState<'topic' | 'category' | 'company'>('topic');
+  const [quickDepth, setQuickDepth] = useState<'single' | 'multi'>('single');
+  const [isQuickLoading, setIsQuickLoading] = useState(false);
+  const [quickResult, setQuickResult] = useState<QuickAnalysisResult | null>(null);
+  const [copiedContext, setCopiedContext] = useState(false);
 
   useEffect(() => {
     if (currentOrg) {
@@ -209,6 +239,61 @@ const DomainLearning = ({ session }: DomainLearningProps) => {
     }
   };
 
+  // Quick Analysis Function
+  const startQuickAnalysis = async () => {
+    if (!quickUrl.trim()) {
+      toast({
+        title: "Fehler",
+        description: "Bitte gib eine URL ein.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsQuickLoading(true);
+    setQuickResult(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-domain', {
+        body: {
+          url: quickUrl,
+          mode: quickMode,
+          depth: quickDepth,
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        setQuickResult(data);
+        toast({
+          title: "Analyse abgeschlossen",
+          description: `${data.pagesAnalyzed} Seite(n) analysiert.`,
+        });
+      } else {
+        throw new Error(data.error || 'Analyse fehlgeschlagen');
+      }
+    } catch (error: any) {
+      console.error('Quick analysis error:', error);
+      toast({
+        title: "Fehler",
+        description: error.message || "Die Analyse konnte nicht durchgeführt werden.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsQuickLoading(false);
+    }
+  };
+
+  const copyContentContext = async () => {
+    if (quickResult?.contentContext) {
+      await navigator.clipboard.writeText(quickResult.contentContext);
+      setCopiedContext(true);
+      toast({ title: "Kopiert!", description: "Content-Kontext in Zwischenablage." });
+      setTimeout(() => setCopiedContext(false), 2000);
+    }
+  };
+
   if (isFetching) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -226,8 +311,12 @@ const DomainLearning = ({ session }: DomainLearningProps) => {
         </p>
       </div>
 
-      <Tabs defaultValue="domain" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 max-w-md">
+      <Tabs defaultValue="quick" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-3 max-w-xl">
+          <TabsTrigger value="quick" className="flex items-center gap-2">
+            <BookOpen className="h-4 w-4" />
+            Schnellanalyse
+          </TabsTrigger>
           <TabsTrigger value="domain" className="flex items-center gap-2">
             <Globe className="h-4 w-4" />
             Domain Learning
@@ -237,6 +326,502 @@ const DomainLearning = ({ session }: DomainLearningProps) => {
             Wettbewerber
           </TabsTrigger>
         </TabsList>
+
+        {/* Quick Analysis Tab */}
+        <TabsContent value="quick" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5" />
+                Themen & Kategorien lernen
+              </CardTitle>
+              <CardDescription>
+                Analysiere eine externe Website um ein Thema zu verstehen oder Produktkategorien zu lernen.
+                Ideal für Content-Erstellung in unbekannten Bereichen.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* URL Input */}
+              <div className="space-y-2">
+                <Label htmlFor="quick-url">Website URL</Label>
+                <Input
+                  id="quick-url"
+                  type="url"
+                  placeholder="z.B. https://aragones-coaching.de oder Kategorieseite"
+                  value={quickUrl}
+                  onChange={(e) => setQuickUrl(e.target.value)}
+                  disabled={isQuickLoading}
+                />
+              </div>
+
+              {/* Analysis Mode */}
+              <div className="space-y-2">
+                <Label>Analyse-Modus</Label>
+                <RadioGroup
+                  value={quickMode}
+                  onValueChange={(v) => setQuickMode(v as 'topic' | 'category' | 'company')}
+                  className="grid grid-cols-3 gap-2"
+                  disabled={isQuickLoading}
+                >
+                  <Label
+                    htmlFor="mode-topic"
+                    className={`flex flex-col items-center p-3 border rounded-lg cursor-pointer transition-colors ${
+                      quickMode === 'topic' ? 'border-primary bg-primary/10' : 'hover:bg-muted'
+                    }`}
+                  >
+                    <RadioGroupItem value="topic" id="mode-topic" className="sr-only" />
+                    <BookOpen className="h-5 w-5 mb-1" />
+                    <span className="font-medium text-sm">Thema lernen</span>
+                    <span className="text-xs text-muted-foreground text-center">
+                      Branche verstehen
+                    </span>
+                  </Label>
+                  <Label
+                    htmlFor="mode-category"
+                    className={`flex flex-col items-center p-3 border rounded-lg cursor-pointer transition-colors ${
+                      quickMode === 'category' ? 'border-primary bg-primary/10' : 'hover:bg-muted'
+                    }`}
+                  >
+                    <RadioGroupItem value="category" id="mode-category" className="sr-only" />
+                    <ShoppingBag className="h-5 w-5 mb-1" />
+                    <span className="font-medium text-sm">Kategorie</span>
+                    <span className="text-xs text-muted-foreground text-center">
+                      Produkte analysieren
+                    </span>
+                  </Label>
+                  <Label
+                    htmlFor="mode-company"
+                    className={`flex flex-col items-center p-3 border rounded-lg cursor-pointer transition-colors ${
+                      quickMode === 'company' ? 'border-primary bg-primary/10' : 'hover:bg-muted'
+                    }`}
+                  >
+                    <RadioGroupItem value="company" id="mode-company" className="sr-only" />
+                    <Building2 className="h-5 w-5 mb-1" />
+                    <span className="font-medium text-sm">Unternehmen</span>
+                    <span className="text-xs text-muted-foreground text-center">
+                      Marke verstehen
+                    </span>
+                  </Label>
+                </RadioGroup>
+              </div>
+
+              {/* Depth Selection */}
+              <div className="space-y-2">
+                <Label>Analyse-Tiefe</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={quickDepth === 'single' ? 'default' : 'outline'}
+                    className="flex-1"
+                    onClick={() => setQuickDepth('single')}
+                    disabled={isQuickLoading}
+                  >
+                    Einzelseite
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={quickDepth === 'multi' ? 'default' : 'outline'}
+                    className="flex-1"
+                    onClick={() => setQuickDepth('multi')}
+                    disabled={isQuickLoading}
+                  >
+                    Mehrere Seiten (bis 20)
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {quickDepth === 'single'
+                    ? 'Schnell: Nur die angegebene Seite analysieren.'
+                    : 'Gründlich: Bis zu 20 verlinkte Seiten analysieren (dauert länger).'}
+                </p>
+              </div>
+
+              {/* Start Button */}
+              <Button
+                onClick={startQuickAnalysis}
+                disabled={isQuickLoading || !quickUrl.trim()}
+                className="w-full"
+              >
+                {isQuickLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Analysiere {quickDepth === 'multi' ? '(kann 1-2 Min. dauern)' : '...'}
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    Analyse starten
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Quick Analysis Results */}
+          {quickResult && (
+            <div className="space-y-4">
+              <Card className="border-success/50 bg-success/5">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2 text-success">
+                    <CheckCircle2 className="h-5 w-5" />
+                    Analyse abgeschlossen
+                  </CardTitle>
+                  <CardDescription>
+                    {quickResult.pagesAnalyzed} Seite(n) analysiert • {quickResult.mode === 'topic' ? 'Themenanalyse' : quickResult.mode === 'category' ? 'Kategorieanalyse' : 'Unternehmensanalyse'}
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+
+              {/* Content Context (ready to copy) */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <ArrowRight className="h-4 w-4" />
+                      Content-Kontext für SEO-Texte
+                    </CardTitle>
+                    <Button variant="outline" size="sm" onClick={copyContentContext}>
+                      {copiedContext ? (
+                        <Check className="h-4 w-4 mr-1" />
+                      ) : (
+                        <Copy className="h-4 w-4 mr-1" />
+                      )}
+                      {copiedContext ? 'Kopiert!' : 'Kopieren'}
+                    </Button>
+                  </div>
+                  <CardDescription>
+                    Dieser Text kann direkt in "Zusatzinfos" bei Content Basic verwendet werden.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Textarea
+                    value={quickResult.contentContext}
+                    readOnly
+                    className="min-h-[200px] text-sm bg-muted"
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Detailed Analysis by Mode */}
+              {quickMode === 'topic' && quickResult.analysis && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Topic Overview */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <BookOpen className="h-4 w-4" />
+                        Themen-Übersicht
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {quickResult.analysis.topicName && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Hauptthema</p>
+                          <p className="font-medium">{quickResult.analysis.topicName}</p>
+                        </div>
+                      )}
+                      {quickResult.analysis.industry && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Branche</p>
+                          <p className="font-medium">{quickResult.analysis.industry}</p>
+                        </div>
+                      )}
+                      {quickResult.analysis.toneRecommendation && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Empfohlene Tonalität</p>
+                          <p className="text-sm">{quickResult.analysis.toneRecommendation}</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Target Audience */}
+                  {quickResult.analysis.targetAudience && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <Users className="h-4 w-4" />
+                          Zielgruppe
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {quickResult.analysis.targetAudience.demographics && (
+                          <div>
+                            <p className="text-sm text-muted-foreground">Demografie</p>
+                            <p className="text-sm">{quickResult.analysis.targetAudience.demographics}</p>
+                          </div>
+                        )}
+                        {quickResult.analysis.targetAudience.painPoints?.length > 0 && (
+                          <div>
+                            <p className="text-sm text-muted-foreground">Schmerzpunkte</p>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {quickResult.analysis.targetAudience.painPoints.map((p: string, i: number) => (
+                                <Badge key={i} variant="outline" className="text-xs">{p}</Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Core Concepts */}
+                  {quickResult.analysis.coreConceptsExplained && Object.keys(quickResult.analysis.coreConceptsExplained).length > 0 && (
+                    <Card className="md:col-span-2">
+                      <CardHeader>
+                        <CardTitle className="text-base">Kernkonzepte erklärt</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          {Object.entries(quickResult.analysis.coreConceptsExplained).map(([concept, explanation]: [string, any]) => (
+                            <div key={concept} className="p-3 bg-muted rounded-lg">
+                              <p className="font-medium text-sm">{concept}</p>
+                              <p className="text-sm text-muted-foreground mt-1">{explanation}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Marketing Angles */}
+                  {quickResult.analysis.marketingAngles?.length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <Target className="h-4 w-4" />
+                          Marketing-Ansätze
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <ul className="space-y-2">
+                          {quickResult.analysis.marketingAngles.map((angle: string, i: number) => (
+                            <li key={i} className="flex items-start gap-2 text-sm">
+                              <CheckCircle2 className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
+                              {angle}
+                            </li>
+                          ))}
+                        </ul>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Terminology */}
+                  {quickResult.analysis.terminology && Object.keys(quickResult.analysis.terminology).length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">Fachbegriffe</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          {Object.entries(quickResult.analysis.terminology).slice(0, 8).map(([term, def]: [string, any]) => (
+                            <div key={term} className="text-sm">
+                              <span className="font-medium">{term}:</span>{' '}
+                              <span className="text-muted-foreground">{def}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              )}
+
+              {quickMode === 'category' && quickResult.analysis && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Category Overview */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <ShoppingBag className="h-4 w-4" />
+                        Kategorie-Übersicht
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {quickResult.analysis.categoryName && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Kategorie</p>
+                          <p className="font-medium">{quickResult.analysis.categoryName}</p>
+                        </div>
+                      )}
+                      {quickResult.analysis.parentCategory && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Übergeordnet</p>
+                          <p className="font-medium">{quickResult.analysis.parentCategory}</p>
+                        </div>
+                      )}
+                      {quickResult.analysis.targetCustomer && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Zielkunde</p>
+                          <p className="text-sm">{quickResult.analysis.targetCustomer}</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Products */}
+                  {quickResult.analysis.products?.length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">Produkte gefunden</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          {quickResult.analysis.products.slice(0, 6).map((product: any, i: number) => (
+                            <div key={i} className="p-2 bg-muted rounded text-sm">
+                              <span className="font-medium">{product.name}</span>
+                              {product.keyFeatures?.length > 0 && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {product.keyFeatures.slice(0, 3).join(' • ')}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Buying Criteria */}
+                  {quickResult.analysis.buyingCriteria?.length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">Kaufkriterien</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <ul className="space-y-1">
+                          {quickResult.analysis.buyingCriteria.map((c: string, i: number) => (
+                            <li key={i} className="flex items-start gap-2 text-sm">
+                              <CheckCircle2 className="h-3 w-3 text-success mt-1 flex-shrink-0" />
+                              {c}
+                            </li>
+                          ))}
+                        </ul>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* SEO Keywords */}
+                  {quickResult.analysis.seoKeywords?.length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <Sparkles className="h-4 w-4" />
+                          SEO-Keywords
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex flex-wrap gap-1">
+                          {quickResult.analysis.seoKeywords.map((kw: string, i: number) => (
+                            <Badge key={i} variant="secondary" className="text-xs">{kw}</Badge>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              )}
+
+              {quickMode === 'company' && quickResult.analysis && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Company Profile */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Building2 className="h-4 w-4" />
+                        Unternehmensprofil
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {quickResult.analysis.companyName && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Unternehmen</p>
+                          <p className="font-medium">{quickResult.analysis.companyName}</p>
+                        </div>
+                      )}
+                      {quickResult.analysis.industry && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Branche</p>
+                          <p className="font-medium">{quickResult.analysis.industry}</p>
+                        </div>
+                      )}
+                      {quickResult.analysis.mission && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Mission</p>
+                          <p className="text-sm">{quickResult.analysis.mission}</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Brand Voice */}
+                  {quickResult.analysis.brandVoice && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">Brand Voice</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {quickResult.analysis.brandVoice.tone && (
+                          <div>
+                            <p className="text-sm text-muted-foreground">Tonalität</p>
+                            <p className="font-medium">{quickResult.analysis.brandVoice.tone}</p>
+                          </div>
+                        )}
+                        {quickResult.analysis.brandVoice.characteristics?.length > 0 && (
+                          <div>
+                            <p className="text-sm text-muted-foreground">Charakteristika</p>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {quickResult.analysis.brandVoice.characteristics.map((c: string, i: number) => (
+                                <Badge key={i} variant="outline" className="text-xs">{c}</Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* USPs */}
+                  {quickResult.analysis.usps?.length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <Target className="h-4 w-4" />
+                          USPs
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <ul className="space-y-2">
+                          {quickResult.analysis.usps.map((usp: string, i: number) => (
+                            <li key={i} className="flex items-start gap-2 text-sm">
+                              <CheckCircle2 className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
+                              {usp}
+                            </li>
+                          ))}
+                        </ul>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Products/Services */}
+                  {quickResult.analysis.productsServices?.length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">Produkte & Services</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex flex-wrap gap-1">
+                          {quickResult.analysis.productsServices.map((ps: string, i: number) => (
+                            <Badge key={i} variant="secondary" className="text-xs">{ps}</Badge>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </TabsContent>
 
         <TabsContent value="domain" className="space-y-6">
           {/* Firecrawl Credits Warning */}
