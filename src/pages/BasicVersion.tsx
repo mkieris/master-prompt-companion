@@ -176,11 +176,13 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
 
     setIsAnalyzingKeyword(true);
     const endTimer = logWithTimer('api', 'Keyword-Analyse');
-    log('api', 'analyze-keyword aufgerufen', { focusKeyword: formData.focusKeyword });
+    log('api', 'generate-seo-content (analyze-keyword mode) aufgerufen', { focusKeyword: formData.focusKeyword });
 
     try {
-      const { data, error } = await supabase.functions.invoke("analyze-keyword", {
+      // Use generate-seo-content with mode: 'analyze-keyword' instead of separate function
+      const { data, error } = await supabase.functions.invoke("generate-seo-content", {
         body: {
+          mode: 'analyze-keyword',
           focusKeyword: formData.focusKeyword,
           targetAudience: formData.targetAudience,
           language: 'de'
@@ -189,7 +191,7 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
 
       if (error) throw error;
 
-      log('response', 'analyze-keyword erfolgreich', {
+      log('response', 'keyword analysis erfolgreich', {
         secondaryKeywordsCount: data.analysis?.secondaryKeywords?.length,
         wQuestionsCount: data.analysis?.wQuestions?.length,
         searchIntent: data.analysis?.searchIntent,
@@ -200,7 +202,7 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
       setShowAdvanced(true); // Erweiterte Optionen öffnen um Übernahme zu sehen
       toast({ title: "Analyse abgeschlossen", description: "Keyword-Vorschläge wurden generiert" });
     } catch (error) {
-      log('error', 'analyze-keyword fehlgeschlagen', { error: String(error) });
+      log('error', 'keyword analysis fehlgeschlagen', { error: String(error) });
       console.error("Keyword analysis error:", error);
       toast({ title: "Fehler", description: "Keyword-Analyse fehlgeschlagen", variant: "destructive" });
     } finally {
