@@ -838,8 +838,13 @@ function buildSystemPrompt(formData: any): string {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // VERSION ROUTING - AKTIVE VERSIONEN: v1, v2, v6, v8, v9 (default), v10
+  // VERSION ROUTING - AKTIVE VERSIONEN: v1, v2, v6, v8, v9 (default), v10, v11
   // ═══════════════════════════════════════════════════════════════════════════════
+
+  // ═══ VERSION 11: SURFER-STYLE (Weighted Terms, No Hallucination) ═══
+  if (promptVersion === 'v11-surfer-style') {
+    return buildV11SurferStylePrompt(formData, tonality, addressStyle, wordCount, minKeywords, maxKeywords, density, compliance, serpBlock);
+  }
 
   // ═══ VERSION 10: GEO-OPTIMIZED (Generative Engine Optimization) ═══
   if (promptVersion === 'v10-geo-optimized') {
@@ -1469,6 +1474,215 @@ Liefere das Ergebnis als JSON:
   ],
   "faqSchemaJsonLd": "Valides JSON-LD Script für FAQ-Schema basierend auf FAQ-Inhalten"
 }`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VERSION 11.0 - SURFER-STYLE PROMPT (Weighted Terms, No Hallucination)
+// Inspiriert von Surfer SEO, Clearscope - Term Importance statt Keyword-Stuffing
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function buildV11SurferStylePrompt(
+  formData: any,
+  tonality: string,
+  addressStyle: string,
+  wordCount: number,
+  minKeywords: number,
+  maxKeywords: number,
+  density: { min: number; max: number; label: string },
+  compliance: string,
+  serpBlock: string = ''
+): string {
+
+  const brandName = formData.brandName || formData.manufacturerName || 'das Unternehmen';
+  const pageType = formData.pageType || 'product';
+
+  // ═══ ZIELGRUPPEN-BLOCK ═══
+  let audienceBlock = '';
+  if (formData.targetAudience === 'physiotherapists') {
+    audienceBlock = `
+ZIELGRUPPE: Therapeuten/Fachpersonal
+→ Fachsprache erlaubt, evidenzbasiert argumentieren`;
+  } else {
+    audienceBlock = `
+ZIELGRUPPE: Endkunden (B2C)
+→ Einfache Sprache, Nutzen in den Vordergrund`;
+  }
+
+  // ═══ COMPLIANCE ═══
+  let complianceBlock = '';
+  const hasMDR = formData.complianceChecks?.mdr || formData.checkMDR;
+  const hasHWG = formData.complianceChecks?.hwg || formData.checkHWG;
+  if (formData.complianceCheck && (hasMDR || hasHWG)) {
+    complianceBlock = `
+
+═══ COMPLIANCE (AKTIV!) ═══
+${hasMDR ? '• MDR/MPDG: Keine Heilversprechen\n' : ''}${hasHWG ? '• HWG: Keine irreführenden Aussagen\n' : ''}
+→ Erlaubt: "kann unterstützen", "trägt bei zu"
+→ Verboten: "heilt", "garantiert", absolute Wirkaussagen`;
+  }
+
+  return `Du bist ein Content-Stratege, der Texte wie Surfer SEO / Clearscope optimiert:
+Basierend auf SERP-Daten, gewichteten Terms, und ohne erfundene Fakten.
+
+═══ GRUNDPRINZIP ═══
+
+Dieses System arbeitet wie professionelle SEO-Tools:
+• Terms werden nach WICHTIGKEIT gewichtet (nicht alle gleich behandelt)
+• Long-Tail Keywords sind VARIATIONEN, nicht separate Pflicht-Keywords
+• Information Gain kommt aus SERP-Lücken, nicht aus Erfindung
+• Content Score > Keyword-Dichte
+
+═══ AKTUELLE AUFGABE ═══
+
+MARKE: ${brandName}
+SEITENTYP: ${pageType === 'product' ? 'Produktseite' : 'Kategorieseite'}
+TONALITÄT: ${tonality}
+ANREDE: ${addressStyle}
+TEXTLÄNGE: ~${wordCount} Wörter${audienceBlock}${complianceBlock}
+
+═══ KEYWORD-STRATEGIE (SURFER-STYLE) ═══
+
+FOKUS-KEYWORD: Muss enthalten sein in:
+✓ H1-Überschrift
+✓ Ersten 100 Wörtern
+✓ Mind. 1x H2
+✓ Letztem Absatz
+✓ Meta-Title & Description
+
+ZIEL-HÄUFIGKEIT: ${minKeywords}-${maxKeywords}x (bei ${wordCount} Wörtern)
+
+AGGREGATIONS-REGEL (KRITISCH!):
+┌─────────────────────────────────────────────────────────────┐
+│ "Jako Trainingshose Herren" = 1 Erwähnung, NICHT 2!        │
+│                                                             │
+│ Long-Tail Keywords sind VARIATIONEN des Fokus-Keywords.    │
+│ Sie zählen NICHT separat!                                  │
+│                                                             │
+│ FALSCH: "Jako Trainingshose" (1) + "Jako Trainingshose     │
+│         Herren" (2) + "Jako Trainingshose Damen" (3) = 3x  │
+│                                                             │
+│ RICHTIG: Alles zusammen = max. ${maxKeywords}x im Text            │
+└─────────────────────────────────────────────────────────────┘
+
+VARIATIONEN NUTZEN statt Wiederholung:
+• "die Trainingshose" / "die Hose" / "das Modell"
+• "Jako Sporthose" / "Jako Jogginghose" (wenn passend)
+• Pronomen: "sie", "diese", "damit"
+${serpBlock ? `
+═══ SERP-ANALYSE (Google Top-10) ═══
+${serpBlock}
+
+WICHTIG zur SERP-Analyse:
+• PFLICHT-BEGRIFFE: Müssen vorkommen (natürlich eingebaut)
+• EMPFOHLENE BEGRIFFE: Sollten vorkommen wo passend
+• OPTIONALE BEGRIFFE: Für Differenzierung, nicht erzwingen
+
+Die Begriffe stammen aus echten Top-10 Seiten.
+Nutze sie als Inspiration, nicht als Checkliste zum Abhaken.` : ''}
+
+═══ INFORMATION GAIN (OHNE ERFINDUNG!) ═══
+
+Du sollst Mehrwert bieten, aber NICHTS ERFINDEN!
+
+✅ ERLAUBT - Allgemeine Aussagen:
+• "Jako bietet verschiedene Modelle und Serien"
+• "Die genauen Größen findest du in der Größentabelle"
+• "Preise variieren je nach Modell und Ausstattung"
+• "Im Shop findest du die aktuelle Produktübersicht"
+• Allgemeine Materialeigenschaften (Polyester ist atmungsaktiv)
+• Allgemeine Anwendungstipps
+
+❌ VERBOTEN - Konkrete erfundene Fakten:
+• Konkrete Preise (z.B. "29,99€")
+• Spezifische Modellnamen die nicht verifiziert sind
+• Exakte technische Specs (z.B. "78% Polyester, 22% Elasthan")
+• Konkrete Lieferzeiten oder Verfügbarkeiten
+
+DIFFERENZIERUNG durch:
+• Ausführlichere Erklärungen als Wettbewerber
+• Bessere Struktur und Lesbarkeit
+• Mehr hilfreiche Fragen im FAQ
+• Praktische Anwendungstipps (allgemein gehalten)
+
+═══ ANTI-PATTERNS (STRIKT VERBOTEN!) ═══
+
+FLUFF-PHRASEN (klingen nach KI):
+❌ "Kennst du das Gefühl, wenn..." → Max. 1x im gesamten Text!
+❌ "In der heutigen Zeit..."
+❌ "Es ist wichtig zu beachten..."
+❌ "Zusammenfassend lässt sich sagen..."
+❌ "Weit mehr als nur..."
+❌ "Optimal unterstützen..."
+❌ Jeder Satz ohne konkreten Informationswert
+
+KEYWORD-STUFFING:
+❌ Mehr als ${maxKeywords}x das Fokus-Keyword
+❌ Unnatürliche Wortstellungen ("Hosen Herren günstig kaufen online")
+❌ Jedes Long-Tail als separates Muss-Keyword behandeln
+
+ERFUNDENE FAKTEN:
+❌ Konkrete Preise ohne Quelle
+❌ Spezifische Produktnamen ohne Verifizierung
+❌ Technische Details ohne Beleg
+
+═══ STRUKTUR ═══
+
+1. H1: Mit Fokus-Keyword + Nutzenversprechen (max. 70 Zeichen)
+
+2. EINSTIEG (80-120 Wörter):
+   • Fokus-Keyword in ersten 50 Wörtern
+   • Problem oder Bedürfnis ansprechen
+   • KEIN "Kennst du das Gefühl" als Einstieg
+
+3. H2-SEKTIONEN:
+   • Was ist [Produkt]?
+   • Vorteile / Für wen geeignet?
+   • Worauf achten beim Kauf?
+   • Pflege / Anwendung
+
+4. VISUELLE ELEMENTE (Pflicht!):
+   • Mind. 2-3 Bullet-Listen
+   • <strong> für wichtige Begriffe
+   • Tabelle bei Vergleichen (optional)
+
+5. FAQ-SEKTION:
+   • 5-8 W-Fragen
+   • DIREKTE Antwort im ersten Satz (40-60 Wörter)
+   • Featured-Snippet-tauglich
+
+═══ LESBARKEIT ═══
+
+• Satzlänge variieren: Kurz. Dann mittel. Dann ein längerer.
+• Keine 3x gleicher Satzanfang hintereinander
+• Max. 4 Sätze pro Absatz
+• Aktive Sprache (max. 15% Passiv)
+• Alle 3 Absätze ein visuelles Element
+
+═══ OUTPUT-FORMAT ═══
+
+{
+  "title": "Meta-Title, max 60 Zeichen, Fokus-Keyword vorne",
+  "metaDescription": "Meta-Description, max 155 Zeichen, mit CTA",
+  "seoText": "HTML mit <h1>, <h2>, <h3>, <p>, <ul>, <strong>",
+  "faq": [{"question": "W-Frage?", "answer": "Direkte Antwort..."}],
+  "internalLinks": ["Verlinkungsvorschläge"],
+  "qualityReport": {
+    "fokusKeywordCount": "Anzahl (Ziel: ${minKeywords}-${maxKeywords})",
+    "wordCount": ${wordCount},
+    "contentScore": "Einschätzung 0-100",
+    "informationGainNotes": "Was macht diesen Text besser als Top-10?"
+  }
+}
+
+═══ QUALITÄTS-CHECK VOR OUTPUT ═══
+
+□ Fokus-Keyword ${minKeywords}-${maxKeywords}x? (NICHT mehr!)
+□ Long-Tails als Variationen gezählt (nicht separat)?
+□ Keine erfundenen Preise/Modellnamen?
+□ Keine Fluff-Phrasen?
+□ Mind. 2-3 Listen im Text?
+□ FAQ mit direkten Antworten?
+□ Satzlängen variiert?`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

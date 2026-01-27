@@ -828,6 +828,53 @@ Ziel: Inhalte die (1) von Google AI Overviews zitiert werden und (2) echten Info
 TONALITÄT: ${formData.tone === 'sachlich' ? 'Sachlich' : formData.tone === 'aktivierend' ? 'Aktivierend' : 'Beratend'}
 ANREDE: ${formData.formOfAddress === 'du' ? 'Du-Form' : formData.formOfAddress === 'sie' ? 'Sie-Form' : 'Neutral'}
 ZIELGRUPPE: ${formData.targetAudience === 'physiotherapists' ? 'B2B (Fachpersonal)' : 'B2C (Endkunden)'}`,
+
+      'v11-surfer-style': `[v11-surfer-style: SURFER-STYLE 2025] 🎯 NEU
+
+Inspiriert von Surfer SEO / Clearscope - gewichtete Terms statt Keyword-Stuffing
+
+═══ GRUNDPRINZIP ═══
+• Terms werden nach WICHTIGKEIT gewichtet (nicht alle gleich)
+• Long-Tail Keywords sind VARIATIONEN, nicht separate Pflicht-Keywords
+• Information Gain aus SERP-Lücken, NICHTS ERFINDEN
+• Content Score > reine Keyword-Dichte
+
+═══ KEYWORD-STRATEGIE ═══
+
+AGGREGATIONS-REGEL (KRITISCH!):
+"Jako Trainingshose Herren" = 1 Erwähnung, NICHT 2!
+Long-Tails zählen NICHT separat!
+
+VARIATIONEN statt Wiederholung:
+• "die Trainingshose" / "die Hose" / "das Modell"
+• Synonyme wo passend
+• Pronomen: "sie", "diese", "damit"
+
+═══ INFORMATION GAIN (OHNE ERFINDUNG!) ═══
+
+✅ ERLAUBT:
+• "Jako bietet verschiedene Modelle und Serien"
+• "Preise variieren je nach Modell"
+• Allgemeine Materialeigenschaften
+• Allgemeine Anwendungstipps
+
+❌ VERBOTEN:
+• Konkrete Preise (z.B. "29,99€")
+• Unverifizierten Modellnamen
+• Exakte technische Specs ohne Quelle
+
+═══ ANTI-PATTERNS ═══
+
+❌ "Kennst du das Gefühl, wenn..." → Max. 1x!
+❌ "In der heutigen Zeit..."
+❌ "Weit mehr als nur..."
+❌ Mehr als max. Keywords
+❌ Erfundene Fakten
+
+═══ AKTUELLE KONFIGURATION ═══
+TONALITÄT: ${formData.tone === 'sachlich' ? 'Sachlich' : formData.tone === 'aktivierend' ? 'Aktivierend' : 'Beratend'}
+ANREDE: ${formData.formOfAddress === 'du' ? 'Du-Form' : formData.formOfAddress === 'sie' ? 'Sie-Form' : 'Neutral'}
+ZIELGRUPPE: ${formData.targetAudience === 'physiotherapists' ? 'B2B (Fachpersonal)' : 'B2C (Endkunden)'}`,
     };
 
     // Check for historical versions
@@ -1470,24 +1517,52 @@ da historische Versionen nicht vollständig implementiert sind.`;
                 </div>
 
                 {/* Generate Button */}
-                <Button
-                  onClick={handleGenerate}
-                  disabled={isLoading || !formData.focusKeyword.trim()}
-                  className="w-full"
-                  size="lg"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Generiere Content...
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="h-4 w-4 mr-2" />
-                      Content generieren
-                    </>
-                  )}
-                </Button>
+                {/* Prompt Version Selection */}
+                <div className="flex gap-2 items-center">
+                  <Select
+                    value={formData.promptVersion}
+                    onValueChange={(v) => handleFormChange('promptVersion', v)}
+                  >
+                    <SelectTrigger className="flex-1 h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="v9-master">
+                        <span className="flex items-center gap-2">
+                          <span>⭐ v9: Master (Standard)</span>
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="v11-surfer-style">
+                        <span className="flex items-center gap-2">
+                          <span>🎯 v11: Surfer-Style (NEU)</span>
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="v10-geo-optimized">
+                        <span className="flex items-center gap-2">
+                          <span>🚀 v10: GEO-Optimized</span>
+                        </span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    onClick={handleGenerate}
+                    disabled={isLoading || !formData.focusKeyword.trim()}
+                    className="flex-1"
+                    size="default"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Generiere...
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 className="h-4 w-4 mr-2" />
+                        Content generieren
+                      </>
+                    )}
+                  </Button>
+                </div>
 
                 {/* Advanced Options (Collapsible) */}
                 <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
