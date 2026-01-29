@@ -49,6 +49,7 @@ interface BasicFormProps {
 export const BasicForm = ({ onGenerate, isLoading }: BasicFormProps) => {
   const { toast } = useToast();
   const [isScraping, setIsScraping] = useState(false);
+  const [scrapeMode, setScrapeMode] = useState<"single" | "multi">("single");
   const [keywordInput, setKeywordInput] = useState("");
   const [wQuestionInput, setWQuestionInput] = useState("");
   const [formData, setFormData] = useState<BasicFormData>({
@@ -160,19 +161,42 @@ export const BasicForm = ({ onGenerate, isLoading }: BasicFormProps) => {
     setIsScraping(true);
     try {
       const { data, error } = await supabase.functions.invoke("scrape-website", {
-        body: { url: formData.manufacturerWebsite, mode: "single" },
+        body: { url: formData.manufacturerWebsite, mode: scrapeMode },
       });
 
       if (error) throw error;
 
+      // Handle both single and multi mode responses
+      let infoText = "";
+      if (scrapeMode === "single") {
+        infoText = `Titel: ${data.title || "N/A"}\n\nBeschreibung: ${data.description || "N/A"}\n\nInhalt:\n${data.content?.substring(0, 2000) || ""}`;
+        if (data.analysis) {
+          infoText += `\n\n--- AI-Analyse ---\nUnternehmen: ${data.analysis.companyName || "N/A"}\nBranche: ${data.analysis.industry || "N/A"}`;
+        }
+      } else {
+        infoText = `Seiten gefunden: ${data.pagesFound || 0}\n\n`;
+        if (data.pages?.length > 0) {
+          infoText += "--- Seiten ---\n";
+          data.pages.slice(0, 5).forEach((page: any, idx: number) => {
+            infoText += `${idx + 1}. ${page.title || "Unbekannt"}\n`;
+          });
+        }
+        if (data.combinedContent) {
+          infoText += `\n--- Inhalt ---\n${data.combinedContent.substring(0, 1500)}...`;
+        }
+        if (data.analysis) {
+          infoText += `\n\n--- AI-Analyse ---\nUnternehmen: ${data.analysis.companyName || "N/A"}\nBranche: ${data.analysis.industry || "N/A"}`;
+        }
+      }
+
       setFormData({
         ...formData,
-        manufacturerInfo: `Titel: ${data.title || "N/A"}\n\nBeschreibung: ${data.description || "N/A"}\n\nInhalt:\n${data.content?.substring(0, 2000) || ""}`,
+        manufacturerInfo: infoText,
       });
 
       toast({
         title: "Erfolgreich",
-        description: "Website wurde analysiert",
+        description: scrapeMode === "single" ? "Einzelseite analysiert" : `${data.pagesFound || 0} Seiten analysiert`,
       });
     } catch (error) {
       console.error("Scraping error:", error);
@@ -619,7 +643,21 @@ export const BasicForm = ({ onGenerate, isLoading }: BasicFormProps) => {
 
               <div>
                 <Label className="text-sm font-medium">Website analysieren</Label>
-                <div className="flex gap-2 mt-1.5">
+                <RadioGroup
+                  value={scrapeMode}
+                  onValueChange={(value: "single" | "multi") => setScrapeMode(value)}
+                  className="flex gap-4 mt-1.5 mb-2"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="single" id="basic-scrape-single" />
+                    <Label htmlFor="basic-scrape-single" className="text-xs cursor-pointer">Einzelseite (1 Credit)</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="multi" id="basic-scrape-multi" />
+                    <Label htmlFor="basic-scrape-multi" className="text-xs cursor-pointer">Multi-Page (bis 10)</Label>
+                  </div>
+                </RadioGroup>
+                <div className="flex gap-2">
                   <Input
                     type="url"
                     value={formData.manufacturerWebsite}
