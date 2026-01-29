@@ -14,6 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ProcessFlowPanel } from "@/components/seo-generator/ProcessFlowPanel";
 import { ValidationPanel } from "@/components/seo-generator/ValidationPanel";
+import { ModelSelector, type AIModel } from "@/components/ProSteps/ModelSelector";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useDebug } from "@/contexts/DebugContext";
@@ -66,6 +67,7 @@ interface FormData {
   manufacturerInfo: string;
   additionalInfo: string;
   promptVersion: string;
+  aiModel: AIModel;
   pageGoal: "inform" | "advise" | "preparePurchase" | "triggerPurchase";
   complianceCheck: boolean;
   checkMDR: boolean;
@@ -127,6 +129,7 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
     manufacturerInfo: "",
     additionalInfo: "",
     promptVersion: "v9-master",
+    aiModel: "gemini-flash",
     pageGoal: "inform",
     complianceCheck: false,
     checkMDR: false,
@@ -1098,8 +1101,8 @@ da historische Versionen nicht vollständig implementiert sind.`;
                 {/* Prompt Version */}
                 <div>
                   <Label className="text-xs">Prompt-Strategie</Label>
-                  <Select 
-                    value={formData.promptVersion} 
+                  <Select
+                    value={formData.promptVersion}
                     onValueChange={(v) => setFormData({ ...formData, promptVersion: v })}
                   >
                     <SelectTrigger className="mt-1 h-9 text-xs">
@@ -1121,6 +1124,16 @@ da historische Versionen nicht vollständig implementiert sind.`;
                       <SelectItem value="v1-kompakt-seo">v1: Kompakt-SEO</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                {/* KI-Modell Auswahl */}
+                <div className="p-3 bg-gradient-to-r from-purple-500/10 to-blue-500/10 rounded-lg border border-purple-500/20">
+                  <ModelSelector
+                    value={formData.aiModel}
+                    onChange={(model) => setFormData({ ...formData, aiModel: model })}
+                    wordCount={formData.contentLength === 'short' ? '500' : formData.contentLength === 'long' ? '2000' : '1000'}
+                    showCostEstimate={true}
+                  />
                 </div>
 
                 {/* Website Scrape */}
