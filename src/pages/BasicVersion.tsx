@@ -103,6 +103,7 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
   const { currentOrg } = useOrganization(session);
   const [isLoading, setIsLoading] = useState(false);
   const [isScraping, setIsScraping] = useState(false);
+  const [scrapeMode, setScrapeMode] = useState<"single" | "multi">("single");
   const [isSaving, setIsSaving] = useState(false);
   const [currentStep, setCurrentStep] = useState<string>("input");
   const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
@@ -574,23 +575,62 @@ da historische Versionen nicht vollständig implementiert sind.`;
     
     try {
       const { data, error } = await supabase.functions.invoke("scrape-website", {
-        body: { url: formData.manufacturerWebsite, mode: "single" },
+        body: { url: formData.manufacturerWebsite, mode: scrapeMode },
       });
 
       if (error) throw error;
 
-      log('response', 'scrape-website erfolgreich', { 
-        title: data.title, 
-        descriptionLength: data.description?.length,
-        contentLength: data.content?.length 
-      });
-      
+      // Handle both single and multi mode responses
+      let infoText = "";
+
+      if (scrapeMode === "single") {
+        log('response', 'scrape-website (single) erfolgreich', {
+          title: data.title,
+          descriptionLength: data.description?.length,
+          contentLength: data.content?.length
+        });
+        infoText = `Titel: ${data.title || "N/A"}\n\nBeschreibung: ${data.description || "N/A"}\n\nInhalt:\n${data.content?.substring(0, 2000) || ""}`;
+
+        // Add AI analysis if available
+        if (data.analysis) {
+          infoText += `\n\n--- AI-Analyse ---\nUnternehmen: ${data.analysis.companyName || "N/A"}\nBranche: ${data.analysis.industry || "N/A"}\nZielgruppe: ${data.analysis.targetAudience || "N/A"}`;
+        }
+      } else {
+        // Multi mode
+        log('response', 'scrape-website (multi) erfolgreich', {
+          pagesFound: data.pagesFound,
+          combinedContentLength: data.combinedContent?.length
+        });
+        infoText = `Seiten gefunden: ${data.pagesFound || 0}\n\n`;
+
+        // Add page summaries
+        if (data.pages && data.pages.length > 0) {
+          infoText += "--- Seiten ---\n";
+          data.pages.slice(0, 5).forEach((page: any, idx: number) => {
+            infoText += `${idx + 1}. ${page.title || "Unbekannt"}\n`;
+          });
+        }
+
+        // Add combined content excerpt
+        if (data.combinedContent) {
+          infoText += `\n--- Inhalt (Auszug) ---\n${data.combinedContent.substring(0, 1500)}...`;
+        }
+
+        // Add AI analysis if available
+        if (data.analysis) {
+          infoText += `\n\n--- AI-Analyse ---\nUnternehmen: ${data.analysis.companyName || "N/A"}\nBranche: ${data.analysis.industry || "N/A"}\nZielgruppe: ${data.analysis.targetAudience || "N/A"}`;
+        }
+      }
+
       setFormData({
         ...formData,
-        manufacturerInfo: `Titel: ${data.title || "N/A"}\n\nBeschreibung: ${data.description || "N/A"}\n\nInhalt:\n${data.content?.substring(0, 2000) || ""}`,
+        manufacturerInfo: infoText,
       });
 
-      toast({ title: "Erfolgreich", description: "Website wurde analysiert" });
+      const successMsg = scrapeMode === "single"
+        ? "Einzelseite wurde analysiert"
+        : `${data.pagesFound || 0} Seiten wurden analysiert`;
+      toast({ title: "Erfolgreich", description: successMsg });
     } catch (error) {
       log('error', 'scrape-website fehlgeschlagen', { error: String(error) });
       console.error("Scraping error:", error);
@@ -1136,6 +1176,25 @@ da historische Versionen nicht vollständig implementiert sind.`;
                     Website analysieren (optional)
                   </CollapsibleTrigger>
                   <CollapsibleContent className="pt-3 space-y-3">
+                    {/* Scrape Mode Auswahl */}
+                    <RadioGroup
+                      value={scrapeMode}
+                      onValueChange={(value: "single" | "multi") => setScrapeMode(value)}
+                      className="flex gap-4"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="single" id="scrape-single" />
+                        <Label htmlFor="scrape-single" className="text-sm cursor-pointer">
+                          Einzelseite (1 Credit)
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="multi" id="scrape-multi" />
+                        <Label htmlFor="scrape-multi" className="text-sm cursor-pointer">
+                          Multi-Page (bis 10 Credits)
+                        </Label>
+                      </div>
+                    </RadioGroup>
                     <div className="flex gap-2">
                       <Input
                         value={formData.manufacturerWebsite}
