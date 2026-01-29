@@ -11,8 +11,8 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FormSection } from "./FormSection";
 import { SerpAnalysisPanel } from "./SerpAnalysisPanel";
-import { X, Globe, Loader2, Sparkles, Target, Users, FileText, Settings, Shield } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { WebsiteAnalysisPanel } from "./WebsiteAnalysisPanel";
+import { X, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export interface BasicFormData {
@@ -48,8 +48,6 @@ interface BasicFormProps {
 
 export const BasicForm = ({ onGenerate, isLoading }: BasicFormProps) => {
   const { toast } = useToast();
-  const [isScraping, setIsScraping] = useState(false);
-  const [scrapeMode, setScrapeMode] = useState<"single" | "multi">("single");
   const [keywordInput, setKeywordInput] = useState("");
   const [wQuestionInput, setWQuestionInput] = useState("");
   const [formData, setFormData] = useState<BasicFormData>({
@@ -146,68 +144,6 @@ export const BasicForm = ({ onGenerate, isLoading }: BasicFormProps) => {
       ...formData,
       serpContext: context,
     });
-  };
-
-  const handleScrapeWebsite = async () => {
-    if (!formData.manufacturerWebsite.trim()) {
-      toast({
-        title: "Fehler",
-        description: "Bitte geben Sie zuerst eine Website ein",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsScraping(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("scrape-website", {
-        body: { url: formData.manufacturerWebsite, mode: scrapeMode },
-      });
-
-      if (error) throw error;
-
-      // Handle both single and multi mode responses
-      let infoText = "";
-      if (scrapeMode === "single") {
-        infoText = `Titel: ${data.title || "N/A"}\n\nBeschreibung: ${data.description || "N/A"}\n\nInhalt:\n${data.content?.substring(0, 2000) || ""}`;
-        if (data.analysis) {
-          infoText += `\n\n--- AI-Analyse ---\nUnternehmen: ${data.analysis.companyName || "N/A"}\nBranche: ${data.analysis.industry || "N/A"}`;
-        }
-      } else {
-        infoText = `Seiten gefunden: ${data.pagesFound || 0}\n\n`;
-        if (data.pages?.length > 0) {
-          infoText += "--- Seiten ---\n";
-          data.pages.slice(0, 5).forEach((page: any, idx: number) => {
-            infoText += `${idx + 1}. ${page.title || "Unbekannt"}\n`;
-          });
-        }
-        if (data.combinedContent) {
-          infoText += `\n--- Inhalt ---\n${data.combinedContent.substring(0, 1500)}...`;
-        }
-        if (data.analysis) {
-          infoText += `\n\n--- AI-Analyse ---\nUnternehmen: ${data.analysis.companyName || "N/A"}\nBranche: ${data.analysis.industry || "N/A"}`;
-        }
-      }
-
-      setFormData({
-        ...formData,
-        manufacturerInfo: infoText,
-      });
-
-      toast({
-        title: "Erfolgreich",
-        description: scrapeMode === "single" ? "Einzelseite analysiert" : `${data.pagesFound || 0} Seiten analysiert`,
-      });
-    } catch (error) {
-      console.error("Scraping error:", error);
-      toast({
-        title: "Fehler",
-        description: "Website konnte nicht analysiert werden",
-        variant: "destructive",
-      });
-    } finally {
-      setIsScraping(false);
-    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -631,57 +567,42 @@ export const BasicForm = ({ onGenerate, isLoading }: BasicFormProps) => {
             defaultOpen={false}
           >
             <div className="space-y-4">
+              {/* Website Analysis Panel */}
+              <WebsiteAnalysisPanel
+                onAddKeywords={(keywords) => {
+                  const newKeywords = keywords.filter(k => !formData.secondaryKeywords.includes(k));
+                  if (newKeywords.length > 0) {
+                    setFormData({
+                      ...formData,
+                      secondaryKeywords: [...formData.secondaryKeywords, ...newKeywords],
+                    });
+                  }
+                }}
+                onSetManufacturerName={(name) => {
+                  setFormData({ ...formData, manufacturerName: name });
+                }}
+                onSetManufacturerInfo={(info) => {
+                  setFormData({ ...formData, manufacturerInfo: info });
+                }}
+                currentKeywords={formData.secondaryKeywords}
+              />
+
               <div>
                 <Label className="text-sm font-medium">Hersteller / Marke</Label>
                 <Input
                   value={formData.manufacturerName}
                   onChange={(e) => setFormData({ ...formData, manufacturerName: e.target.value })}
-                  placeholder="z.B. MediCorp"
+                  placeholder="z.B. MediCorp (wird automatisch erkannt)"
                   className="mt-1.5"
                 />
               </div>
 
               <div>
-                <Label className="text-sm font-medium">Website analysieren</Label>
-                <RadioGroup
-                  value={scrapeMode}
-                  onValueChange={(value: "single" | "multi") => setScrapeMode(value)}
-                  className="flex gap-4 mt-1.5 mb-2"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="single" id="basic-scrape-single" />
-                    <Label htmlFor="basic-scrape-single" className="text-xs cursor-pointer">Einzelseite (1 Credit)</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="multi" id="basic-scrape-multi" />
-                    <Label htmlFor="basic-scrape-multi" className="text-xs cursor-pointer">Multi-Page (bis 10)</Label>
-                  </div>
-                </RadioGroup>
-                <div className="flex gap-2">
-                  <Input
-                    type="url"
-                    value={formData.manufacturerWebsite}
-                    onChange={(e) => setFormData({ ...formData, manufacturerWebsite: e.target.value })}
-                    placeholder="https://example.com"
-                  />
-                  <Button
-                    type="button"
-                    onClick={handleScrapeWebsite}
-                    disabled={isScraping}
-                    variant="outline"
-                    size="icon"
-                  >
-                    {isScraping ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-sm font-medium">Recherche-Daten / Infos</Label>
+                <Label className="text-sm font-medium">Zusätzliche Infos</Label>
                 <Textarea
                   value={formData.manufacturerInfo}
                   onChange={(e) => setFormData({ ...formData, manufacturerInfo: e.target.value })}
-                  placeholder="Technische Daten, Spezifikationen, USPs..."
+                  placeholder="Wird automatisch aus Website-Analyse gefüllt..."
                   rows={4}
                   className="mt-1.5"
                 />

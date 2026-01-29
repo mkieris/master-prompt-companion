@@ -14,6 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ProcessFlowPanel } from "@/components/seo-generator/ProcessFlowPanel";
 import { ValidationPanel } from "@/components/seo-generator/ValidationPanel";
+import { WebsiteAnalysisPanel } from "@/components/seo-generator/WebsiteAnalysisPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useDebug } from "@/contexts/DebugContext";
@@ -1169,59 +1170,25 @@ da historische Versionen nicht vollständig implementiert sind.`;
                   </Select>
                 </div>
 
-                {/* Website Scrape */}
-                <Collapsible>
-                  <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-                    <ChevronDown className="h-4 w-4" />
-                    Website analysieren (optional)
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="pt-3 space-y-3">
-                    {/* Scrape Mode Auswahl */}
-                    <RadioGroup
-                      value={scrapeMode}
-                      onValueChange={(value: "single" | "multi") => setScrapeMode(value)}
-                      className="flex gap-4"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="single" id="scrape-single" />
-                        <Label htmlFor="scrape-single" className="text-sm cursor-pointer">
-                          Einzelseite (1 Credit)
-                        </Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="multi" id="scrape-multi" />
-                        <Label htmlFor="scrape-multi" className="text-sm cursor-pointer">
-                          Multi-Page (bis 10 Credits)
-                        </Label>
-                      </div>
-                    </RadioGroup>
-                    <div className="flex gap-2">
-                      <Input
-                        value={formData.manufacturerWebsite}
-                        onChange={(e) => setFormData({ ...formData, manufacturerWebsite: e.target.value })}
-                        placeholder="https://example.com"
-                        className="flex-1"
-                      />
-                      <Button
-                        type="button"
-                        onClick={handleScrapeWebsite}
-                        disabled={isScraping || !formData.manufacturerWebsite.trim()}
-                        variant="secondary"
-                        size="icon"
-                      >
-                        {isScraping ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                    {formData.manufacturerInfo && (
-                      <Textarea
-                        value={formData.manufacturerInfo}
-                        onChange={(e) => setFormData({ ...formData, manufacturerInfo: e.target.value })}
-                        rows={4}
-                        className="text-xs"
-                      />
-                    )}
-                  </CollapsibleContent>
-                </Collapsible>
+                {/* Website Analysis Panel */}
+                <WebsiteAnalysisPanel
+                  onAddKeywords={(keywords) => {
+                    const newKeywords = keywords.filter(k => !formData.secondaryKeywords.includes(k));
+                    if (newKeywords.length > 0) {
+                      setFormData({
+                        ...formData,
+                        secondaryKeywords: [...formData.secondaryKeywords, ...newKeywords],
+                      });
+                    }
+                  }}
+                  onSetManufacturerName={(name) => {
+                    setFormData({ ...formData, manufacturerName: name });
+                  }}
+                  onSetManufacturerInfo={(info) => {
+                    setFormData({ ...formData, manufacturerInfo: info });
+                  }}
+                  currentKeywords={formData.secondaryKeywords}
+                />
 
                 {/* Additional Info */}
                 <Collapsible>
