@@ -67,7 +67,7 @@ interface FormData {
   // SEO-spezifische Felder
   pageType: "product" | "category";
   pageGoal: "inform" | "advise" | "preparePurchase" | "triggerPurchase";
-  searchIntent: string[];
+  searchIntent: ("buy" | "do" | "go" | "know")[];
   keywordDensity: "low" | "medium" | "high";
   // Website-Scraping (optional)
   manufacturerWebsite: string;
@@ -386,14 +386,14 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
     setIsAnalyzingDomain(true);
     setDomainAnalysis(null);
     const endTimer = logWithTimer('api', 'Domain-Analyse');
-    log('api', 'analyze-domain aufgerufen', { url: domainUrl, mode: 'topic' });
+    log('api', 'scrape-website aufgerufen', { url: domainUrl, mode: 'topic' });
 
     try {
-      const { data, error } = await supabase.functions.invoke("analyze-domain", {
+      const { data, error } = await supabase.functions.invoke("scrape-website", {
         body: {
           url: domainUrl,
-          mode: 'topic',
-          depth: 'single',
+          mode: 'single',
+          includeAIAnalysis: true,
         },
       });
 
@@ -777,7 +777,7 @@ Du bist erfahrener SEO-Content-Stratege für Texte die bei Google UND Menschen f
 ❌ H1 → H3 Sprung (H2 fehlt)
 
 ═══ AKTUELLE KONFIGURATION ═══
-TONALITÄT: ${formData.tone === 'sachlich' ? 'Sachlich & Informativ' : formData.tone === 'aktivierend' ? 'Aktivierend & Überzeugend' : 'Beratend & Nutzenorientiert'}
+TONALITÄT: ${formData.tone === 'factual' ? 'Sachlich & Informativ' : formData.tone === 'sales' ? 'Aktivierend & Überzeugend' : 'Beratend & Nutzenorientiert'}
 ANREDE: ${formData.formOfAddress === 'du' ? 'Du-Form' : formData.formOfAddress === 'sie' ? 'Sie-Form' : 'Neutral'}
 ZIELGRUPPE: ${formData.targetAudience === 'physiotherapists' ? 'B2B (Fachpersonal)' : 'B2C (Endkunden)'}`,
 
@@ -825,7 +825,7 @@ Ziel: Inhalte die (1) von Google AI Overviews zitiert werden und (2) echten Info
 ✅ Valides JSON-LD FAQ-Schema am Ende generieren
 
 ═══ AKTUELLE KONFIGURATION ═══
-TONALITÄT: ${formData.tone === 'sachlich' ? 'Sachlich' : formData.tone === 'aktivierend' ? 'Aktivierend' : 'Beratend'}
+TONALITÄT: ${formData.tone === 'factual' ? 'Sachlich' : formData.tone === 'sales' ? 'Aktivierend' : 'Beratend'}
 ANREDE: ${formData.formOfAddress === 'du' ? 'Du-Form' : formData.formOfAddress === 'sie' ? 'Sie-Form' : 'Neutral'}
 ZIELGRUPPE: ${formData.targetAudience === 'physiotherapists' ? 'B2B (Fachpersonal)' : 'B2C (Endkunden)'}`,
 
@@ -872,7 +872,7 @@ VARIATIONEN statt Wiederholung:
 ❌ Erfundene Fakten
 
 ═══ AKTUELLE KONFIGURATION ═══
-TONALITÄT: ${formData.tone === 'sachlich' ? 'Sachlich' : formData.tone === 'aktivierend' ? 'Aktivierend' : 'Beratend'}
+TONALITÄT: ${formData.tone === 'factual' ? 'Sachlich' : formData.tone === 'sales' ? 'Aktivierend' : 'Beratend'}
 ANREDE: ${formData.formOfAddress === 'du' ? 'Du-Form' : formData.formOfAddress === 'sie' ? 'Sie-Form' : 'Neutral'}
 ZIELGRUPPE: ${formData.targetAudience === 'physiotherapists' ? 'B2B (Fachpersonal)' : 'B2C (Endkunden)'}`,
     };
