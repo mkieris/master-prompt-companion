@@ -628,14 +628,17 @@ serve(async (req) => {
       // Single content generation based on tone
       console.log('Generating single content with tone:', formData.tone);
 
-      // Map tone to writing style instruction
+      // Map tone to writing style instruction (supports both old German keys and new English keys)
       const toneInstructions: Record<string, string> = {
         'sachlich': 'SCHREIBSTIL: SACHLICH & STRUKTURIERT\n- Faktenbasiert mit klarer Hierarchie\n- Nutze Listen und Aufzählungen wo sinnvoll\n- Ruhiger, vertrauensbildender Ton\n- Daten und Fakten zur Untermauerung\n- Objektiv und informativ',
+        'factual': 'SCHREIBSTIL: SACHLICH & STRUKTURIERT\n- Faktenbasiert mit klarer Hierarchie\n- Nutze Listen und Aufzählungen wo sinnvoll\n- Ruhiger, vertrauensbildender Ton\n- Daten und Fakten zur Untermauerung\n- Objektiv und informativ',
         'beratend': 'SCHREIBSTIL: BERATEND & NUTZENORIENTIERT\n- Fokus auf praktischen Nutzen und Lösungen\n- Empathisch und hilfreich\n- "Du fragst dich..."-Einstiege\n- Konkrete Empfehlungen und Tipps\n- Vertrauensaufbauend und unterstützend',
-        'aktivierend': 'SCHREIBSTIL: AKTIVIEREND & ÜBERZEUGEND\n- Starte mit starkem Nutzenversprechen\n- Zeige Transformation (vorher → nachher)\n- Integriere CTAs an passenden Stellen\n- Konkrete Ergebnisse hervorheben\n- Aktivierende Verben und überzeugende Sprache'
+        'advisory': 'SCHREIBSTIL: BERATEND & NUTZENORIENTIERT\n- Fokus auf praktischen Nutzen und Lösungen\n- Empathisch und hilfreich\n- "Du fragst dich..."-Einstiege\n- Konkrete Empfehlungen und Tipps\n- Vertrauensaufbauend und unterstützend',
+        'aktivierend': 'SCHREIBSTIL: AKTIVIEREND & ÜBERZEUGEND\n- Starte mit starkem Nutzenversprechen\n- Zeige Transformation (vorher → nachher)\n- Integriere CTAs an passenden Stellen\n- Konkrete Ergebnisse hervorheben\n- Aktivierende Verben und überzeugende Sprache',
+        'sales': 'SCHREIBSTIL: AKTIVIEREND & ÜBERZEUGEND\n- Starte mit starkem Nutzenversprechen\n- Zeige Transformation (vorher → nachher)\n- Integriere CTAs an passenden Stellen\n- Konkrete Ergebnisse hervorheben\n- Aktivierende Verben und überzeugende Sprache'
       };
 
-      const toneInstruction = toneInstructions[formData.tone] || toneInstructions['beratend'];
+      const toneInstruction = toneInstructions[formData.tone || 'advisory'] || toneInstructions['advisory'];
       const enhancedUserPrompt = toneInstruction + '\n\n' + userPrompt;
 
       messages = [
