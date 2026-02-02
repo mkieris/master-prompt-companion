@@ -41,8 +41,8 @@ const AI_MODELS: Record<AIModelId, ModelConfig> = {
   },
   'claude-sonnet': {
     id: 'claude-sonnet',
-    modelName: 'anthropic/claude-sonnet-4',
-    provider: 'lovable', // Using Lovable gateway for Claude
+    modelName: 'anthropic/claude-3-5-sonnet-20241022',
+    provider: 'lovable', // Using Lovable gateway for Claude 3.5 Sonnet
     temperature: 0.6,
     costPerMillionInput: 3.00,
     costPerMillionOutput: 15.00,

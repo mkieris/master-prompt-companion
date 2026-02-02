@@ -34,7 +34,7 @@ export const AI_MODELS: ModelConfig[] = [
   },
   {
     id: 'claude-sonnet',
-    name: 'Claude Sonnet 4',
+    name: 'Claude 3.5 Sonnet',
     description: 'Beste Qualität – menschlichster Schreibstil',
     costPer1kWords: 5, // ~5 Cent pro 1000 Wörter
     icon: <Crown className="h-4 w-4 text-purple-500" />,
