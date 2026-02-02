@@ -14,6 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ProcessFlowPanel } from "@/components/seo-generator/ProcessFlowPanel";
 import { ValidationPanel } from "@/components/seo-generator/ValidationPanel";
+import { SerpAnalysisPanel } from "@/components/seo-generator/SerpAnalysisPanel";
 import { ModelSelector, type AIModel } from "@/components/ProSteps/ModelSelector";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -47,32 +48,80 @@ import {
   AlertTriangle,
   XCircle
 } from "lucide-react";
-
+import { sanitizeHtml, escapeHtml } from "@/lib/sanitize";
 interface BasicVersionProps {
   session: Session | null;
 }
 
 interface FormData {
+  // Kernfelder (immer sichtbar)
   focusKeyword: string;
-  secondaryKeywords: string[];
-  wQuestions: string[];
-  searchIntent: ("know" | "do" | "buy" | "go")[];
-  keywordDensity: "low" | "medium" | "high";
-  pageType: "product" | "category";
+  tone: "factual" | "advisory" | "sales";
+  contentLength: "short" | "medium" | "long";
   targetAudience: "endCustomers" | "physiotherapists";
   formOfAddress: "du" | "sie" | "neutral";
-  contentLength: "short" | "medium" | "long";
-  tone: string;
+  // Erweiterte Optionen (optional)
+  secondaryKeywords: string[];
+  wQuestions: string[];
+  brandName: string;
+  additionalInfo: string;
+  // SEO-spezifische Felder
+  pageType: "product" | "category";
+  pageGoal: "inform" | "advise" | "preparePurchase" | "triggerPurchase";
+  searchIntent: ("buy" | "do" | "go" | "know")[];
+  keywordDensity: "low" | "medium" | "high";
+  // Website-Scraping (optional)
   manufacturerWebsite: string;
   manufacturerInfo: string;
-  additionalInfo: string;
-  promptVersion: string;
-  aiModel: AIModel;
-  pageGoal: "inform" | "advise" | "preparePurchase" | "triggerPurchase";
+  // Compliance (optional)
   complianceCheck: boolean;
   checkMDR: boolean;
   checkHWG: boolean;
   checkStudies: boolean;
+  // SERP-Analyse
+  serpContext: string;
+  // Intern verwendet (nicht in UI)
+  promptVersion: string;
+  // KI-Modell Auswahl
+  aiModel: AIModel;
+}
+
+// SERP Analysis Result
+interface SerpAnalysis {
+  serpTerms: {
+    mustHave: string[];
+    shouldHave: string[];
+    niceToHave: string[];
+    all: string[];
+  };
+  questions: {
+    peopleAlsoAsk: string[];
+    relatedSearches: string[];
+  };
+  competitors: Array<{
+    position: number;
+    title: string;
+    url: string;
+    domain: string;
+  }>;
+  promptContext: string;
+}
+
+interface KeywordAnalysis {
+  secondaryKeywords: string[];
+  wQuestions: string[];
+  searchIntent: "know" | "do" | "buy" | "go";
+  suggestedTopics: string[];
+}
+
+// Domain/Topic Learning Analysis
+interface DomainAnalysis {
+  success: boolean;
+  url: string;
+  mode: 'topic' | 'category' | 'company';
+  pagesAnalyzed: number;
+  analysis: any;
+  contentContext: string;
 }
 
 interface SeoTextContent {
@@ -115,29 +164,51 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
   const [keywordInput, setKeywordInput] = useState("");
 
   const [formData, setFormData] = useState<FormData>({
+    // Kernfelder
     focusKeyword: "",
-    secondaryKeywords: [],
-    wQuestions: [],
-    searchIntent: [],
-    keywordDensity: "medium",
-    pageType: "product",
+    tone: "advisory",
+    contentLength: "medium",
     targetAudience: "endCustomers",
     formOfAddress: "du",
-    contentLength: "medium",
-    tone: "advisory",
+    // Erweiterte Optionen
+    secondaryKeywords: [],
+    wQuestions: [],
+    brandName: "",
+    additionalInfo: "",
+    // SEO-spezifische Felder
+    pageType: "product",
+    pageGoal: "advise",
+    searchIntent: [],
+    keywordDensity: "medium",
+    // Website-Scraping
     manufacturerWebsite: "",
     manufacturerInfo: "",
-    additionalInfo: "",
-    promptVersion: "v9-master",
-    aiModel: "gemini-flash",
-    pageGoal: "inform",
+    // Compliance
     complianceCheck: false,
     checkMDR: false,
     checkHWG: false,
     checkStudies: false,
+    // SERP-Analyse
+    serpContext: "",
+    // Intern
+    promptVersion: "v9-master",
+    // KI-Modell
+    aiModel: "gemini-flash",
   });
-  
-  const [wQuestionInput, setWQuestionInput] = useState("");
+
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [isAnalyzingKeyword, setIsAnalyzingKeyword] = useState(false);
+  const [isAnalyzingSerp, setIsAnalyzingSerp] = useState(false);
+  const [keywordAnalysis, setKeywordAnalysis] = useState<KeywordAnalysis | null>(null);
+  const [serpAnalysis, setSerpAnalysis] = useState<SerpAnalysis | null>(null);
+  const [showKeywordSuggestions, setShowKeywordSuggestions] = useState(false);
+  const [showSerpResults, setShowSerpResults] = useState(false);
+
+  // Domain/Topic Learning State
+  const [isAnalyzingDomain, setIsAnalyzingDomain] = useState(false);
+  const [domainAnalysis, setDomainAnalysis] = useState<DomainAnalysis | null>(null);
+  const [showDomainResults, setShowDomainResults] = useState(false);
+  const [domainUrl, setDomainUrl] = useState("");
 
   useEffect(() => {
     if (!session) {
@@ -160,36 +231,303 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
   };
 
   const handleRemoveKeyword = (keyword: string) => {
+    log('form', 'Sekundär-Keyword entfernt', { keyword });
     setFormData({
       ...formData,
       secondaryKeywords: formData.secondaryKeywords.filter((k) => k !== keyword),
     });
   };
 
-  const handleAddWQuestion = () => {
-    if (wQuestionInput.trim() && !formData.wQuestions.includes(wQuestionInput.trim())) {
-      setFormData({
-        ...formData,
-        wQuestions: [...formData.wQuestions, wQuestionInput.trim()],
-      });
-      setWQuestionInput("");
-    }
-  };
-
   const handleRemoveWQuestion = (question: string) => {
+    log('form', 'W-Frage entfernt', { question });
     setFormData({
       ...formData,
       wQuestions: formData.wQuestions.filter((q) => q !== question),
     });
   };
 
-  const toggleSearchIntent = (intent: "know" | "do" | "buy" | "go") => {
+  const handleAnalyzeKeyword = async () => {
+    if (!formData.focusKeyword.trim()) {
+      toast({ title: "Fehler", description: "Bitte zuerst ein Fokus-Keyword eingeben", variant: "destructive" });
+      return;
+    }
+
+    setIsAnalyzingKeyword(true);
+    const endTimer = logWithTimer('api', 'Keyword-Analyse');
+    log('api', 'generate-seo-content (analyze-keyword mode) aufgerufen', { focusKeyword: formData.focusKeyword });
+
+    try {
+      // Use generate-seo-content with mode: 'analyze-keyword' instead of separate function
+      const { data, error } = await supabase.functions.invoke("generate-seo-content", {
+        body: {
+          mode: 'analyze-keyword',
+          focusKeyword: formData.focusKeyword,
+          targetAudience: formData.targetAudience,
+          language: 'de'
+        },
+      });
+
+      if (error) throw error;
+
+      log('response', 'keyword analysis erfolgreich', {
+        secondaryKeywordsCount: data.analysis?.secondaryKeywords?.length,
+        wQuestionsCount: data.analysis?.wQuestions?.length,
+        searchIntent: data.analysis?.searchIntent,
+      });
+
+      setKeywordAnalysis(data.analysis);
+      setShowKeywordSuggestions(true);
+      setShowAdvanced(true); // Erweiterte Optionen öffnen um Übernahme zu sehen
+      toast({ title: "Analyse abgeschlossen", description: "Keyword-Vorschläge wurden generiert" });
+    } catch (error) {
+      log('error', 'keyword analysis fehlgeschlagen', { error: String(error) });
+      console.error("Keyword analysis error:", error);
+      toast({ title: "Fehler", description: "Keyword-Analyse fehlgeschlagen", variant: "destructive" });
+    } finally {
+      endTimer();
+      setIsAnalyzingKeyword(false);
+    }
+  };
+
+  // SERP Analysis Handler
+  const handleAnalyzeSerp = async () => {
+    if (!formData.focusKeyword.trim()) {
+      toast({ title: "Fehler", description: "Bitte zuerst ein Fokus-Keyword eingeben", variant: "destructive" });
+      return;
+    }
+
+    setIsAnalyzingSerp(true);
+    setCurrentStep("serp-analysis");
+    const endTimer = logWithTimer('api', 'SERP-Analyse');
+    log('api', 'analyze-serp aufgerufen', {
+      keyword: formData.focusKeyword,
+      country: 'de',
+      language: 'de'
+    });
+
+    try {
+      const { data, error } = await supabase.functions.invoke("analyze-serp", {
+        body: {
+          keyword: formData.focusKeyword,
+          country: 'de',
+          language: 'de',
+          numResults: 10
+        },
+      });
+
+      if (error) throw error;
+
+      log('response', 'SERP-Analyse erfolgreich', {
+        mustHaveCount: data.serpTerms?.mustHave?.length || 0,
+        shouldHaveCount: data.serpTerms?.shouldHave?.length || 0,
+        paaCount: data.questions?.peopleAlsoAsk?.length || 0,
+        competitorsCount: data.competitors?.length || 0,
+      });
+
+      // Log detailed SERP results for analysis
+      log('response', 'SERP mustHave Terme', data.serpTerms?.mustHave || []);
+      log('response', 'SERP shouldHave Terme', data.serpTerms?.shouldHave || []);
+      log('response', 'SERP People Also Ask', data.questions?.peopleAlsoAsk || []);
+
+      setSerpAnalysis(data);
+      setShowSerpResults(true);
+      setShowAdvanced(true);
+
+      // Auto-add mustHave terms to secondaryKeywords if not already present
+      if (data.serpTerms?.mustHave?.length > 0) {
+        const newKeywords = data.serpTerms.mustHave.filter(
+          (term: string) => !formData.secondaryKeywords.includes(term)
+        );
+        if (newKeywords.length > 0) {
+          setFormData(prev => ({
+            ...prev,
+            secondaryKeywords: [...prev.secondaryKeywords, ...newKeywords.slice(0, 5)]
+          }));
+          log('form', 'SERP mustHave Terme automatisch hinzugefügt', newKeywords.slice(0, 5));
+        }
+      }
+
+      toast({
+        title: "SERP-Analyse abgeschlossen",
+        description: `${data.serpTerms?.mustHave?.length || 0} wichtige Terme gefunden`
+      });
+    } catch (error) {
+      log('error', 'SERP-Analyse fehlgeschlagen', { error: String(error) });
+      console.error("SERP analysis error:", error);
+      toast({ title: "Fehler", description: "SERP-Analyse fehlgeschlagen", variant: "destructive" });
+    } finally {
+      endTimer();
+      setIsAnalyzingSerp(false);
+      setCurrentStep("input");
+    }
+  };
+
+  // Combined Analysis: SERP + Keyword Analysis
+  const handleFullAnalysis = async () => {
+    if (!formData.focusKeyword.trim()) {
+      toast({ title: "Fehler", description: "Bitte zuerst ein Fokus-Keyword eingeben", variant: "destructive" });
+      return;
+    }
+
+    log('state', 'Vollständige Analyse gestartet', { keyword: formData.focusKeyword });
+
+    // Run both analyses
+    await handleAnalyzeSerp();
+    await handleAnalyzeKeyword();
+
+    log('state', 'Vollständige Analyse abgeschlossen', {
+      serpAnalysis: !!serpAnalysis,
+      keywordAnalysis: !!keywordAnalysis
+    });
+  };
+
+  // Domain/Topic Learning Handler
+  const handleAnalyzeDomain = async () => {
+    if (!domainUrl.trim()) {
+      toast({ title: "Fehler", description: "Bitte eine URL eingeben", variant: "destructive" });
+      return;
+    }
+
+    setIsAnalyzingDomain(true);
+    setDomainAnalysis(null);
+    const endTimer = logWithTimer('api', 'Domain-Analyse');
+    log('api', 'scrape-website aufgerufen', { url: domainUrl, mode: 'topic' });
+
+    try {
+      const { data, error } = await supabase.functions.invoke("scrape-website", {
+        body: {
+          url: domainUrl,
+          mode: 'single',
+          includeAIAnalysis: true,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        log('response', 'Domain-Analyse erfolgreich', {
+          pagesAnalyzed: data.pagesAnalyzed,
+          hasContentContext: !!data.contentContext,
+        });
+
+        setDomainAnalysis(data);
+        setShowDomainResults(true);
+        setShowAdvanced(true);
+
+        // Auto-add contentContext to additionalInfo
+        if (data.contentContext) {
+          setFormData(prev => ({
+            ...prev,
+            additionalInfo: prev.additionalInfo
+              ? `${prev.additionalInfo}\n\n--- Themen-Kontext ---\n${data.contentContext}`
+              : `--- Themen-Kontext ---\n${data.contentContext}`
+          }));
+          log('form', 'Themen-Kontext automatisch zu Zusatzinfos hinzugefügt');
+        }
+
+        toast({
+          title: "Thema gelernt!",
+          description: "Kontext wurde zu Zusatzinfos hinzugefügt"
+        });
+      } else {
+        throw new Error(data.error || 'Analyse fehlgeschlagen');
+      }
+    } catch (error: any) {
+      log('error', 'Domain-Analyse fehlgeschlagen', { error: String(error) });
+      console.error("Domain analysis error:", error);
+      toast({
+        title: "Fehler",
+        description: error.message || "Domain-Analyse fehlgeschlagen",
+        variant: "destructive"
+      });
+    } finally {
+      endTimer();
+      setIsAnalyzingDomain(false);
+    }
+  };
+
+  // Form change handler with logging
+  const handleFormChange = <K extends keyof FormData>(field: K, value: FormData[K]) => {
+    log('form', `Feld geändert: ${field}`, {
+      field,
+      oldValue: formData[field],
+      newValue: value
+    });
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleAddSuggestedKeyword = (keyword: string) => {
+    if (!formData.secondaryKeywords.includes(keyword)) {
+      setFormData({
+        ...formData,
+        secondaryKeywords: [...formData.secondaryKeywords, keyword],
+      });
+    }
+  };
+
+  const handleAddSuggestedQuestion = (question: string) => {
+    if (!formData.wQuestions.includes(question)) {
+      setFormData({
+        ...formData,
+        wQuestions: [...formData.wQuestions, question],
+      });
+    }
+  };
+
+  const handleAddAllSuggestedKeywords = () => {
+    if (keywordAnalysis?.secondaryKeywords) {
+      const newKeywords = keywordAnalysis.secondaryKeywords.filter(
+        k => !formData.secondaryKeywords.includes(k)
+      );
+      setFormData({
+        ...formData,
+        secondaryKeywords: [...formData.secondaryKeywords, ...newKeywords],
+      });
+    }
+  };
+
+  const handleAddAllSuggestedQuestions = () => {
+    if (keywordAnalysis?.wQuestions) {
+      const newQuestions = keywordAnalysis.wQuestions.filter(
+        q => !formData.wQuestions.includes(q)
+      );
+      setFormData({
+        ...formData,
+        wQuestions: [...formData.wQuestions, ...newQuestions],
+      });
+    }
+  };
+
+  // SERP-Analyse Handlers
+  const handleSerpAddKeywords = (keywords: string[]) => {
+    const newKeywords = keywords.filter(k => !formData.secondaryKeywords.includes(k));
+    if (newKeywords.length > 0) {
+      setFormData({
+        ...formData,
+        secondaryKeywords: [...formData.secondaryKeywords, ...newKeywords],
+      });
+      log('form', 'SERP-Keywords hinzugefügt', { count: newKeywords.length });
+    }
+  };
+
+  const handleSerpAddQuestions = (questions: string[]) => {
+    const newQuestions = questions.filter(q => !formData.wQuestions.includes(q));
+    if (newQuestions.length > 0) {
+      setFormData({
+        ...formData,
+        wQuestions: [...formData.wQuestions, ...newQuestions],
+      });
+      log('form', 'SERP-Fragen hinzugefügt', { count: newQuestions.length });
+    }
+  };
+
+  const handleSerpContextReady = (context: string) => {
     setFormData({
       ...formData,
-      searchIntent: formData.searchIntent.includes(intent)
-        ? formData.searchIntent.filter((i) => i !== intent)
-        : [...formData.searchIntent, intent],
+      serpContext: context,
     });
+    log('form', 'SERP-Kontext übernommen', { length: context.length });
+    setShowAdvanced(true); // Erweiterte Optionen öffnen
   };
 
   // Build preview of System-Prompt based on selected version
@@ -445,10 +783,8 @@ Du bist erfahrener SEO-Content-Stratege für Texte die bei Google UND Menschen f
 
 ═══ AKTUELLE KONFIGURATION ═══
 TONALITÄT: ${formData.tone === 'factual' ? 'Sachlich & Informativ' : formData.tone === 'sales' ? 'Aktivierend & Überzeugend' : 'Beratend & Nutzenorientiert'}
-SEITENZIEL: ${formData.pageGoal === 'inform' ? 'Informieren' : formData.pageGoal === 'advise' ? 'Beraten' : formData.pageGoal === 'preparePurchase' ? 'Kauf vorbereiten' : 'Kauf auslösen'}
 ANREDE: ${formData.formOfAddress === 'du' ? 'Du-Form' : formData.formOfAddress === 'sie' ? 'Sie-Form' : 'Neutral'}
-ZIELGRUPPE: ${formData.targetAudience === 'physiotherapists' ? 'B2B (Fachpersonal)' : 'B2C (Endkunden)'}
-${formData.complianceCheck ? `\n⚠️ COMPLIANCE AKTIV: ${[formData.checkMDR ? 'MDR' : '', formData.checkHWG ? 'HWG' : '', formData.checkStudies ? 'Studien' : ''].filter(Boolean).join(', ')}` : ''}`,
+ZIELGRUPPE: ${formData.targetAudience === 'physiotherapists' ? 'B2B (Fachpersonal)' : 'B2C (Endkunden)'}`,
 
       'v10-geo-optimized': `[v10-geo-optimized: GEO-OPTIMIZED 2026] 🚀 NEU
 
@@ -497,6 +833,53 @@ Ziel: Inhalte die (1) von Google AI Overviews zitiert werden und (2) echten Info
 TONALITÄT: ${formData.tone === 'factual' ? 'Sachlich' : formData.tone === 'sales' ? 'Aktivierend' : 'Beratend'}
 ANREDE: ${formData.formOfAddress === 'du' ? 'Du-Form' : formData.formOfAddress === 'sie' ? 'Sie-Form' : 'Neutral'}
 ZIELGRUPPE: ${formData.targetAudience === 'physiotherapists' ? 'B2B (Fachpersonal)' : 'B2C (Endkunden)'}`,
+
+      'v11-surfer-style': `[v11-surfer-style: SURFER-STYLE 2025] 🎯 NEU
+
+Inspiriert von Surfer SEO / Clearscope - gewichtete Terms statt Keyword-Stuffing
+
+═══ GRUNDPRINZIP ═══
+• Terms werden nach WICHTIGKEIT gewichtet (nicht alle gleich)
+• Long-Tail Keywords sind VARIATIONEN, nicht separate Pflicht-Keywords
+• Information Gain aus SERP-Lücken, NICHTS ERFINDEN
+• Content Score > reine Keyword-Dichte
+
+═══ KEYWORD-STRATEGIE ═══
+
+AGGREGATIONS-REGEL (KRITISCH!):
+"Jako Trainingshose Herren" = 1 Erwähnung, NICHT 2!
+Long-Tails zählen NICHT separat!
+
+VARIATIONEN statt Wiederholung:
+• "die Trainingshose" / "die Hose" / "das Modell"
+• Synonyme wo passend
+• Pronomen: "sie", "diese", "damit"
+
+═══ INFORMATION GAIN (OHNE ERFINDUNG!) ═══
+
+✅ ERLAUBT:
+• "Jako bietet verschiedene Modelle und Serien"
+• "Preise variieren je nach Modell"
+• Allgemeine Materialeigenschaften
+• Allgemeine Anwendungstipps
+
+❌ VERBOTEN:
+• Konkrete Preise (z.B. "29,99€")
+• Unverifizierten Modellnamen
+• Exakte technische Specs ohne Quelle
+
+═══ ANTI-PATTERNS ═══
+
+❌ "Kennst du das Gefühl, wenn..." → Max. 1x!
+❌ "In der heutigen Zeit..."
+❌ "Weit mehr als nur..."
+❌ Mehr als max. Keywords
+❌ Erfundene Fakten
+
+═══ AKTUELLE KONFIGURATION ═══
+TONALITÄT: ${formData.tone === 'factual' ? 'Sachlich' : formData.tone === 'sales' ? 'Aktivierend' : 'Beratend'}
+ANREDE: ${formData.formOfAddress === 'du' ? 'Du-Form' : formData.formOfAddress === 'sie' ? 'Sie-Form' : 'Neutral'}
+ZIELGRUPPE: ${formData.targetAudience === 'physiotherapists' ? 'B2B (Fachpersonal)' : 'B2C (Endkunden)'}`,
     };
 
     // Check for historical versions
@@ -515,17 +898,6 @@ da historische Versionen nicht vollständig implementiert sind.`;
 
   // Build preview of User-Prompt (mirrors backend buildUserPrompt logic)
   const buildUserPromptPreview = () => {
-    const intentMap: Record<string, string> = {
-      'know': 'Know (Informationssuche)',
-      'do': 'Do (Transaktional)',
-      'buy': 'Buy (Kaufabsicht)',
-      'go': 'Go (Navigation)'
-    };
-    const densityMap: Record<string, string> = {
-      'low': 'Niedrig (1-2%)',
-      'medium': 'Mittel (2-3%)',
-      'high': 'Hoch (3-4%)'
-    };
     const lengthMap: Record<string, string> = {
       'short': '~400 Wörter',
       'medium': '~800 Wörter',
@@ -533,33 +905,27 @@ da historische Versionen nicht vollständig implementiert sind.`;
     };
 
     let prompt = '=== GRUNDINFORMATIONEN ===\n';
-    if (formData.manufacturerInfo) prompt += `Info: ${formData.manufacturerInfo.substring(0, 200)}...\n`;
-    if (formData.additionalInfo) prompt += `USPs: ${formData.additionalInfo}\n`;
-    
+    if (formData.brandName) prompt += `Marke: ${formData.brandName}\n`;
+    if (formData.additionalInfo) prompt += `USPs/Zusatzinfos: ${formData.additionalInfo}\n`;
+
     prompt += '\n=== ZIELGRUPPE ===\n';
     prompt += `Audience: ${formData.targetAudience === 'endCustomers' ? 'B2C (Endkunden)' : 'B2B (Fachpersonal)'}\n`;
     prompt += `Anrede: ${formData.formOfAddress}\n`;
     prompt += `Tonalität: ${formData.tone}\n`;
-    
+
     prompt += '\n=== SEO-STRUKTUR ===\n';
     prompt += `Fokus-Keyword: ${formData.focusKeyword || '(nicht gesetzt)'}\n`;
     if (formData.secondaryKeywords.length > 0) {
       prompt += `Sekundär-Keywords: ${formData.secondaryKeywords.join(', ')}\n`;
     }
-    if (formData.searchIntent.length > 0) {
-      prompt += `SUCHINTENTION: ${formData.searchIntent.map(i => intentMap[i] || i).join(', ')}\n`;
-      prompt += `WICHTIG: Struktur MUSS zur Suchintention passen!\n`;
-    }
-    prompt += `KEYWORD-DICHTE: ${densityMap[formData.keywordDensity]}\n`;
     if (formData.wQuestions.length > 0) {
       prompt += `W-FRAGEN (müssen beantwortet werden):\n${formData.wQuestions.map(q => `  - ${q}`).join('\n')}\n`;
     }
     prompt += `Wortanzahl: ${lengthMap[formData.contentLength]}\n`;
-    prompt += `Seitentyp: ${formData.pageType === 'product' ? 'Produktseite' : 'Kategorieseite'}\n`;
-    
+
     prompt += '\n=== AUFGABE ===\n';
     prompt += 'Erstelle hochwertigen, SEO-optimierten Text der alle Vorgaben erfüllt.';
-    
+
     return prompt;
   };
 
@@ -625,7 +991,7 @@ da historische Versionen nicht vollständig implementiert sind.`;
 
     setIsLoading(true);
     setCurrentStep("generating");
-    
+
     // Log the complete form data and both prompts
     log('prompt', 'System-Prompt (Regeln & Rolle)', buildSystemPromptPreview());
     log('prompt', 'User-Prompt (Auftrag & Inputs)', buildUserPromptPreview());
@@ -636,21 +1002,44 @@ da historische Versionen nicht vollständig implementiert sind.`;
       searchIntent: formData.searchIntent,
       keywordDensity: formData.keywordDensity,
       pageType: formData.pageType,
+      pageGoal: formData.pageGoal,
       targetAudience: formData.targetAudience,
       formOfAddress: formData.formOfAddress,
       contentLength: formData.contentLength,
+      tone: formData.tone,
       promptVersion: formData.promptVersion,
     });
-    
+
+    // Log SERP analysis status
+    if (serpAnalysis) {
+      log('state', 'SERP-Analyse verfügbar', {
+        mustHaveTerms: serpAnalysis.serpTerms?.mustHave?.length || 0,
+        shouldHaveTerms: serpAnalysis.serpTerms?.shouldHave?.length || 0,
+        paaQuestions: serpAnalysis.questions?.peopleAlsoAsk?.length || 0,
+        hasPromptContext: !!serpAnalysis.promptContext
+      });
+    } else {
+      log('state', 'SERP-Analyse nicht durchgeführt', { hinweis: 'Für bessere Ergebnisse SERP-Analyse vor Generierung ausführen' });
+    }
+
     const endTimer = logWithTimer('api', 'Content-Generierung');
-    log('api', 'generate-seo-content aufgerufen', { 
+    log('api', 'generate-seo-content aufgerufen', {
       promptVersion: formData.promptVersion,
+      hasSerpContext: !!serpAnalysis?.promptContext,
       hinweis: 'System-Prompt definiert WIE die AI arbeitet, User-Prompt definiert WAS generiert wird'
     });
 
+    // Build request body with optional SERP context
+    const requestBody = {
+      ...formData,
+      // Include SERP context if available
+      ...(serpAnalysis?.promptContext && { serpContext: serpAnalysis.promptContext }),
+      ...(serpAnalysis?.serpTerms && { serpTerms: serpAnalysis.serpTerms }),
+    };
+
     try {
       const { data, error } = await supabase.functions.invoke("generate-seo-content", {
-        body: formData,
+        body: requestBody,
       });
 
       if (error) {
@@ -659,17 +1048,12 @@ da historische Versionen nicht vollständig implementiert sind.`;
         return;
       }
 
-      log('response', 'generate-seo-content erfolgreich', { 
-        hasVariants: !!data?.variants,
-        variantCount: data?.variants?.length,
-        selectedVariant: data?.selectedVariant 
+      log('response', 'generate-seo-content erfolgreich', {
+        hasSeoText: !!data?.seoText,
+        hasFaq: !!data?.faq
       });
 
-      let content = data;
-      if (data?.variants && Array.isArray(data.variants) && data.variants.length > 0) {
-        log('state', 'Variante ausgewählt', { index: 0, name: data.variants[0]?._variantInfo?.name });
-        content = data.variants[0];
-      }
+      const content = data;
 
       log('response', 'Content-Struktur', { 
         seoTextLength: content?.seoText?.length,
@@ -886,394 +1270,677 @@ da historische Versionen nicht vollständig implementiert sind.`;
               <ProcessFlowPanel currentStep={currentStep} formData={formData} />
             )}
 
-            {/* Compact Input Form */}
+            {/* Simplified Input Form */}
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <Settings className="h-5 w-5" />
-                  Eingaben
+                  <Sparkles className="h-5 w-5" />
+                  Content Basic
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Focus Keyword */}
+                {/* 1. Focus Keyword + Analysis Buttons */}
                 <div>
                   <Label className="text-sm font-medium">Fokus-Keyword *</Label>
-                  <Input
-                    value={formData.focusKeyword}
-                    onChange={(e) => setFormData({ ...formData, focusKeyword: e.target.value })}
-                    placeholder="z.B. Kinesiologie Tape"
-                    className="mt-1"
-                  />
-                </div>
-
-                {/* Secondary Keywords */}
-                <div>
-                  <Label className="text-sm font-medium">Sekundär-Keywords</Label>
                   <div className="flex gap-2 mt-1">
                     <Input
-                      value={keywordInput}
-                      onChange={(e) => setKeywordInput(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddKeyword())}
-                      placeholder="+ Enter"
+                      value={formData.focusKeyword}
+                      onChange={(e) => handleFormChange('focusKeyword', e.target.value)}
+                      placeholder="z.B. Kinesiologie Tape"
                       className="flex-1"
                     />
-                    <Button type="button" onClick={handleAddKeyword} variant="outline" size="icon">
-                      <ChevronRight className="h-4 w-4" />
+                  </div>
+                  {/* Analysis Buttons */}
+                  <div className="flex gap-2 mt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAnalyzeSerp}
+                      disabled={isAnalyzingSerp || isAnalyzingKeyword || !formData.focusKeyword.trim()}
+                      className="flex-1"
+                    >
+                      {isAnalyzingSerp ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Globe className="h-4 w-4 mr-1" />
+                          SERP
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAnalyzeKeyword}
+                      disabled={isAnalyzingKeyword || isAnalyzingSerp || !formData.focusKeyword.trim()}
+                      className="flex-1"
+                    >
+                      {isAnalyzingKeyword ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Sparkles className="h-4 w-4 mr-1" />
+                          Keywords
+                        </>
+                      )}
                     </Button>
                   </div>
-                  {formData.secondaryKeywords.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {formData.secondaryKeywords.map((kw) => (
-                        <Badge key={kw} variant="secondary" className="gap-1 pr-1 text-xs">
-                          {kw}
-                          <button onClick={() => handleRemoveKeyword(kw)} className="hover:text-destructive">
-                            <X className="h-3 w-3" />
-                          </button>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    SERP = Google-Wettbewerberanalyse | Keywords = KI-Vorschläge
+                  </p>
+
+                  {/* SERP Analysis Results Badge */}
+                  {serpAnalysis && (
+                    <div className="flex gap-1 mt-2 flex-wrap">
+                      <Badge variant="outline" className="text-xs bg-green-500/10 border-green-500/30 text-green-600">
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                        SERP: {serpAnalysis.serpTerms?.mustHave?.length || 0} Must-Have
+                      </Badge>
+                      {serpAnalysis.questions?.peopleAlsoAsk?.length > 0 && (
+                        <Badge variant="outline" className="text-xs">
+                          {serpAnalysis.questions.peopleAlsoAsk.length} Fragen
                         </Badge>
-                      ))}
+                      )}
+                    </div>
+                  )}
+                  {keywordAnalysis && (
+                    <div className="flex gap-1 mt-1 flex-wrap">
+                      <Badge variant="outline" className="text-xs bg-blue-500/10 border-blue-500/30 text-blue-600">
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                        KI: {keywordAnalysis.secondaryKeywords?.length || 0} Keywords
+                      </Badge>
+                      <Badge variant="outline" className="text-xs">
+                        Intent: {keywordAnalysis.searchIntent || 'n/a'}
+                      </Badge>
+                    </div>
+                  )}
+                  {domainAnalysis && (
+                    <div className="flex gap-1 mt-1 flex-wrap">
+                      <Badge variant="outline" className="text-xs bg-purple-500/10 border-purple-500/30 text-purple-600">
+                        <BookOpen className="h-3 w-3 mr-1" />
+                        Thema gelernt
+                      </Badge>
                     </div>
                   )}
                 </div>
 
-                {/* W-Fragen */}
-                <div>
-                  <Label className="text-sm font-medium flex items-center gap-2">
-                    <MessageSquare className="h-4 w-4" />
-                    W-Fragen
+                {/* Thema lernen (Domain-Analyse) */}
+                <div className="p-3 border border-dashed rounded-lg bg-muted/30">
+                  <Label className="text-xs font-medium flex items-center gap-1 mb-2">
+                    <BookOpen className="h-3 w-3" />
+                    Thema lernen (optional)
                   </Label>
-                  <div className="flex gap-2 mt-1">
+                  <div className="flex gap-2">
                     <Input
-                      value={wQuestionInput}
-                      onChange={(e) => setWQuestionInput(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddWQuestion())}
-                      placeholder="z.B. Was ist Kinesiologie Tape?"
-                      className="flex-1"
+                      value={domainUrl}
+                      onChange={(e) => setDomainUrl(e.target.value)}
+                      placeholder="URL einer Website zum Thema..."
+                      className="flex-1 h-8 text-sm"
+                      disabled={isAnalyzingDomain}
                     />
-                    <Button type="button" onClick={handleAddWQuestion} variant="outline" size="icon">
-                      <ChevronRight className="h-4 w-4" />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAnalyzeDomain}
+                      disabled={isAnalyzingDomain || !domainUrl.trim()}
+                      className="h-8"
+                    >
+                      {isAnalyzingDomain ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3 w-3" />
+                      )}
                     </Button>
                   </div>
-                  {formData.wQuestions.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {formData.wQuestions.map((q) => (
-                        <Badge key={q} variant="outline" className="gap-1 pr-1 text-xs bg-accent/50">
-                          {q}
-                          <button onClick={() => handleRemoveWQuestion(q)} className="hover:text-destructive">
-                            <X className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Analysiert eine Website um das Thema zu verstehen (z.B. Coaching, Medizinprodukte)
+                  </p>
                 </div>
 
-                {/* Suchintention */}
+                {/* SERP-Analyse (echte Google-Daten) */}
+                <SerpAnalysisPanel
+                  keyword={formData.focusKeyword}
+                  onAddKeywords={handleSerpAddKeywords}
+                  onAddWQuestions={handleSerpAddQuestions}
+                  onSerpContextReady={handleSerpContextReady}
+                  currentKeywords={formData.secondaryKeywords}
+                  currentQuestions={formData.wQuestions}
+                />
+
+                {/* 2. Writing Style (Tone) */}
                 <div>
-                  <Label className="text-sm font-medium">Suchintention</Label>
-                  <div className="grid grid-cols-4 gap-2 mt-1">
+                  <Label className="text-sm font-medium">Schreibstil</Label>
+                  <div className="grid grid-cols-3 gap-2 mt-1">
                     {[
-                      { value: "know", label: "Know", icon: "📚" },
-                      { value: "do", label: "Do", icon: "⚡" },
-                      { value: "buy", label: "Buy", icon: "🛒" },
-                      { value: "go", label: "Go", icon: "📍" },
-                    ].map(({ value, label, icon }) => (
+                      { value: "factual", label: "Sachlich", desc: "Faktenbasiert" },
+                      { value: "advisory", label: "Beratend", desc: "Nutzenorientiert" },
+                      { value: "sales", label: "Aktivierend", desc: "Überzeugend" },
+                    ].map(({ value, label, desc }) => (
                       <label
                         key={value}
-                        className={`flex flex-col items-center justify-center p-2 border rounded-lg cursor-pointer transition-colors text-xs ${
-                          formData.searchIntent.includes(value as any)
+                        className={`flex flex-col items-center justify-center p-3 border rounded-lg cursor-pointer transition-colors ${
+                          formData.tone === value
                             ? "border-primary bg-primary/10 text-primary"
                             : "hover:bg-muted"
                         }`}
                       >
                         <input
-                          type="checkbox"
+                          type="radio"
                           className="sr-only"
-                          checked={formData.searchIntent.includes(value as any)}
-                          onChange={() => toggleSearchIntent(value as any)}
+                          checked={formData.tone === value}
+                          onChange={() => handleFormChange('tone', value as FormData['tone'])}
                         />
-                        <span className="text-base mb-0.5">{icon}</span>
-                        <span>{label}</span>
+                        <span className="font-medium text-sm">{label}</span>
+                        <span className="text-xs text-muted-foreground">{desc}</span>
                       </label>
                     ))}
                   </div>
                 </div>
 
-                {/* Quick Settings Row */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <Label className="text-xs">Seitentyp</Label>
-                    <Select 
-                      value={formData.pageType} 
-                      onValueChange={(v: "product" | "category") => setFormData({ ...formData, pageType: v })}
-                    >
-                      <SelectTrigger className="mt-1 h-9 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="product">Produkt</SelectItem>
-                        <SelectItem value="category">Kategorie</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs">Textlänge</Label>
-                    <Select 
-                      value={formData.contentLength} 
-                      onValueChange={(v: "short" | "medium" | "long") => setFormData({ ...formData, contentLength: v })}
-                    >
-                      <SelectTrigger className="mt-1 h-9 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="short">Kurz (~400)</SelectItem>
-                        <SelectItem value="medium">Mittel (~800)</SelectItem>
-                        <SelectItem value="long">Lang (~1200)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs">Keyword-Dichte</Label>
-                    <Select 
-                      value={formData.keywordDensity} 
-                      onValueChange={(v: "low" | "medium" | "high") => setFormData({ ...formData, keywordDensity: v })}
-                    >
-                      <SelectTrigger className="mt-1 h-9 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">Niedrig (1-2%)</SelectItem>
-                        <SelectItem value="medium">Mittel (2-3%)</SelectItem>
-                        <SelectItem value="high">Hoch (3-4%)</SelectItem>
-                      </SelectContent>
-                    </Select>
+                {/* 3. Content Length */}
+                <div>
+                  <Label className="text-sm font-medium">Textlänge</Label>
+                  <div className="grid grid-cols-3 gap-2 mt-1">
+                    {[
+                      { value: "short", label: "Kurz", desc: "~400 Wörter" },
+                      { value: "medium", label: "Mittel", desc: "~800 Wörter" },
+                      { value: "long", label: "Lang", desc: "~1200 Wörter" },
+                    ].map(({ value, label, desc }) => (
+                      <label
+                        key={value}
+                        className={`flex flex-col items-center justify-center p-2 border rounded-lg cursor-pointer transition-colors text-sm ${
+                          formData.contentLength === value
+                            ? "border-primary bg-primary/10"
+                            : "hover:bg-muted"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          className="sr-only"
+                          checked={formData.contentLength === value}
+                          onChange={() => handleFormChange('contentLength', value as FormData['contentLength'])}
+                        />
+                        <span className="font-medium">{label}</span>
+                        <span className="text-xs text-muted-foreground">{desc}</span>
+                      </label>
+                    ))}
                   </div>
                 </div>
 
-                {/* Target Audience */}
+                {/* 4. Target Audience */}
                 <div>
-                  <Label className="text-xs">Zielgruppe</Label>
+                  <Label className="text-sm font-medium">Zielgruppe</Label>
                   <div className="flex gap-2 mt-1">
-                    <label className={`flex-1 flex items-center justify-center gap-2 p-2 border rounded-lg cursor-pointer transition-colors text-xs ${
+                    <label className={`flex-1 flex flex-col items-center justify-center p-2 border rounded-lg cursor-pointer transition-colors ${
                       formData.targetAudience === "endCustomers" ? "border-primary bg-primary/10" : "hover:bg-muted"
                     }`}>
-                      <input 
-                        type="radio" 
-                        className="sr-only" 
+                      <input
+                        type="radio"
+                        className="sr-only"
                         checked={formData.targetAudience === "endCustomers"}
-                        onChange={() => setFormData({ ...formData, targetAudience: "endCustomers" })}
+                        onChange={() => handleFormChange('targetAudience', 'endCustomers')}
                       />
-                      B2C
+                      <span className="font-medium text-sm">B2C</span>
+                      <span className="text-xs text-muted-foreground">Endkunden</span>
                     </label>
-                    <label className={`flex-1 flex items-center justify-center gap-2 p-2 border rounded-lg cursor-pointer transition-colors text-xs ${
+                    <label className={`flex-1 flex flex-col items-center justify-center p-2 border rounded-lg cursor-pointer transition-colors ${
                       formData.targetAudience === "physiotherapists" ? "border-primary bg-primary/10" : "hover:bg-muted"
                     }`}>
-                      <input 
-                        type="radio" 
-                        className="sr-only" 
+                      <input
+                        type="radio"
+                        className="sr-only"
                         checked={formData.targetAudience === "physiotherapists"}
-                        onChange={() => setFormData({ ...formData, targetAudience: "physiotherapists" })}
+                        onChange={() => handleFormChange('targetAudience', 'physiotherapists')}
                       />
-                      B2B/Fach
+                      <span className="font-medium text-sm">B2B</span>
+                      <span className="text-xs text-muted-foreground">Fachpersonal</span>
                     </label>
                   </div>
                 </div>
 
-                {/* Address Form */}
+                {/* 5. Form of Address */}
                 <div>
-                  <Label className="text-xs">Anrede</Label>
+                  <Label className="text-sm font-medium">Anrede</Label>
                   <div className="flex gap-2 mt-1">
                     {(["du", "sie", "neutral"] as const).map((addr) => (
-                      <label key={addr} className={`flex-1 flex items-center justify-center p-2 border rounded-lg cursor-pointer transition-colors text-xs capitalize ${
+                      <label key={addr} className={`flex-1 flex items-center justify-center p-2 border rounded-lg cursor-pointer transition-colors text-sm capitalize ${
                         formData.formOfAddress === addr ? "border-primary bg-primary/10" : "hover:bg-muted"
                       }`}>
-                        <input 
-                          type="radio" 
-                          className="sr-only" 
+                        <input
+                          type="radio"
+                          className="sr-only"
                           checked={formData.formOfAddress === addr}
-                          onChange={() => setFormData({ ...formData, formOfAddress: addr })}
+                          onChange={() => handleFormChange('formOfAddress', addr)}
                         />
-                        {addr}
+                        {addr === "neutral" ? "Neutral" : addr.toUpperCase()}
                       </label>
                     ))}
                   </div>
-                </div>
-
-                {/* Prompt Version */}
-                <div>
-                  <Label className="text-xs">Prompt-Strategie</Label>
-                  <Select
-                    value={formData.promptVersion}
-                    onValueChange={(v) => setFormData({ ...formData, promptVersion: v })}
-                  >
-                    <SelectTrigger className="mt-1 h-9 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="v10-geo-optimized">v10: GEO-Optimized 2026 🚀 NEU</SelectItem>
-                      <SelectItem value="v9-master">v9: Master Prompt ⭐</SelectItem>
-                      <SelectItem value="v8.1-sachlich">v8.1: Sachlich & Informativ</SelectItem>
-                      <SelectItem value="v8.2-aktivierend">v8.2: Nutzenorientiert & Aktivierend</SelectItem>
-                      <SelectItem value="v8.3-nahbar">v8.3: Nahbar & Authentisch</SelectItem>
-                      <SelectItem value="v8-natural-seo">v8: Natural SEO (Basis)</SelectItem>
-                      <SelectItem value="v7-seo-content-master">v7: SEO Content Master 2025</SelectItem>
-                      <SelectItem value="v6-quality-auditor">v6: Quality-Auditor (Anti-Fluff)</SelectItem>
-                      <SelectItem value="v5-ai-meta-optimiert">v5: Meta-Optimiert</SelectItem>
-                      <SelectItem value="v4-minimal-kreativ">v4: Minimal-Kreativ</SelectItem>
-                      <SelectItem value="v3-hybrid-intelligent">v3: Hybrid (Balance)</SelectItem>
-                      <SelectItem value="v2-marketing-first">v2: Marketing-First</SelectItem>
-                      <SelectItem value="v1-kompakt-seo">v1: Kompakt-SEO</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
 
                 {/* KI-Modell Auswahl */}
                 <div className="p-3 bg-gradient-to-r from-purple-500/10 to-blue-500/10 rounded-lg border border-purple-500/20">
                   <ModelSelector
                     value={formData.aiModel}
-                    onChange={(model) => setFormData({ ...formData, aiModel: model })}
+                    onChange={(model) => handleFormChange('aiModel', model)}
                     wordCount={formData.contentLength === 'short' ? '500' : formData.contentLength === 'long' ? '2000' : '1000'}
                     showCostEstimate={true}
                   />
                 </div>
 
-                {/* Website Scrape */}
-                <Collapsible>
-                  <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-                    <ChevronDown className="h-4 w-4" />
-                    Website analysieren (optional)
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="pt-3 space-y-3">
-                    <div className="flex gap-2">
-                      <Input
-                        value={formData.manufacturerWebsite}
-                        onChange={(e) => setFormData({ ...formData, manufacturerWebsite: e.target.value })}
-                        placeholder="https://example.com"
-                        className="flex-1"
-                      />
-                      <Button
-                        type="button"
-                        onClick={handleScrapeWebsite}
-                        disabled={isScraping || !formData.manufacturerWebsite.trim()}
-                        variant="secondary"
-                        size="icon"
-                      >
-                        {isScraping ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                    {formData.manufacturerInfo && (
-                      <Textarea
-                        value={formData.manufacturerInfo}
-                        onChange={(e) => setFormData({ ...formData, manufacturerInfo: e.target.value })}
-                        rows={4}
-                        className="text-xs"
-                      />
-                    )}
-                  </CollapsibleContent>
-                </Collapsible>
-
-                {/* Additional Info */}
-                <Collapsible>
-                  <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-                    <ChevronDown className="h-4 w-4" />
-                    Zusatzinfos / USPs (optional)
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="pt-3">
-                    <Textarea
-                      value={formData.additionalInfo}
-                      onChange={(e) => setFormData({ ...formData, additionalInfo: e.target.value })}
-                      placeholder="Besonderheiten, Alleinstellungsmerkmale..."
-                      rows={3}
-                      className="text-sm"
-                    />
-                  </CollapsibleContent>
-                </Collapsible>
-
-                {/* Debug Prompt Preview */}
-                <Collapsible open={showDebugPrompt} onOpenChange={setShowDebugPrompt}>
-                  <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-                    <Code className="h-4 w-4" />
-                    <span className="flex-1 text-left">Debug: Prompt-Vorschau (System + User)</span>
-                    <ChevronDown className={`h-4 w-4 transition-transform ${showDebugPrompt ? 'rotate-180' : ''}`} />
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="pt-3 space-y-3">
-                    {/* System Prompt */}
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-medium text-primary">🎯 System-Prompt ({formData.promptVersion})</span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 text-xs"
-                          onClick={() => copyToClipboard(buildSystemPromptPreview(), "System-Prompt")}
-                        >
-                          {copiedSection === "System-Prompt" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                        </Button>
-                      </div>
-                      <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
-                        <pre className="text-xs font-mono whitespace-pre-wrap text-muted-foreground overflow-x-auto max-h-48 overflow-y-auto">
-                          {buildSystemPromptPreview()}
-                        </pre>
-                      </div>
-                    </div>
-
-                    {/* User Prompt */}
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-medium text-blue-600 dark:text-blue-400">📝 User-Prompt (dynamisch)</span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 text-xs"
-                          onClick={() => copyToClipboard(buildUserPromptPreview(), "User-Prompt")}
-                        >
-                          {copiedSection === "User-Prompt" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                        </Button>
-                      </div>
-                      <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                        <pre className="text-xs font-mono whitespace-pre-wrap text-muted-foreground overflow-x-auto max-h-48 overflow-y-auto">
-                          {buildUserPromptPreview()}
-                        </pre>
-                      </div>
-                    </div>
-
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Info className="h-3 w-3" />
-                      Beide Prompts werden zusammen an die KI gesendet
-                    </p>
-                  </CollapsibleContent>
-                </Collapsible>
-
-                {/* Validation Panel */}
-                <Collapsible open={showValidation} onOpenChange={setShowValidation}>
-                  <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-                    <CheckCircle2 className="h-4 w-4" />
-                    <span className="flex-1 text-left">Feld-Mapping Validierung</span>
-                    <ChevronDown className={`h-4 w-4 transition-transform ${showValidation ? 'rotate-180' : ''}`} />
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="pt-3">
-                    <ValidationPanel formData={formData} autoValidate={true} />
-                  </CollapsibleContent>
-                </Collapsible>
-
                 {/* Generate Button */}
-                <Button 
-                  onClick={handleGenerate} 
-                  disabled={isLoading || !formData.focusKeyword.trim()}
-                  className="w-full"
-                  size="lg"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Generiere Content...
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="h-4 w-4 mr-2" />
-                      Content generieren
-                    </>
-                  )}
-                </Button>
+                {/* Prompt Version Selection */}
+                <div className="flex gap-2 items-center">
+                  <Select
+                    value={formData.promptVersion}
+                    onValueChange={(v) => handleFormChange('promptVersion', v)}
+                  >
+                    <SelectTrigger className="flex-1 h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="v9-master">
+                        <span className="flex items-center gap-2">
+                          <span>⭐ v9: Master (Standard)</span>
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="v11-surfer-style">
+                        <span className="flex items-center gap-2">
+                          <span>🎯 v11: Surfer-Style (NEU)</span>
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="v10-geo-optimized">
+                        <span className="flex items-center gap-2">
+                          <span>🚀 v10: GEO-Optimized</span>
+                        </span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    onClick={handleGenerate}
+                    disabled={isLoading || !formData.focusKeyword.trim()}
+                    className="flex-1"
+                    size="default"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Generiere...
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 className="h-4 w-4 mr-2" />
+                        Content generieren
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {/* Advanced Options (Collapsible) */}
+                <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
+                  <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground w-full justify-center pt-2">
+                    <Settings className="h-4 w-4" />
+                    Erweiterte Optionen
+                    {formData.serpContext && (
+                      <Badge variant="secondary" className="text-xs">SERP</Badge>
+                    )}
+                    <ChevronDown className={`h-4 w-4 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-4 space-y-4">
+                    {/* SERP Analysis Results */}
+                    {showSerpResults && serpAnalysis && (
+                      <Card className="p-3 bg-green-500/5 border-green-500/20">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-sm font-medium flex items-center gap-1">
+                            <Globe className="h-4 w-4 text-green-600" />
+                            SERP-Analyse (Google Top 10)
+                          </h4>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowSerpResults(false)}
+                            className="h-6 w-6 p-0"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+
+                        {/* Must-Have Terms */}
+                        {serpAnalysis.serpTerms?.mustHave?.length > 0 && (
+                          <div className="mb-3">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                <CheckCircle2 className="h-3 w-3 text-green-600" />
+                                Pflicht-Begriffe
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {serpAnalysis.serpTerms.mustHave.map((term) => (
+                                <Badge
+                                  key={term}
+                                  variant={formData.secondaryKeywords.includes(term) ? "secondary" : "outline"}
+                                  className="text-xs cursor-pointer hover:bg-green-500/20 border-green-500/30"
+                                  onClick={() => handleAddSuggestedKeyword(term)}
+                                >
+                                  {formData.secondaryKeywords.includes(term) ? (
+                                    <Check className="h-3 w-3 mr-1" />
+                                  ) : (
+                                    <ChevronRight className="h-3 w-3 mr-1" />
+                                  )}
+                                  {term}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Should-Have Terms */}
+                        {serpAnalysis.serpTerms?.shouldHave?.length > 0 && (
+                          <div className="mb-3">
+                            <span className="text-xs text-muted-foreground">Empfohlene Begriffe</span>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {serpAnalysis.serpTerms.shouldHave.slice(0, 8).map((term) => (
+                                <Badge
+                                  key={term}
+                                  variant="outline"
+                                  className="text-xs cursor-pointer hover:bg-primary/20"
+                                  onClick={() => handleAddSuggestedKeyword(term)}
+                                >
+                                  {term}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* People Also Ask */}
+                        {serpAnalysis.questions?.peopleAlsoAsk?.length > 0 && (
+                          <div>
+                            <span className="text-xs text-muted-foreground">Häufige Fragen</span>
+                            <div className="space-y-1 mt-1">
+                              {serpAnalysis.questions.peopleAlsoAsk.slice(0, 5).map((q) => (
+                                <div
+                                  key={q}
+                                  className={`text-xs p-1.5 rounded cursor-pointer flex items-center gap-1 ${
+                                    formData.wQuestions.includes(q)
+                                      ? 'bg-green-500/10 text-green-600'
+                                      : 'bg-muted hover:bg-muted/80'
+                                  }`}
+                                  onClick={() => handleAddSuggestedQuestion(q)}
+                                >
+                                  {formData.wQuestions.includes(q) ? (
+                                    <Check className="h-3 w-3 shrink-0" />
+                                  ) : (
+                                    <ChevronRight className="h-3 w-3 shrink-0" />
+                                  )}
+                                  {q}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Competitor Titles */}
+                        {serpAnalysis.competitors?.length > 0 && (
+                          <div className="mt-3 pt-3 border-t border-green-500/20">
+                            <span className="text-xs text-muted-foreground">Top 3 Wettbewerber</span>
+                            <div className="space-y-1 mt-1">
+                              {serpAnalysis.competitors.slice(0, 3).map((c, i) => (
+                                <div key={i} className="text-xs text-muted-foreground truncate">
+                                  {i + 1}. {c.title}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </Card>
+                    )}
+
+                    {/* Keyword Suggestions (if available) */}
+                    {showKeywordSuggestions && keywordAnalysis && (
+                      <Card className="p-3 bg-primary/5 border-primary/20">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-sm font-medium flex items-center gap-1">
+                            <Sparkles className="h-4 w-4 text-primary" />
+                            Keyword-Vorschläge
+                          </h4>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowKeywordSuggestions(false)}
+                            className="h-6 w-6 p-0"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+
+                        {/* Search Intent Info */}
+                        {keywordAnalysis.searchIntent && (
+                          <div className="mb-2">
+                            <Badge variant="outline" className="text-xs">
+                              Suchintention: {
+                                keywordAnalysis.searchIntent === 'know' ? 'Informationssuche' :
+                                keywordAnalysis.searchIntent === 'do' ? 'Transaktional' :
+                                keywordAnalysis.searchIntent === 'buy' ? 'Kaufabsicht' : 'Navigation'
+                              }
+                            </Badge>
+                          </div>
+                        )}
+
+                        {/* Secondary Keywords Suggestions */}
+                        {keywordAnalysis.secondaryKeywords && keywordAnalysis.secondaryKeywords.length > 0 && (
+                          <div className="mb-3">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs text-muted-foreground">Sekundär-Keywords</span>
+                              <Button
+                                type="button"
+                                variant="link"
+                                size="sm"
+                                onClick={handleAddAllSuggestedKeywords}
+                                className="h-auto p-0 text-xs"
+                              >
+                                Alle hinzufügen
+                              </Button>
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {keywordAnalysis.secondaryKeywords.map((kw) => (
+                                <Badge
+                                  key={kw}
+                                  variant={formData.secondaryKeywords.includes(kw) ? "secondary" : "outline"}
+                                  className="text-xs cursor-pointer hover:bg-primary/20"
+                                  onClick={() => handleAddSuggestedKeyword(kw)}
+                                >
+                                  {formData.secondaryKeywords.includes(kw) ? (
+                                    <Check className="h-3 w-3 mr-1" />
+                                  ) : (
+                                    <ChevronRight className="h-3 w-3 mr-1" />
+                                  )}
+                                  {kw}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* W-Questions Suggestions */}
+                        {keywordAnalysis.wQuestions && keywordAnalysis.wQuestions.length > 0 && (
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs text-muted-foreground">W-Fragen</span>
+                              <Button
+                                type="button"
+                                variant="link"
+                                size="sm"
+                                onClick={handleAddAllSuggestedQuestions}
+                                className="h-auto p-0 text-xs"
+                              >
+                                Alle hinzufügen
+                              </Button>
+                            </div>
+                            <div className="space-y-1">
+                              {keywordAnalysis.wQuestions.map((q) => (
+                                <div
+                                  key={q}
+                                  className={`text-xs p-1.5 rounded cursor-pointer flex items-center gap-1 ${
+                                    formData.wQuestions.includes(q)
+                                      ? 'bg-primary/10 text-primary'
+                                      : 'bg-muted hover:bg-muted/80'
+                                  }`}
+                                  onClick={() => handleAddSuggestedQuestion(q)}
+                                >
+                                  {formData.wQuestions.includes(q) ? (
+                                    <Check className="h-3 w-3 shrink-0" />
+                                  ) : (
+                                    <ChevronRight className="h-3 w-3 shrink-0" />
+                                  )}
+                                  {q}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </Card>
+                    )}
+
+                    {/* Domain Analysis Results */}
+                    {showDomainResults && domainAnalysis && (
+                      <Card className="p-3 bg-purple-500/5 border-purple-500/20">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-sm font-medium flex items-center gap-1">
+                            <BookOpen className="h-4 w-4 text-purple-600" />
+                            Thema gelernt
+                          </h4>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowDomainResults(false)}
+                            className="h-6 w-6 p-0"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+
+                        {domainAnalysis.analysis?.topicName && (
+                          <div className="mb-2">
+                            <span className="text-xs text-muted-foreground">Thema:</span>
+                            <p className="text-sm font-medium">{domainAnalysis.analysis.topicName}</p>
+                          </div>
+                        )}
+
+                        {domainAnalysis.analysis?.industry && (
+                          <div className="mb-2">
+                            <span className="text-xs text-muted-foreground">Branche:</span>
+                            <p className="text-sm">{domainAnalysis.analysis.industry}</p>
+                          </div>
+                        )}
+
+                        {domainAnalysis.analysis?.targetAudience?.demographics && (
+                          <div className="mb-2">
+                            <span className="text-xs text-muted-foreground">Zielgruppe:</span>
+                            <p className="text-sm">{domainAnalysis.analysis.targetAudience.demographics}</p>
+                          </div>
+                        )}
+
+                        {domainAnalysis.analysis?.toneRecommendation && (
+                          <div className="mb-2">
+                            <span className="text-xs text-muted-foreground">Empfohlene Tonalität:</span>
+                            <p className="text-sm">{domainAnalysis.analysis.toneRecommendation}</p>
+                          </div>
+                        )}
+
+                        <div className="mt-2 pt-2 border-t border-purple-500/20">
+                          <Badge variant="outline" className="text-xs bg-purple-500/10 text-purple-600">
+                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                            Kontext in Zusatzinfos übernommen
+                          </Badge>
+                        </div>
+                      </Card>
+                    )}
+
+                    {/* Secondary Keywords */}
+                    <div>
+                      <Label className="text-xs">Sekundär-Keywords</Label>
+                      <div className="flex gap-2 mt-1">
+                        <Input
+                          value={keywordInput}
+                          onChange={(e) => setKeywordInput(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddKeyword())}
+                          placeholder="Keyword + Enter"
+                          className="flex-1 h-9 text-sm"
+                        />
+                        <Button type="button" onClick={handleAddKeyword} variant="outline" size="icon" className="h-9 w-9">
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      {formData.secondaryKeywords.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {formData.secondaryKeywords.map((kw) => (
+                            <Badge key={kw} variant="secondary" className="gap-1 pr-1 text-xs">
+                              {kw}
+                              <button onClick={() => handleRemoveKeyword(kw)} className="hover:text-destructive">
+                                <X className="h-3 w-3" />
+                              </button>
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* W-Questions (selected) */}
+                    {formData.wQuestions.length > 0 && (
+                      <div>
+                        <Label className="text-xs">W-Fragen für FAQ</Label>
+                        <div className="space-y-1 mt-1">
+                          {formData.wQuestions.map((q) => (
+                            <div key={q} className="flex items-center gap-1 text-xs bg-muted p-1.5 rounded">
+                              <MessageSquare className="h-3 w-3 shrink-0 text-muted-foreground" />
+                              <span className="flex-1">{q}</span>
+                              <button onClick={() => handleRemoveWQuestion(q)} className="hover:text-destructive">
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Brand Name */}
+                    <div>
+                      <Label className="text-xs">Markenname</Label>
+                      <Input
+                        value={formData.brandName}
+                        onChange={(e) => setFormData({ ...formData, brandName: e.target.value })}
+                        placeholder="z.B. K-Active, Musterfirma GmbH"
+                        className="mt-1 h-9 text-sm"
+                      />
+                    </div>
+
+                    {/* Additional Info */}
+                    <div>
+                      <Label className="text-xs">Zusatzinfos / USPs</Label>
+                      <Textarea
+                        value={formData.additionalInfo}
+                        onChange={(e) => setFormData({ ...formData, additionalInfo: e.target.value })}
+                        placeholder="Besonderheiten, Alleinstellungsmerkmale..."
+                        rows={3}
+                        className="mt-1 text-sm"
+                      />
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+
+                {/* Hint for other tools */}
+                <div className="text-center pt-2 border-t">
+                  <p className="text-xs text-muted-foreground">
+                    Mehr Tools? <a href="/domain-learning" className="text-primary hover:underline">Wissensmanagement</a> | <a href="/seo-check" className="text-primary hover:underline">SEO-Check</a>
+                  </p>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -1304,8 +1971,11 @@ da historische Versionen nicht vollständig implementiert sind.`;
                       <div className="absolute -inset-2 rounded-full bg-primary/10 animate-pulse" />
                     </div>
                     <div>
-                      <h3 className="font-semibold">Generiere 3 Content-Varianten...</h3>
-                      <p className="text-sm text-muted-foreground">KI analysiert Eingaben und erstellt optimierten SEO-Content</p>
+                      <h3 className="font-semibold">Generiere SEO-Content...</h3>
+                      <p className="text-sm text-muted-foreground">KI analysiert Eingaben und erstellt optimierten Text</p>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        ⏱️ Dies dauert ca. 15-25 Sekunden
+                      </p>
                     </div>
                   </div>
                 </CardContent>
@@ -1322,8 +1992,9 @@ da historische Versionen nicht vollständig implementiert sind.`;
                   </div>
                 </CardContent>
               ) : (
-                <Tabs defaultValue="text" className="flex-1">
-                  <TabsList className="mx-4 grid grid-cols-5 h-auto p-1">
+                <>
+                  <Tabs defaultValue="text" className="flex-1">
+                    <TabsList className="mx-4 grid grid-cols-5 h-auto p-1">
                     <TabsTrigger value="text" className="text-xs py-2">
                       <FileText className="h-3.5 w-3.5 mr-1.5" />
                       Text
@@ -1353,7 +2024,7 @@ da historische Versionen nicht vollständig implementiert sind.`;
                       </div>
                       <div 
                         className="prose prose-sm max-w-none dark:prose-invert"
-                        dangerouslySetInnerHTML={{ __html: getSeoTextHtml(generatedContent.seoText) }} 
+                        dangerouslySetInnerHTML={{ __html: sanitizeHtml(getSeoTextHtml(generatedContent.seoText)) }} 
                       />
                     </TabsContent>
 
@@ -1471,7 +2142,8 @@ da historische Versionen nicht vollständig implementiert sind.`;
                       )}
                     </TabsContent>
                   </ScrollArea>
-                </Tabs>
+                  </Tabs>
+                </>
               )}
             </Card>
           </div>

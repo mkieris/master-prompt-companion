@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FormSection } from "./FormSection";
+import { SerpAnalysisPanel } from "./SerpAnalysisPanel";
 import { X, Globe, Loader2, Sparkles, Target, Users, FileText, Settings, Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -37,6 +38,7 @@ export interface BasicFormData {
   checkHWG: boolean;
   checkStudies: boolean;
   promptVersion?: string;
+  serpContext?: string;
 }
 
 interface BasicFormProps {
@@ -72,6 +74,7 @@ export const BasicForm = ({ onGenerate, isLoading }: BasicFormProps) => {
     checkHWG: false,
     checkStudies: false,
     promptVersion: "v1-kompakt-seo",
+    serpContext: "",
   });
 
   const handleAddKeyword = () => {
@@ -115,6 +118,33 @@ export const BasicForm = ({ onGenerate, isLoading }: BasicFormProps) => {
     } else {
       setFormData({ ...formData, searchIntent: [...current, intent] });
     }
+  };
+
+  const handleAddSerpKeywords = (keywords: string[]) => {
+    const newKeywords = keywords.filter(k => !formData.secondaryKeywords.includes(k));
+    if (newKeywords.length > 0) {
+      setFormData({
+        ...formData,
+        secondaryKeywords: [...formData.secondaryKeywords, ...newKeywords],
+      });
+    }
+  };
+
+  const handleAddSerpQuestions = (questions: string[]) => {
+    const newQuestions = questions.filter(q => !formData.wQuestions.includes(q));
+    if (newQuestions.length > 0) {
+      setFormData({
+        ...formData,
+        wQuestions: [...formData.wQuestions, ...newQuestions],
+      });
+    }
+  };
+
+  const handleSerpContextReady = (context: string) => {
+    setFormData({
+      ...formData,
+      serpContext: context,
+    });
   };
 
   const handleScrapeWebsite = async () => {
@@ -199,6 +229,16 @@ export const BasicForm = ({ onGenerate, isLoading }: BasicFormProps) => {
                   className="mt-1.5"
                 />
               </div>
+
+              {/* SERP-Analyse */}
+              <SerpAnalysisPanel
+                keyword={formData.focusKeyword}
+                onAddKeywords={handleAddSerpKeywords}
+                onAddWQuestions={handleAddSerpQuestions}
+                onSerpContextReady={handleSerpContextReady}
+                currentKeywords={formData.secondaryKeywords}
+                currentQuestions={formData.wQuestions}
+              />
 
               <div>
                 <Label className="text-sm font-medium">Sekundär-Keywords</Label>
