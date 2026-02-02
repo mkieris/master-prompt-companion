@@ -15,6 +15,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ProcessFlowPanel } from "@/components/seo-generator/ProcessFlowPanel";
 import { ValidationPanel } from "@/components/seo-generator/ValidationPanel";
 import { SerpAnalysisPanel } from "@/components/seo-generator/SerpAnalysisPanel";
+import { ModelSelector, type AIModel } from "@/components/ProSteps/ModelSelector";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useDebug } from "@/contexts/DebugContext";
@@ -81,6 +82,8 @@ interface FormData {
   serpContext: string;
   // Intern verwendet (nicht in UI)
   promptVersion: string;
+  // KI-Modell Auswahl
+  aiModel: AIModel;
 }
 
 // SERP Analysis Result
@@ -189,6 +192,8 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
     serpContext: "",
     // Intern
     promptVersion: "v9-master",
+    // KI-Modell
+    aiModel: "gemini-flash",
   });
 
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -1514,6 +1519,16 @@ da historische Versionen nicht vollständig implementiert sind.`;
                       </label>
                     ))}
                   </div>
+                </div>
+
+                {/* KI-Modell Auswahl */}
+                <div className="p-3 bg-gradient-to-r from-purple-500/10 to-blue-500/10 rounded-lg border border-purple-500/20">
+                  <ModelSelector
+                    value={formData.aiModel}
+                    onChange={(model) => handleFormChange('aiModel', model)}
+                    wordCount={formData.contentLength === 'short' ? '500' : formData.contentLength === 'long' ? '2000' : '1000'}
+                    showCostEstimate={true}
+                  />
                 </div>
 
                 {/* Generate Button */}
