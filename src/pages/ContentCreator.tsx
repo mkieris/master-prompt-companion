@@ -56,7 +56,6 @@ import {
 import { ContentScorePanel } from "@/components/content-creator/ContentScorePanel";
 import { ConfigPanel } from "@/components/content-creator/ConfigPanel";
 import { ContentEditor } from "@/components/content-creator/ContentEditor";
-import { VariantSelector } from "@/components/content-creator/VariantSelector";
 
 interface ContentCreatorProps {
   session: Session | null;
@@ -123,11 +122,6 @@ export interface GeneratedContent {
   title: string;
   metaDescription: string;
   faq?: Array<{ question: string; answer: string }>;
-  _variantInfo?: {
-    name: string;
-    description: string;
-    index: number;
-  };
 }
 
 const defaultConfig: ContentConfig = {
@@ -168,8 +162,6 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
   const [isConfigOpen, setIsConfigOpen] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRefining, setIsRefining] = useState(false);
-  const [generatedVariants, setGeneratedVariants] = useState<GeneratedContent[]>([]);
-  const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
   const [editedContent, setEditedContent] = useState<string>('');
   const [editedTitle, setEditedTitle] = useState<string>('');
   const [editedMeta, setEditedMeta] = useState<string>('');
@@ -277,30 +269,17 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
 
       if (error) throw error;
 
-      if (data.variants && Array.isArray(data.variants)) {
-        const validVariants = data.variants.filter((v: any) => v && v.seoText);
-        setGeneratedVariants(validVariants);
-        setSelectedVariantIndex(0);
+      // Handle response - use first variant if variants exist, otherwise use direct data
+      const content = data.variants?.[0] || data;
 
-        if (validVariants.length > 0) {
-          setEditedContent(validVariants[0].seoText || '');
-          setEditedTitle(validVariants[0].title || '');
-          setEditedMeta(validVariants[0].metaDescription || '');
-        }
+      if (content?.seoText) {
+        setEditedContent(content.seoText);
+        setEditedTitle(content.title || '');
+        setEditedMeta(content.metaDescription || '');
 
         toast({
           title: "Content generiert!",
-          description: `${validVariants.length} Varianten erstellt`,
-        });
-      } else if (data.seoText) {
-        setGeneratedVariants([data]);
-        setEditedContent(data.seoText || '');
-        setEditedTitle(data.title || '');
-        setEditedMeta(data.metaDescription || '');
-
-        toast({
-          title: "Content generiert!",
-          description: "SEO-Text wurde erstellt",
+          description: "SEO-optimierter Text wurde erstellt",
         });
       }
     } catch (error) {
@@ -356,18 +335,6 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
       setIsRefining(false);
     }
   };
-
-  const handleVariantSelect = (index: number) => {
-    setSelectedVariantIndex(index);
-    const variant = generatedVariants[index];
-    if (variant) {
-      setEditedContent(variant.seoText || '');
-      setEditedTitle(variant.title || '');
-      setEditedMeta(variant.metaDescription || '');
-    }
-  };
-
-  const currentVariant = generatedVariants[selectedVariantIndex];
 
   // Calculate content score
   const contentScore = useMemo(() => {
@@ -471,16 +438,6 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
 
           {/* CENTER: Content Editor */}
           <div className="flex-1 flex flex-col min-w-0">
-            {/* Variant Selector */}
-            {generatedVariants.length > 1 && (
-              <VariantSelector
-                variants={generatedVariants}
-                selectedIndex={selectedVariantIndex}
-                onSelect={handleVariantSelect}
-              />
-            )}
-
-            {/* Editor Area */}
             <ContentEditor
               content={editedContent}
               title={editedTitle}
