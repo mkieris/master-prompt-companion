@@ -1632,7 +1632,7 @@ da historische Versionen nicht vollständig implementiert sind.`;
                     }
                   }}
                   onSetManufacturerName={(name) => {
-                    setFormData({ ...formData, manufacturerName: name });
+                    setFormData(prev => ({ ...prev, manufacturerWebsite: name }));
                   }}
                   onSetManufacturerInfo={(info) => {
                     setFormData({ ...formData, manufacturerInfo: info });

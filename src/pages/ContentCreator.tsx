@@ -216,7 +216,7 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
         domainKnowledge: {
           company_name: data.company_name,
           brand_voice: data.brand_voice,
-          unique_selling_points: data.unique_selling_points,
+          unique_selling_points: Array.isArray(data.unique_selling_points) ? data.unique_selling_points as string[] : [],
           ai_summary: data.ai_summary,
         },
         brandName: prev.brandName || data.company_name || '',
