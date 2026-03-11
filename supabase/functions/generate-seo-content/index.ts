@@ -366,7 +366,7 @@ WICHTIG: Antworte AUSSCHLIESSLICH mit diesem JSON-Format, KEIN anderer Text:
 
 // Input validation schema
 const formDataSchema = z.object({
-  mode: z.enum(['generate', 'analyze-keyword', 'generate-outline']).optional().default('generate'),
+  mode: z.enum(['generate', 'generate-outline', 'analyze-keyword']).optional().default('generate'),
   focusKeyword: z.string().min(1, 'Fokus-Keyword ist erforderlich').max(200, 'Fokus-Keyword zu lang'),
   language: z.string().optional().default('de'),
   pageType: z.string().max(100).optional(),

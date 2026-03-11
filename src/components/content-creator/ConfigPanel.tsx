@@ -608,12 +608,13 @@ export const ConfigPanel = ({
 
           <Separator />
 
-          {/* AI Settings - Grouped */}
-          <Collapsible>
+          {/* AI Settings - Grouped (Default OPEN for visibility) */}
+          <Collapsible defaultOpen={true}>
             <CollapsibleTrigger className="flex items-center justify-between w-full py-2 text-sm font-medium hover:text-primary transition-colors">
               <span className="flex items-center gap-2">
                 <Brain className="h-4 w-4 text-muted-foreground" />
                 AI-Einstellungen
+                <Badge variant="outline" className="text-[9px] h-4 px-1.5 border-green-500 text-green-600">v12</Badge>
               </span>
               <ChevronRight className="h-4 w-4 transition-transform [[data-state=open]>&]:rotate-90" />
             </CollapsibleTrigger>
