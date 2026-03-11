@@ -61,7 +61,7 @@
   - targetAudience, contentType, additionalKeywords, tone, perspective, emphasis
 
 ## Bekannte Gaps / TODO
-- [ ] Outline Mode UI im ConfigPanel integrieren
+- [x] Outline Mode UI im ConfigPanel integrieren (2026-03-11)
 - [ ] SERP-Daten besser in Prompt integrieren
 - [ ] Competitor Content als Kontext nutzen
 - [ ] Unit Tests für Content Score Berechnung
