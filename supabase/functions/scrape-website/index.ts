@@ -276,8 +276,8 @@ async function crawlMultiplePages(url: string, apiKey: string) {
       },
       body: JSON.stringify({
         url: url,
-        limit: 50,
-        maxDepth: 3,
+        limit: 10,  // Begrenzt auf 10 Seiten (3000 Credits Budget)
+        maxDepth: 2, // Nur 2 Ebenen tief crawlen
         includePaths: basePath !== '/' ? [basePath + '*'] : undefined,
         excludePaths: [
           '*impressum*', '*datenschutz*', '*agb*', '*kontakt*',

@@ -38,11 +38,10 @@ interface SidebarProps {
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Content Creator", href: "/content", icon: Sparkles, isNew: true },
   { name: "SEO-Check", href: "/seo-check", icon: Search },
-  { name: "Text-Check", href: "/dashboard/text-check", icon: FileText, isNew: true },
-  { name: "KI Content Creator", href: "/dashboard/ai-content", icon: Bot },
-  { name: "Content Basic", href: "/basic", icon: FileText },
-  { name: "Content Pro", href: "/pro", icon: Sparkles },
+  { name: "Text-Check", href: "/dashboard/text-check", icon: FileText },
+  { name: "KI Chat", href: "/dashboard/ai-content", icon: Bot },
   { name: "Slogan Creator", href: "/dashboard/slogan-creator", icon: Sparkles },
   { name: "Verlauf", href: "/dashboard/history", icon: Clock },
   { name: "Projekte", href: "/dashboard/projects", icon: FolderOpen },

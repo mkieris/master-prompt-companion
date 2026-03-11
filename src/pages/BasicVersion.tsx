@@ -14,6 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ProcessFlowPanel } from "@/components/seo-generator/ProcessFlowPanel";
 import { ValidationPanel } from "@/components/seo-generator/ValidationPanel";
+import { WebsiteAnalysisPanel } from "@/components/seo-generator/WebsiteAnalysisPanel";
 import { SerpAnalysisPanel } from "@/components/seo-generator/SerpAnalysisPanel";
 import { ModelSelector, type AIModel } from "@/components/ProSteps/ModelSelector";
 import { supabase } from "@/integrations/supabase/client";
@@ -153,6 +154,7 @@ const BasicVersion = ({ session }: BasicVersionProps) => {
   const { currentOrg } = useOrganization(session);
   const [isLoading, setIsLoading] = useState(false);
   const [isScraping, setIsScraping] = useState(false);
+  const [scrapeMode, setScrapeMode] = useState<"single" | "multi">("single");
   const [isSaving, setIsSaving] = useState(false);
   const [currentStep, setCurrentStep] = useState<string>("input");
   const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
@@ -941,23 +943,62 @@ da historische Versionen nicht vollständig implementiert sind.`;
     
     try {
       const { data, error } = await supabase.functions.invoke("scrape-website", {
-        body: { url: formData.manufacturerWebsite, mode: "single" },
+        body: { url: formData.manufacturerWebsite, mode: scrapeMode },
       });
 
       if (error) throw error;
 
-      log('response', 'scrape-website erfolgreich', { 
-        title: data.title, 
-        descriptionLength: data.description?.length,
-        contentLength: data.content?.length 
-      });
-      
+      // Handle both single and multi mode responses
+      let infoText = "";
+
+      if (scrapeMode === "single") {
+        log('response', 'scrape-website (single) erfolgreich', {
+          title: data.title,
+          descriptionLength: data.description?.length,
+          contentLength: data.content?.length
+        });
+        infoText = `Titel: ${data.title || "N/A"}\n\nBeschreibung: ${data.description || "N/A"}\n\nInhalt:\n${data.content?.substring(0, 2000) || ""}`;
+
+        // Add AI analysis if available
+        if (data.analysis) {
+          infoText += `\n\n--- AI-Analyse ---\nUnternehmen: ${data.analysis.companyName || "N/A"}\nBranche: ${data.analysis.industry || "N/A"}\nZielgruppe: ${data.analysis.targetAudience || "N/A"}`;
+        }
+      } else {
+        // Multi mode
+        log('response', 'scrape-website (multi) erfolgreich', {
+          pagesFound: data.pagesFound,
+          combinedContentLength: data.combinedContent?.length
+        });
+        infoText = `Seiten gefunden: ${data.pagesFound || 0}\n\n`;
+
+        // Add page summaries
+        if (data.pages && data.pages.length > 0) {
+          infoText += "--- Seiten ---\n";
+          data.pages.slice(0, 5).forEach((page: any, idx: number) => {
+            infoText += `${idx + 1}. ${page.title || "Unbekannt"}\n`;
+          });
+        }
+
+        // Add combined content excerpt
+        if (data.combinedContent) {
+          infoText += `\n--- Inhalt (Auszug) ---\n${data.combinedContent.substring(0, 1500)}...`;
+        }
+
+        // Add AI analysis if available
+        if (data.analysis) {
+          infoText += `\n\n--- AI-Analyse ---\nUnternehmen: ${data.analysis.companyName || "N/A"}\nBranche: ${data.analysis.industry || "N/A"}\nZielgruppe: ${data.analysis.targetAudience || "N/A"}`;
+        }
+      }
+
       setFormData({
         ...formData,
-        manufacturerInfo: `Titel: ${data.title || "N/A"}\n\nBeschreibung: ${data.description || "N/A"}\n\nInhalt:\n${data.content?.substring(0, 2000) || ""}`,
+        manufacturerInfo: infoText,
       });
 
-      toast({ title: "Erfolgreich", description: "Website wurde analysiert" });
+      const successMsg = scrapeMode === "single"
+        ? "Einzelseite wurde analysiert"
+        : `${data.pagesFound || 0} Seiten wurden analysiert`;
+      toast({ title: "Erfolgreich", description: successMsg });
     } catch (error) {
       log('error', 'scrape-website fehlgeschlagen', { error: String(error) });
       console.error("Scraping error:", error);
@@ -1578,6 +1619,26 @@ da historische Versionen nicht vollständig implementiert sind.`;
                     )}
                   </Button>
                 </div>
+
+                {/* Website Analysis Panel */}
+                <WebsiteAnalysisPanel
+                  onAddKeywords={(keywords) => {
+                    const newKeywords = keywords.filter(k => !formData.secondaryKeywords.includes(k));
+                    if (newKeywords.length > 0) {
+                      setFormData({
+                        ...formData,
+                        secondaryKeywords: [...formData.secondaryKeywords, ...newKeywords],
+                      });
+                    }
+                  }}
+                  onSetManufacturerName={(name) => {
+                    setFormData({ ...formData, manufacturerName: name });
+                  }}
+                  onSetManufacturerInfo={(info) => {
+                    setFormData({ ...formData, manufacturerInfo: info });
+                  }}
+                  currentKeywords={formData.secondaryKeywords}
+                />
 
                 {/* Advanced Options (Collapsible) */}
                 <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>

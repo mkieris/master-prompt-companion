@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Loader2, Sparkles, Globe } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -24,6 +25,7 @@ const SloganCreator = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isCrawling, setIsCrawling] = useState(false);
   const [websiteUrl, setWebsiteUrl] = useState("");
+  const [scrapeMode, setScrapeMode] = useState<"single" | "multi">("single");
   const [formData, setFormData] = useState({
     productService: "",
     targetAudience: "",
@@ -45,7 +47,7 @@ const SloganCreator = () => {
     setIsCrawling(true);
     try {
       const { data, error } = await supabase.functions.invoke("scrape-website", {
-        body: { url: websiteUrl },
+        body: { url: websiteUrl, mode: scrapeMode },
       });
 
       if (error) throw error;
@@ -229,6 +231,20 @@ const SloganCreator = () => {
 
             <div className="space-y-2">
               <Label htmlFor="websiteUrl">Website analysieren (optional)</Label>
+              <RadioGroup
+                value={scrapeMode}
+                onValueChange={(value: "single" | "multi") => setScrapeMode(value)}
+                className="flex gap-4 mb-2"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="single" id="slogan-scrape-single" />
+                  <Label htmlFor="slogan-scrape-single" className="text-sm cursor-pointer">Einzelseite (1 Credit)</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="multi" id="slogan-scrape-multi" />
+                  <Label htmlFor="slogan-scrape-multi" className="text-sm cursor-pointer">Multi-Page (bis 10)</Label>
+                </div>
+              </RadioGroup>
               <div className="flex gap-2">
                 <Input
                   id="websiteUrl"
