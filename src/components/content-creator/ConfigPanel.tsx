@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,12 +10,15 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
 import {
   Loader2,
   Sparkles,
   Search,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   Settings2,
   Target,
   Zap,
@@ -29,7 +32,13 @@ import {
   TrendingUp,
   HelpCircle,
   List,
-  FileText
+  FileText,
+  Circle,
+  ArrowRight,
+  LayoutTemplate,
+  Users,
+  Type,
+  Brain
 } from "lucide-react";
 import type { ContentConfig } from "@/pages/ContentCreator";
 
@@ -77,6 +86,25 @@ export const ConfigPanel = ({
   const [keywordInput, setKeywordInput] = useState("");
   const [questionInput, setQuestionInput] = useState("");
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState<'keyword' | 'settings' | 'advanced'>('keyword');
+
+  // Calculate workflow progress
+  const workflowProgress = useMemo(() => {
+    let steps = {
+      keyword: false,
+      serp: false,
+      outline: false,
+      ready: false,
+    };
+
+    if (config.focusKeyword.trim().length > 2) steps.keyword = true;
+    if (serpResult) steps.serp = true;
+    if (outline) steps.outline = true;
+    if (steps.keyword && steps.serp) steps.ready = true;
+
+    const completed = Object.values(steps).filter(Boolean).length;
+    return { steps, progress: (completed / 4) * 100 };
+  }, [config.focusKeyword, serpResult, outline]);
 
   const addSecondaryKeyword = () => {
     if (keywordInput.trim() && !config.secondaryKeywords.includes(keywordInput.trim())) {
