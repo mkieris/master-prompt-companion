@@ -26,9 +26,23 @@ import {
   Shield,
   CheckCircle2,
   TrendingUp,
-  HelpCircle
+  HelpCircle,
+  List,
+  FileText
 } from "lucide-react";
 import type { ContentConfig } from "@/pages/ContentCreator";
+
+interface OutlineSection {
+  h2: string;
+  h3s?: string[];
+}
+
+interface Outline {
+  h1: string;
+  sections: OutlineSection[];
+  faqs?: string[];
+  estimatedWordCount?: number;
+}
 
 interface ConfigPanelProps {
   config: ContentConfig;
@@ -39,6 +53,10 @@ interface ConfigPanelProps {
   domainKnowledge?: any;
   onGenerate: () => void;
   isGenerating: boolean;
+  onGenerateOutline?: () => void;
+  isGeneratingOutline?: boolean;
+  outline?: Outline | null;
+  onClearOutline?: () => void;
 }
 
 export const ConfigPanel = ({
@@ -50,6 +68,10 @@ export const ConfigPanel = ({
   domainKnowledge,
   onGenerate,
   isGenerating,
+  onGenerateOutline,
+  isGeneratingOutline,
+  outline,
+  onClearOutline,
 }: ConfigPanelProps) => {
   const [keywordInput, setKeywordInput] = useState("");
   const [questionInput, setQuestionInput] = useState("");
@@ -576,8 +598,90 @@ export const ConfigPanel = ({
         </CardContent>
       </ScrollArea>
 
-      {/* Generate Button */}
-      <div className="p-4 border-t">
+      {/* Outline Section */}
+      {outline && (
+        <div className="p-4 border-t">
+          <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-purple-700 dark:text-purple-400 flex items-center gap-1">
+                <List className="h-3 w-3" />
+                Gliederung
+              </span>
+              {onClearOutline && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-xs"
+                  onClick={onClearOutline}
+                >
+                  <X className="h-3 w-3 mr-1" />
+                  Verwerfen
+                </Button>
+              )}
+            </div>
+
+            {/* H1 */}
+            <div className="text-sm font-semibold text-foreground">
+              {outline.h1}
+            </div>
+
+            {/* Sections */}
+            <div className="space-y-1 text-xs">
+              {outline.sections.map((section, idx) => (
+                <div key={idx} className="pl-2 border-l-2 border-purple-300 dark:border-purple-600">
+                  <div className="font-medium">{section.h2}</div>
+                  {section.h3s && section.h3s.length > 0 && (
+                    <ul className="pl-3 text-muted-foreground">
+                      {section.h3s.map((h3, h3Idx) => (
+                        <li key={h3Idx}>• {h3}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* FAQs */}
+            {outline.faqs && outline.faqs.length > 0 && (
+              <div className="pt-1 border-t border-purple-200 dark:border-purple-700">
+                <span className="text-xs text-muted-foreground">FAQs: {outline.faqs.length}</span>
+              </div>
+            )}
+
+            {outline.estimatedWordCount && (
+              <div className="text-xs text-muted-foreground">
+                ~{outline.estimatedWordCount} Wörter geschätzt
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Generate Buttons */}
+      <div className="p-4 border-t space-y-2">
+        {/* Outline Button - only show if no outline yet */}
+        {!outline && onGenerateOutline && (
+          <Button
+            onClick={onGenerateOutline}
+            disabled={isGeneratingOutline || !config.focusKeyword.trim()}
+            variant="outline"
+            className="w-full"
+          >
+            {isGeneratingOutline ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Erstelle Gliederung...
+              </>
+            ) : (
+              <>
+                <List className="mr-2 h-4 w-4" />
+                Erst Gliederung erstellen
+              </>
+            )}
+          </Button>
+        )}
+
+        {/* Generate Content Button */}
         <Button
           onClick={onGenerate}
           disabled={isGenerating || !config.focusKeyword.trim()}
@@ -592,7 +696,7 @@ export const ConfigPanel = ({
           ) : (
             <>
               <Sparkles className="mr-2 h-4 w-4" />
-              Content generieren
+              {outline ? "Content aus Gliederung generieren" : "Content generieren"}
             </>
           )}
         </Button>

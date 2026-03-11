@@ -321,6 +321,8 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
             uniqueSellingPoints: config.domainKnowledge.unique_selling_points || [],
             aiSummary: config.domainKnowledge.ai_summary || '',
           } : null,
+          // Include outline if available (for structured generation)
+          outline: outline || null,
           // Legacy field for backwards compatibility
           additionalInfo: config.domainKnowledge?.ai_summary || '',
         },
@@ -492,6 +494,10 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
               domainKnowledge={domainKnowledge}
               onGenerate={handleGenerate}
               isGenerating={isGenerating}
+              onGenerateOutline={handleGenerateOutline}
+              isGeneratingOutline={isGeneratingOutline}
+              outline={outline}
+              onClearOutline={() => setOutline(null)}
             />
           )}
 
