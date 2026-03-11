@@ -66,7 +66,6 @@ export interface ContentConfig {
   pageType: 'product' | 'category' | 'guide';
   brandName: string;
   mainTopic: string;
-  websiteUrl: string;
 
   // Keywords
   focusKeyword: string;
@@ -76,11 +75,9 @@ export interface ContentConfig {
   targetAudience: 'b2b' | 'b2c' | 'mixed';
   formOfAddress: 'du' | 'sie';
   tonality: string;
-  language: string;
 
   // Structure
   wordCount: string;
-  headingStructure: string;
   includeIntro: boolean;
   includeFAQ: boolean;
   wQuestions: string[];
@@ -128,15 +125,12 @@ const defaultConfig: ContentConfig = {
   pageType: 'product',
   brandName: '',
   mainTopic: '',
-  websiteUrl: '',
   focusKeyword: '',
   secondaryKeywords: [],
   targetAudience: 'b2c',
   formOfAddress: 'du',
   tonality: 'balanced-mix',
-  language: 'de',
   wordCount: '1500',
-  headingStructure: 'h2-h3',
   includeIntro: true,
   includeFAQ: true,
   wQuestions: [],
@@ -162,6 +156,8 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
   const [isConfigOpen, setIsConfigOpen] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRefining, setIsRefining] = useState(false);
+  const [isGeneratingOutline, setIsGeneratingOutline] = useState(false);
+  const [outline, setOutline] = useState<any>(null);
   const [editedContent, setEditedContent] = useState<string>('');
   const [editedTitle, setEditedTitle] = useState<string>('');
   const [editedMeta, setEditedMeta] = useState<string>('');
@@ -243,6 +239,54 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
   const updateConfig = useCallback((updates: Partial<ContentConfig>) => {
     setConfig(prev => ({ ...prev, ...updates }));
   }, []);
+
+  const handleGenerateOutline = async () => {
+    if (!config.focusKeyword.trim()) {
+      toast({
+        title: "Fokus-Keyword fehlt",
+        description: "Bitte geben Sie ein Fokus-Keyword ein",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeneratingOutline(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-seo-content", {
+        body: {
+          mode: 'generate-outline',
+          focusKeyword: config.focusKeyword,
+          pageType: config.pageType,
+          targetAudience: config.targetAudience,
+          wordCount: config.wordCount,
+          serpTermsStructured: config.serpTerms ? {
+            mustHave: config.serpTerms.mustHave || [],
+            shouldHave: config.serpTerms.shouldHave || [],
+          } : null,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.outline) {
+        setOutline(data.outline);
+        toast({
+          title: "Outline generiert!",
+          description: "Struktur wurde erstellt. Prüfen Sie die Gliederung.",
+        });
+      }
+    } catch (error) {
+      console.error("Outline error:", error);
+      toast({
+        title: "Fehler",
+        description: "Outline konnte nicht erstellt werden",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingOutline(false);
+    }
+  };
 
   const handleGenerate = async () => {
     if (!config.focusKeyword.trim()) {

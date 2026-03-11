@@ -7,6 +7,7 @@
 ## Technologie-Stack
 - **Frontend**: React + TypeScript + Vite
 - **UI**: shadcn/ui + Tailwind CSS
+- **Markdown**: react-markdown für Content Preview
 - **Backend**: Supabase (Auth, DB, Edge Functions)
 - **AI**: Gemini Flash/Pro, Claude Sonnet
 
@@ -44,11 +45,23 @@
 - [x] Auto SERP-Analyse auf Keyword-Eingabe
 - [x] Domain Knowledge Integration
 - [x] SERP Terms Checklist (mustHave, shouldHave, niceToHave)
+- [x] Generation Analytics Dashboard (`/dashboard/analytics`)
+- [x] Markdown Preview mit react-markdown (HTML + Markdown Support)
+- [x] Outline Mode in Edge Function (generate-outline)
+
+## Neue Dateien (2026-03-11)
+- `src/pages/GenerationAnalytics.tsx` - Analytics Dashboard
+  - Prompt Version Performance (30 Tage)
+  - Tägliche Statistiken
+  - Letzte Generierungen
 
 ## Entfernte Features
 - Varianten A/B/C (entfernt am 2026-03-11) - User Feedback: unklar ob funktioniert
+- Tote UI-Felder aus ContentConfig entfernt (2026-03-11):
+  - targetAudience, contentType, additionalKeywords, tone, perspective, emphasis
 
 ## Bekannte Gaps / TODO
+- [ ] Outline Mode UI im ConfigPanel integrieren
 - [ ] SERP-Daten besser in Prompt integrieren
 - [ ] Competitor Content als Kontext nutzen
 - [ ] Unit Tests für Content Score Berechnung

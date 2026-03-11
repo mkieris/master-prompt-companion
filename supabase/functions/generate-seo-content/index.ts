@@ -494,6 +494,92 @@ serve(async (req) => {
       });
     }
 
+    // ═══ MODE: GENERATE OUTLINE ═══
+    if (formData.mode === 'generate-outline') {
+      console.log('Mode: generate-outline for:', formData.focusKeyword);
+
+      const outlinePrompt = `Du bist ein SEO Content Stratege. Erstelle eine detaillierte Gliederung (Outline) für einen SEO-Text.
+
+FOKUS-KEYWORD: ${formData.focusKeyword}
+SEITENTYP: ${formData.pageType || 'product'}
+ZIELGRUPPE: ${formData.targetAudience || 'b2c'}
+TEXTLÄNGE: ca. ${formData.wordCount || 1500} Wörter
+
+${formData.serpTermsStructured ? `
+WICHTIGE BEGRIFFE AUS SERP-ANALYSE:
+- Pflicht: ${formData.serpTermsStructured.mustHave?.join(', ') || 'keine'}
+- Empfohlen: ${formData.serpTermsStructured.shouldHave?.slice(0, 5).join(', ') || 'keine'}
+` : ''}
+
+ERSTELLE EINE GLIEDERUNG MIT:
+1. H1 (Hauptüberschrift mit Fokus-Keyword)
+2. 4-6 H2 Abschnitte (logische Struktur)
+3. Optional H3 unter H2
+4. Kurze Beschreibung was in jedem Abschnitt behandelt wird
+5. FAQ-Vorschläge (3-5 Fragen)
+
+AUSGABE ALS JSON:
+{
+  "h1": "Vorgeschlagene H1",
+  "sections": [
+    {
+      "h2": "Überschrift",
+      "description": "Was hier behandelt wird",
+      "h3s": ["Optional H3 1", "Optional H3 2"]
+    }
+  ],
+  "faqs": ["Frage 1?", "Frage 2?"],
+  "estimatedWordCount": ${formData.wordCount || 1500}
+}`;
+
+      const outlineResponse = await fetch('https://api.lovable.dev/ai/api', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + LOVABLE_API_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash', // Fast model for outlines
+          messages: [
+            { role: 'system', content: 'Du erstellst SEO-optimierte Content-Gliederungen. Antworte NUR mit validem JSON.' },
+            { role: 'user', content: outlinePrompt }
+          ],
+          temperature: 0.5,
+        }),
+      });
+
+      if (!outlineResponse.ok) {
+        throw new Error('Outline generation failed: ' + outlineResponse.status);
+      }
+
+      const outlineData = await outlineResponse.json();
+      const outlineContent = outlineData.choices?.[0]?.message?.content || '';
+
+      // Parse JSON from response
+      let outline;
+      try {
+        const jsonMatch = outlineContent.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          outline = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error('No JSON found in response');
+        }
+      } catch (e) {
+        console.error('Outline parse error:', e);
+        outline = { error: 'Could not parse outline', raw: outlineContent };
+      }
+
+      console.log('Outline generated:', outline);
+
+      return new Response(JSON.stringify({
+        success: true,
+        outline,
+        focusKeyword: formData.focusKeyword,
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // ═══ MODE: GENERATE (default) ═══
     // ═══ LOGGING mit Prompt-Version ═══
     const promptVersion = formData.promptVersion || 'v9-master-prompt';
