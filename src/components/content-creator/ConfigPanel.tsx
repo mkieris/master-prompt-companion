@@ -159,56 +159,135 @@ export const ConfigPanel = ({
     });
   };
 
+  // Workflow step component
+  const WorkflowStep = ({
+    step,
+    label,
+    isComplete,
+    isActive,
+    onClick
+  }: {
+    step: number;
+    label: string;
+    isComplete: boolean;
+    isActive: boolean;
+    onClick?: () => void;
+  }) => (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-2 text-xs transition-all ${
+        isActive ? 'text-primary font-medium' :
+        isComplete ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'
+      } ${onClick ? 'hover:text-primary cursor-pointer' : ''}`}
+    >
+      <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${
+        isComplete ? 'bg-green-500 text-white' :
+        isActive ? 'bg-primary text-primary-foreground ring-2 ring-primary/30' :
+        'bg-muted text-muted-foreground'
+      }`}>
+        {isComplete ? <CheckCircle2 className="h-3 w-3" /> : step}
+      </div>
+      <span>{label}</span>
+    </button>
+  );
+
   return (
-    <Card className="w-80 flex-shrink-0 flex flex-col h-full overflow-hidden">
-      <CardHeader className="pb-3 border-b">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <Settings2 className="h-4 w-4" />
-          Konfiguration
+    <Card className="w-80 flex-shrink-0 flex flex-col h-full overflow-hidden border-r-0 rounded-r-none">
+      {/* Header with Workflow Progress */}
+      <CardHeader className="pb-2 border-b bg-muted/30">
+        <CardTitle className="text-sm flex items-center justify-between">
+          <span className="flex items-center gap-2">
+            <Settings2 className="h-4 w-4 text-primary" />
+            Konfiguration
+          </span>
+          <Badge variant={workflowProgress.progress >= 75 ? "default" : "secondary"} className="text-xs">
+            {Math.round(workflowProgress.progress)}% bereit
+          </Badge>
         </CardTitle>
+
+        {/* Workflow Steps Indicator */}
+        <div className="flex items-center justify-between pt-3 pb-1">
+          <WorkflowStep
+            step={1}
+            label="Keyword"
+            isComplete={workflowProgress.steps.keyword}
+            isActive={activeSection === 'keyword' && !workflowProgress.steps.keyword}
+            onClick={() => setActiveSection('keyword')}
+          />
+          <ArrowRight className="h-3 w-3 text-muted-foreground" />
+          <WorkflowStep
+            step={2}
+            label="SERP"
+            isComplete={workflowProgress.steps.serp}
+            isActive={workflowProgress.steps.keyword && !workflowProgress.steps.serp}
+          />
+          <ArrowRight className="h-3 w-3 text-muted-foreground" />
+          <WorkflowStep
+            step={3}
+            label="Outline"
+            isComplete={workflowProgress.steps.outline}
+            isActive={workflowProgress.steps.serp && !workflowProgress.steps.outline}
+          />
+        </div>
+        <Progress value={workflowProgress.progress} className="h-1 mt-1" />
       </CardHeader>
 
       <ScrollArea className="flex-1">
         <CardContent className="p-4 space-y-4">
-          {/* Domain Knowledge Badge */}
+          {/* Domain Knowledge Badge - Compact */}
           {domainKnowledge && (
-            <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3">
-              <div className="flex items-center gap-2 text-sm font-medium text-green-700 dark:text-green-400">
-                <Building2 className="h-4 w-4" />
-                {domainKnowledge.company_name}
+            <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-lg p-2.5 flex items-center gap-2">
+              <div className="h-8 w-8 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                <Building2 className="h-4 w-4 text-green-600 dark:text-green-400" />
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Brand Voice & USPs automatisch geladen
-              </p>
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-green-700 dark:text-green-400 truncate">
+                  {domainKnowledge.company_name}
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Brand Voice aktiv
+                </p>
+              </div>
+              <CheckCircle2 className="h-4 w-4 text-green-500 ml-auto flex-shrink-0" />
             </div>
           )}
 
-          {/* Focus Keyword with SERP */}
-          <div className="space-y-2">
-            <Label htmlFor="focusKeyword" className="flex items-center gap-2">
-              <Target className="h-3.5 w-3.5 text-primary" />
-              Fokus-Keyword *
-            </Label>
-            <div className="flex gap-2">
+          {/* Focus Keyword with SERP - Enhanced */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="focusKeyword" className="flex items-center gap-2 text-sm font-medium">
+                <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center">
+                  <Target className="h-3.5 w-3.5 text-primary" />
+                </div>
+                Fokus-Keyword
+              </Label>
+              {config.focusKeyword.trim() && (
+                <Badge variant="outline" className="text-[10px]">
+                  {config.focusKeyword.length} Zeichen
+                </Badge>
+              )}
+            </div>
+            <div className="relative">
               <Input
                 id="focusKeyword"
                 value={config.focusKeyword}
                 onChange={(e) => onConfigChange({ focusKeyword: e.target.value })}
                 placeholder="z.B. Kinesio Tape"
-                className="flex-1"
+                className="pr-10 h-11 text-base font-medium"
               />
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
                       type="button"
-                      variant="outline"
+                      variant="ghost"
                       size="icon"
                       onClick={onSerpAnalyze}
                       disabled={serpLoading || !config.focusKeyword.trim()}
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
                     >
                       {serpLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
                       ) : (
                         <Search className="h-4 w-4" />
                       )}
@@ -217,12 +296,19 @@ export const ConfigPanel = ({
                   <TooltipContent side="bottom" className="max-w-xs">
                     <p className="font-medium">SERP-Analyse starten</p>
                     <p className="text-xs text-muted-foreground">
-                      Analysiert die Top 10 Google-Ergebnisse für dein Keyword und extrahiert wichtige Begriffe, die dein Text enthalten sollte.
+                      Analysiert Top 10 Google-Ergebnisse und extrahiert wichtige Begriffe.
                     </p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </div>
+            {/* SERP Loading State */}
+            {serpLoading && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-md p-2">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span>Analysiere Google SERPs...</span>
+              </div>
+            )}
 
             {/* SERP Results */}
             {serpResult && (
