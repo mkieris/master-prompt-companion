@@ -407,6 +407,11 @@ const formDataSchema = z.object({
     studies: z.boolean().optional(),
   }).optional(),
   serpContext: z.string().max(10000).optional(),
+  serpTermsStructured: z.object({
+    mustHave: z.array(z.string()).optional(),
+    shouldHave: z.array(z.string()).optional(),
+    niceToHave: z.array(z.string()).optional(),
+  }).optional(),
 }).passthrough();
 
 serve(async (req) => {
