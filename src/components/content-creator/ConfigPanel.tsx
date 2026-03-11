@@ -781,74 +781,79 @@ export const ConfigPanel = ({
         </CardContent>
       </ScrollArea>
 
-      {/* Outline Section */}
+      {/* Outline Section - Enhanced */}
       {outline && (
-        <div className="p-4 border-t">
-          <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-purple-700 dark:text-purple-400 flex items-center gap-1">
-                <List className="h-3 w-3" />
-                Gliederung
+        <div className="p-3 border-t bg-gradient-to-b from-purple-500/5 to-transparent">
+          <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-3 py-2 bg-purple-500/10 border-b border-purple-500/20">
+              <span className="text-xs font-semibold text-purple-700 dark:text-purple-400 flex items-center gap-1.5">
+                <List className="h-3.5 w-3.5" />
+                Gliederung erstellt
               </span>
               {onClearOutline && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 text-xs"
+                  className="h-5 text-[10px] px-2 text-purple-600 hover:text-purple-800 hover:bg-purple-500/20"
                   onClick={onClearOutline}
                 >
-                  <X className="h-3 w-3 mr-1" />
+                  <X className="h-2.5 w-2.5 mr-1" />
                   Verwerfen
                 </Button>
               )}
             </div>
 
-            {/* H1 */}
-            <div className="text-sm font-semibold text-foreground">
-              {outline.h1}
-            </div>
-
-            {/* Sections */}
-            <div className="space-y-1 text-xs">
-              {outline.sections.map((section, idx) => (
-                <div key={idx} className="pl-2 border-l-2 border-purple-300 dark:border-purple-600">
-                  <div className="font-medium">{section.h2}</div>
-                  {section.h3s && section.h3s.length > 0 && (
-                    <ul className="pl-3 text-muted-foreground">
-                      {section.h3s.map((h3, h3Idx) => (
-                        <li key={h3Idx}>• {h3}</li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {/* FAQs */}
-            {outline.faqs && outline.faqs.length > 0 && (
-              <div className="pt-1 border-t border-purple-200 dark:border-purple-700">
-                <span className="text-xs text-muted-foreground">FAQs: {outline.faqs.length}</span>
+            <div className="p-3 space-y-2">
+              {/* H1 */}
+              <div className="text-sm font-semibold text-foreground leading-tight">
+                {outline.h1}
               </div>
-            )}
 
-            {outline.estimatedWordCount && (
-              <div className="text-xs text-muted-foreground">
-                ~{outline.estimatedWordCount} Wörter geschätzt
+              {/* Sections - Collapsible Preview */}
+              <div className="space-y-1 text-[11px] max-h-32 overflow-y-auto">
+                {outline.sections.slice(0, 4).map((section, idx) => (
+                  <div key={idx} className="pl-2 border-l-2 border-purple-300 dark:border-purple-600 py-0.5">
+                    <div className="font-medium text-foreground/90">{section.h2}</div>
+                  </div>
+                ))}
+                {outline.sections.length > 4 && (
+                  <div className="text-[10px] text-muted-foreground pl-2">
+                    +{outline.sections.length - 4} weitere Abschnitte
+                  </div>
+                )}
               </div>
-            )}
+
+              {/* Stats */}
+              <div className="flex items-center gap-3 pt-1 border-t border-purple-200/50 dark:border-purple-800/50">
+                <span className="text-[10px] text-muted-foreground">
+                  {outline.sections.length} Abschnitte
+                </span>
+                {outline.faqs && outline.faqs.length > 0 && (
+                  <span className="text-[10px] text-muted-foreground">
+                    {outline.faqs.length} FAQs
+                  </span>
+                )}
+                {outline.estimatedWordCount && (
+                  <span className="text-[10px] text-muted-foreground">
+                    ~{outline.estimatedWordCount} Worter
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Generate Buttons */}
-      <div className="p-4 border-t space-y-2">
+      {/* Generate Buttons - Enhanced CTA */}
+      <div className="p-3 border-t bg-muted/30 space-y-2">
         {/* Outline Button - only show if no outline yet */}
         {!outline && onGenerateOutline && (
           <Button
             onClick={onGenerateOutline}
             disabled={isGeneratingOutline || !config.focusKeyword.trim()}
             variant="outline"
-            className="w-full"
+            className="w-full h-9 text-sm"
           >
             {isGeneratingOutline ? (
               <>
@@ -858,31 +863,43 @@ export const ConfigPanel = ({
             ) : (
               <>
                 <List className="mr-2 h-4 w-4" />
-                Erst Gliederung erstellen
+                Erst Gliederung erstellen (optional)
               </>
             )}
           </Button>
         )}
 
-        {/* Generate Content Button */}
+        {/* Generate Content Button - Primary CTA */}
         <Button
           onClick={onGenerate}
           disabled={isGenerating || !config.focusKeyword.trim()}
-          className="w-full"
+          className="w-full h-12 text-base font-semibold shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all"
           size="lg"
         >
           {isGenerating ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Generiere SEO-Content...
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              Generiere Content...
             </>
           ) : (
             <>
-              <Sparkles className="mr-2 h-4 w-4" />
-              {outline ? "Content aus Gliederung generieren" : "Content generieren"}
+              <Sparkles className="mr-2 h-5 w-5" />
+              {outline ? "Content generieren" : "SEO-Content erstellen"}
             </>
           )}
         </Button>
+
+        {/* Ready State Indicator */}
+        {!isGenerating && config.focusKeyword.trim() && (
+          <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground">
+            {serpResult && <CheckCircle2 className="h-3 w-3 text-green-500" />}
+            <span>
+              {serpResult
+                ? `SERP-Daten bereit (${serpResult.serpTerms.all.length} Begriffe)`
+                : 'SERP-Analyse wird automatisch gestartet'}
+            </span>
+          </div>
+        )}
       </div>
     </Card>
   );

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
 import {
   Loader2,
   Sparkles,
@@ -20,7 +22,16 @@ import {
   RefreshCw,
   Check,
   Code,
-  MessageSquare
+  MessageSquare,
+  Wand2,
+  Search,
+  Globe,
+  PenLine,
+  Zap,
+  ArrowRight,
+  CheckCircle2,
+  AlertCircle,
+  Target
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { sanitizeHtml } from "@/lib/sanitize";
