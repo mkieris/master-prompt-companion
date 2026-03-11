@@ -148,7 +148,7 @@ const defaultConfig: ContentConfig = {
     studies: false,
   },
   aiModel: 'gemini-flash',
-  promptVersion: 'v1-kompakt-seo',
+  promptVersion: 'v9-master',
 };
 
 const ContentCreator = ({ session }: ContentCreatorProps) => {

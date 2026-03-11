@@ -419,6 +419,52 @@ export const ConfigPanel = ({
             </Select>
           </div>
 
+          {/* Prompt Version - WICHTIG für Qualität */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              Prompt-Version
+              <Badge variant="secondary" className="text-xs">Qualität</Badge>
+            </Label>
+            <Select
+              value={config.promptVersion}
+              onValueChange={(value) => onConfigChange({ promptVersion: value })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="v9-master">
+                  <span className="flex items-center gap-2">
+                    ⭐ v9: Master (Standard)
+                  </span>
+                </SelectItem>
+                <SelectItem value="v11-surfer-style">
+                  <span className="flex items-center gap-2">
+                    🎯 v11: Surfer-Style (NEU)
+                  </span>
+                </SelectItem>
+                <SelectItem value="v10-geo-optimized">
+                  <span className="flex items-center gap-2">
+                    🚀 v10: GEO-Optimized
+                  </span>
+                </SelectItem>
+                <SelectItem value="v8-natural-seo">
+                  <span className="flex items-center gap-2">
+                    🌿 v8: Natürlich SEO
+                  </span>
+                </SelectItem>
+                <SelectItem value="v6-quality-auditor">
+                  <span className="flex items-center gap-2">
+                    📝 v6: Anti-Fluff
+                  </span>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              v9-master für beste Ergebnisse empfohlen
+            </p>
+          </div>
+
           {/* Advanced Settings */}
           <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
             <CollapsibleTrigger asChild>
