@@ -511,14 +511,19 @@ serve(async (req) => {
 
     // ═══ MODE: GENERATE OUTLINE ═══
     if (formData.mode === 'generate-outline') {
-      console.log('Mode: generate-outline for:', formData.focusKeyword);
+      console.log('=== OUTLINE GENERATION START ===');
+      console.log('Keyword:', formData.focusKeyword);
+      console.log('PageType:', formData.pageType);
+      console.log('WordCount:', formData.wordCount);
+
+      const targetWordCount = parseInt(formData.wordCount) || 1500;
 
       const outlinePrompt = `Du bist ein SEO Content Stratege. Erstelle eine detaillierte Gliederung (Outline) für einen SEO-Text.
 
 FOKUS-KEYWORD: ${formData.focusKeyword}
 SEITENTYP: ${formData.pageType || 'product'}
 ZIELGRUPPE: ${formData.targetAudience || 'b2c'}
-TEXTLÄNGE: ca. ${formData.wordCount || 1500} Wörter
+TEXTLÄNGE: ca. ${targetWordCount} Wörter
 
 ${formData.serpTermsStructured ? `
 WICHTIGE BEGRIFFE AUS SERP-ANALYSE:
@@ -544,55 +549,96 @@ AUSGABE ALS JSON:
     }
   ],
   "faqs": ["Frage 1?", "Frage 2?"],
-  "estimatedWordCount": ${formData.wordCount || 1500}
+  "estimatedWordCount": ${targetWordCount}
 }`;
 
-      const outlineResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + LOVABLE_API_KEY,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash', // Fast model for outlines
-          messages: [
-            { role: 'system', content: 'Du erstellst SEO-optimierte Content-Gliederungen. Antworte NUR mit validem JSON.' },
-            { role: 'user', content: outlinePrompt }
-          ],
-          temperature: 0.5,
-        }),
-      });
-
-      if (!outlineResponse.ok) {
-        throw new Error('Outline generation failed: ' + outlineResponse.status);
-      }
-
-      const outlineData = await outlineResponse.json();
-      const outlineContent = outlineData.choices?.[0]?.message?.content || '';
-
-      // Parse JSON from response
-      let outline;
       try {
+        console.log('Calling AI Gateway for outline...');
+        const outlineResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + LOVABLE_API_KEY,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash',
+            messages: [
+              { role: 'system', content: 'Du erstellst SEO-optimierte Content-Gliederungen. Antworte NUR mit validem JSON.' },
+              { role: 'user', content: outlinePrompt }
+            ],
+            temperature: 0.5,
+          }),
+        });
+
+        console.log('Outline API Response Status:', outlineResponse.status);
+
+        if (!outlineResponse.ok) {
+          const errorBody = await outlineResponse.text();
+          console.error('Outline API Error:', errorBody);
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Outline-Generierung fehlgeschlagen',
+            details: `Status ${outlineResponse.status}: ${errorBody.substring(0, 200)}`
+          }), {
+            status: outlineResponse.status,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const outlineData = await outlineResponse.json();
+        const outlineContent = outlineData.choices?.[0]?.message?.content || '';
+        console.log('Outline raw content length:', outlineContent.length);
+
+        // Parse JSON from response
+        let outline;
         const jsonMatch = outlineContent.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
-          outline = JSON.parse(jsonMatch[0]);
+          try {
+            outline = JSON.parse(jsonMatch[0]);
+            console.log('Outline parsed successfully');
+          } catch (parseError) {
+            console.error('JSON parse error:', parseError);
+            outline = {
+              error: 'JSON parsing failed',
+              raw: outlineContent.substring(0, 500),
+              h1: formData.focusKeyword,
+              sections: [{ h2: 'Fehler beim Parsen', description: 'Bitte erneut versuchen' }],
+              faqs: []
+            };
+          }
         } else {
-          throw new Error('No JSON found in response');
+          console.error('No JSON found in outline response');
+          outline = {
+            error: 'No JSON in response',
+            raw: outlineContent.substring(0, 500),
+            h1: formData.focusKeyword,
+            sections: [{ h2: 'Keine Struktur gefunden', description: 'Bitte erneut versuchen' }],
+            faqs: []
+          };
         }
-      } catch (e) {
-        console.error('Outline parse error:', e);
-        outline = { error: 'Could not parse outline', raw: outlineContent };
+
+        console.log('=== OUTLINE GENERATION COMPLETE ===');
+
+        return new Response(JSON.stringify({
+          success: true,
+          outline,
+          focusKeyword: formData.focusKeyword,
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+
+      } catch (outlineError) {
+        console.error('=== OUTLINE GENERATION ERROR ===');
+        console.error('Error:', outlineError);
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Outline-Generierung fehlgeschlagen',
+          details: outlineError instanceof Error ? outlineError.message : String(outlineError)
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
-
-      console.log('Outline generated:', outline);
-
-      return new Response(JSON.stringify({
-        success: true,
-        outline,
-        focusKeyword: formData.focusKeyword,
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
     }
 
     // ═══ MODE: GENERATE (default) ═══
