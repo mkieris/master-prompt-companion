@@ -749,12 +749,70 @@ serve(async (req) => {
     const totalDuration = Date.now() - startTime;
     console.log(`=== GENERATION COMPLETE in ${totalDuration}ms ===`);
 
+    // ═══ ANALYTICS LOGGING ═══
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const analyticsClient = createClient(supabaseUrl, supabaseKey);
+
+      const wordCount = parsedContent.seoText?.split(/\s+/).filter((w: string) => w.length > 0).length || 0;
+      const faqCount = parsedContent.faq?.length || 0;
+
+      await analyticsClient.from('content_generations').insert({
+        user_id: user.id,
+        organization_id: formData.organizationId || null,
+        focus_keyword: formData.focusKeyword,
+        secondary_keywords: formData.secondaryKeywords || [],
+        page_type: formData.pageType || null,
+        target_audience: formData.targetAudience || null,
+        word_count_target: parseInt(formData.wordCount) || null,
+        tonality: formData.tone || formData.tonality || null,
+        form_of_address: formData.formOfAddress || null,
+        ai_model: modelConfig.id,
+        prompt_version: promptVersion,
+        serp_used: !!(formData.serpContext && formData.serpContext.length > 0),
+        serp_terms_count: formData.serpContext ? (formData.serpContext.match(/PFLICHT|EMPFOHLEN|OPTIONAL/g) || []).length : 0,
+        domain_knowledge_used: !!(formData.additionalInfo || formData.manufacturerInfo),
+        compliance_mdr: formData.complianceChecks?.mdr || formData.checkMDR || false,
+        compliance_hwg: formData.complianceChecks?.hwg || formData.checkHWG || false,
+        output_word_count: wordCount,
+        output_has_faq: faqCount > 0,
+        output_faq_count: faqCount,
+        generation_time_ms: totalDuration,
+        success: true,
+      });
+      console.log('Analytics logged successfully');
+    } catch (analyticsError) {
+      // Don't fail the request if analytics logging fails
+      console.error('Analytics logging failed:', analyticsError);
+    }
+
     return new Response(JSON.stringify(parsedContent), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (error) {
     console.error('=== GENERATION ERROR ===');
     console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error);
     console.error('Error message:', error instanceof Error ? error.message : String(error));
+
+    // ═══ ERROR ANALYTICS LOGGING ═══
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const analyticsClient = createClient(supabaseUrl, supabaseKey);
+
+      await analyticsClient.from('content_generations').insert({
+        user_id: null, // May not have user context in error
+        focus_keyword: 'error',
+        ai_model: 'unknown',
+        prompt_version: 'unknown',
+        success: false,
+        error_message: error instanceof Error ? error.message : String(error),
+        generation_time_ms: 0,
+      });
+    } catch (analyticsError) {
+      console.error('Error analytics logging failed:', analyticsError);
+    }
+
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unbekannter Fehler' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });
