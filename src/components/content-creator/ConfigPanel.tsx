@@ -41,26 +41,15 @@ import {
   Brain
 } from "lucide-react";
 import type { ContentConfig } from "@/pages/ContentCreator";
-
-interface OutlineSection {
-  h2: string;
-  h3s?: string[];
-}
-
-interface Outline {
-  h1: string;
-  sections: OutlineSection[];
-  faqs?: string[];
-  estimatedWordCount?: number;
-}
+import type { SerpResult, DomainKnowledge, Outline } from "./types";
 
 interface ConfigPanelProps {
   config: ContentConfig;
   onConfigChange: (updates: Partial<ContentConfig>) => void;
-  serpResult?: any;
+  serpResult?: SerpResult;
   serpLoading: boolean;
   onSerpAnalyze: () => void;
-  domainKnowledge?: any;
+  domainKnowledge?: DomainKnowledge;
   onGenerate: () => void;
   isGenerating: boolean;
   onGenerateOutline?: () => void;
