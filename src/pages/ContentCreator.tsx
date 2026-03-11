@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useOrganization } from "@/hooks/useOrganization";
@@ -445,20 +446,31 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
   if (!session) return null;
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+    <TooltipProvider>
+    <div className="h-screen flex flex-col bg-background overflow-hidden">
+      {/* Header - Modernized */}
+      <header className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-50 flex-shrink-0">
+        <div className="px-4 py-2.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/dashboard')}
+              className="h-8 w-8 p-0"
+            >
               <ChevronDown className="h-4 w-4 rotate-90" />
             </Button>
             <div className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" />
-              <h1 className="text-lg font-semibold">Content Creator</h1>
+              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <FileText className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-sm font-semibold leading-none">Content Creator</h1>
+                <span className="text-[10px] text-muted-foreground">SEO-optimierte Texte erstellen</span>
+              </div>
             </div>
             {currentOrg && (
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="outline" className="text-[10px] ml-2">
                 <Building2 className="h-3 w-3 mr-1" />
                 {currentOrg.name}
               </Badge>
@@ -466,43 +478,73 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Status Badges */}
             {domainKnowledge && (
-              <Badge variant="secondary" className="text-xs">
-                <CheckCircle2 className="h-3 w-3 mr-1 text-green-500" />
-                Brand Knowledge geladen
+              <Badge variant="secondary" className="text-[10px] bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20">
+                <CheckCircle2 className="h-3 w-3 mr-1" />
+                Brand Knowledge
               </Badge>
             )}
-            <Button variant="outline" size="sm" onClick={() => setIsConfigOpen(!isConfigOpen)}>
-              {isConfigOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeft className="h-4 w-4" />}
-            </Button>
+            {serpResult && (
+              <Badge variant="secondary" className="text-[10px] bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20">
+                <TrendingUp className="h-3 w-3 mr-1" />
+                SERP aktiv
+              </Badge>
+            )}
+
+            {/* Toggle Config Panel */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsConfigOpen(!isConfigOpen)}
+                  className="h-8 w-8 p-0"
+                >
+                  {isConfigOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeft className="h-4 w-4" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {isConfigOpen ? 'Konfiguration ausblenden' : 'Konfiguration einblenden'}
+              </TooltipContent>
+            </Tooltip>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-4">
-        <div className="flex gap-4 h-[calc(100vh-120px)]">
-
+      {/* Main Content - Resizable Panels */}
+      <main className="flex-1 overflow-hidden">
+        <ResizablePanelGroup direction="horizontal" className="h-full">
           {/* LEFT: Config Panel */}
           {isConfigOpen && (
-            <ConfigPanel
-              config={config}
-              onConfigChange={updateConfig}
-              serpResult={serpResult}
-              serpLoading={serpLoading}
-              onSerpAnalyze={handleSerpAnalysis}
-              domainKnowledge={domainKnowledge}
-              onGenerate={handleGenerate}
-              isGenerating={isGenerating}
-              onGenerateOutline={handleGenerateOutline}
-              isGeneratingOutline={isGeneratingOutline}
-              outline={outline}
-              onClearOutline={() => setOutline(null)}
-            />
+            <>
+              <ResizablePanel
+                defaultSize={22}
+                minSize={18}
+                maxSize={30}
+                className="min-w-[280px]"
+              >
+                <ConfigPanel
+                  config={config}
+                  onConfigChange={updateConfig}
+                  serpResult={serpResult}
+                  serpLoading={serpLoading}
+                  onSerpAnalyze={handleSerpAnalysis}
+                  domainKnowledge={domainKnowledge}
+                  onGenerate={handleGenerate}
+                  isGenerating={isGenerating}
+                  onGenerateOutline={handleGenerateOutline}
+                  isGeneratingOutline={isGeneratingOutline}
+                  outline={outline}
+                  onClearOutline={() => setOutline(null)}
+                />
+              </ResizablePanel>
+              <ResizableHandle withHandle />
+            </>
           )}
 
           {/* CENTER: Content Editor */}
-          <div className="flex-1 flex flex-col min-w-0">
+          <ResizablePanel defaultSize={isConfigOpen ? 56 : 78} minSize={40}>
             <ContentEditor
               content={editedContent}
               title={editedTitle}
@@ -518,18 +560,22 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
               onGenerate={handleGenerate}
               hasContent={!!editedContent}
             />
-          </div>
+          </ResizablePanel>
+
+          <ResizableHandle withHandle />
 
           {/* RIGHT: Score Panel */}
-          <ContentScorePanel
-            score={contentScore}
-            content={editedContent}
-            title={editedTitle}
-            metaDescription={editedMeta}
-            config={config}
-            serpResult={serpResult}
-          />
-        </div>
+          <ResizablePanel defaultSize={22} minSize={18} maxSize={30} className="min-w-[260px]">
+            <ContentScorePanel
+              score={contentScore}
+              content={editedContent}
+              title={editedTitle}
+              metaDescription={editedMeta}
+              config={config}
+              serpResult={serpResult}
+            />
+          </ResizablePanel>
+        </ResizablePanelGroup>
       </main>
     </div>
   );
