@@ -2195,7 +2195,26 @@ FOKUS-KEYWORD PLATZIERUNG (PFLICHT):
 ZIEL-HÄUFIGKEIT: \${minKeywords}-\${maxKeywords}x (bei \${wordCount} Wörtern)
 
 AGGREGATIONS-REGEL: Long-Tail Keywords zählen als Variationen, nicht separat!
+
+═══ SERP-TERMS INTEGRATION (SURFER SEO LEVEL!) ═══
+
+WICHTIG: Die folgenden SERP-Terms stammen aus der Google Top-10 Analyse.
+Sie sind der SCHLÜSSEL zu guten Rankings!
+
+VOR DEM SCHREIBEN: Lies die SERP-Terms im Context-Block sorgfältig!
+BEIM SCHREIBEN: Integriere JEDEN "mustHave"-Term mindestens 1x natürlich in den Text!
+NACH DEM SCHREIBEN: Prüfe ob ALLE Pflicht-Terms enthalten sind!
+
 \${contextBlock}
+
+═══ KONTRAINDIKATIONEN (BEI MEDIZINPRODUKTEN PFLICHT!) ═══
+
+Wenn das Produkt ein Medizinprodukt ist (TENS, EMS, Tapes etc.):
+- Erwähne IMMER wichtige Kontraindikationen im FAQ oder Text
+- Typische Kontraindikationen: Herzschrittmacher, Schwangerschaft (Bauchbereich),
+  offene Wunden, akute Entzündungen, Tumore, Epilepsie
+- Formulierung: "Nicht geeignet bei..." oder "Bei folgenden Bedingungen
+  sollte vor der Anwendung ein Arzt konsultiert werden:..."
 \${structureTemplate}
 
 ═══ HEADING-HIERARCHIE (ABSOLUT KRITISCH!) ═══
@@ -2221,6 +2240,15 @@ AGGREGATIONS-REGEL: Long-Tail Keywords zählen als Variationen, nicht separat!
   "seoText": "HTML mit <h1>, <h2>, <h3>, <p>, <ul>, <strong>",
   "faq": [{"question": "W-Frage?", "answer": "Direkte Antwort (40-60 Wörter)..."}]
 }
+
+═══ TEXTLÄNGEN-ANFORDERUNG (KRITISCH!) ═══
+
+MINDESTLÄNGE: \${Math.max(800, wordCount - 200)} Wörter
+ZIELLÄNGE: \${wordCount} Wörter
+MAXIMALLÄNGE: \${wordCount + 200} Wörter
+
+Der Text MUSS mindestens 800 Wörter haben um SEO-relevant zu sein!
+Wenn der Text kürzer wird, füge mehr Details, Anwendungsszenarien oder FAQ hinzu.
 
 ═══ QUALITÄTS-CHECK VOR OUTPUT ═══
 
