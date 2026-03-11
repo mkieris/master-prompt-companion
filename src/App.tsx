@@ -31,6 +31,7 @@ import CodeAnalysis from "./pages/CodeAnalysis";
 import TextCheck from "./pages/TextCheck";
 import ContentCreator from "./pages/ContentCreator";
 import FunctionTest from "./pages/FunctionTest";
+import GenerationAnalytics from "./pages/GenerationAnalytics";
 
 const queryClient = new QueryClient();
 
@@ -84,6 +85,7 @@ const App = () => {
                 <Route path="user-prompts" element={<UserPromptVersions />} />
                 <Route path="code-analysis" element={<CodeAnalysis />} />
                 <Route path="text-check" element={<TextCheck />} />
+                <Route path="analytics" element={<GenerationAnalytics session={session} />} />
               </Route>
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

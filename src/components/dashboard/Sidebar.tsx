@@ -20,7 +20,8 @@ import {
   Clock,
   Brain,
   Code,
-  Zap
+  Zap,
+  BarChart3
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -52,6 +53,7 @@ const navigation = [
 
 const adminNavigation = [
   { name: "KI-Insights", href: "/dashboard/insights", icon: Brain },
+  { name: "Generation Analytics", href: "/dashboard/analytics", icon: BarChart3 },
   { name: "Funktionstest", href: "/function-test", icon: Zap },
   { name: "Code-Analyse", href: "/dashboard/code-analysis", icon: Code },
   { name: "System Prompts", href: "/dashboard/system-prompts", icon: FileText },

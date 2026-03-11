@@ -494,6 +494,92 @@ serve(async (req) => {
       });
     }
 
+    // ═══ MODE: GENERATE OUTLINE ═══
+    if (formData.mode === 'generate-outline') {
+      console.log('Mode: generate-outline for:', formData.focusKeyword);
+
+      const outlinePrompt = `Du bist ein SEO Content Stratege. Erstelle eine detaillierte Gliederung (Outline) für einen SEO-Text.
+
+FOKUS-KEYWORD: ${formData.focusKeyword}
+SEITENTYP: ${formData.pageType || 'product'}
+ZIELGRUPPE: ${formData.targetAudience || 'b2c'}
+TEXTLÄNGE: ca. ${formData.wordCount || 1500} Wörter
+
+${formData.serpTermsStructured ? `
+WICHTIGE BEGRIFFE AUS SERP-ANALYSE:
+- Pflicht: ${formData.serpTermsStructured.mustHave?.join(', ') || 'keine'}
+- Empfohlen: ${formData.serpTermsStructured.shouldHave?.slice(0, 5).join(', ') || 'keine'}
+` : ''}
+
+ERSTELLE EINE GLIEDERUNG MIT:
+1. H1 (Hauptüberschrift mit Fokus-Keyword)
+2. 4-6 H2 Abschnitte (logische Struktur)
+3. Optional H3 unter H2
+4. Kurze Beschreibung was in jedem Abschnitt behandelt wird
+5. FAQ-Vorschläge (3-5 Fragen)
+
+AUSGABE ALS JSON:
+{
+  "h1": "Vorgeschlagene H1",
+  "sections": [
+    {
+      "h2": "Überschrift",
+      "description": "Was hier behandelt wird",
+      "h3s": ["Optional H3 1", "Optional H3 2"]
+    }
+  ],
+  "faqs": ["Frage 1?", "Frage 2?"],
+  "estimatedWordCount": ${formData.wordCount || 1500}
+}`;
+
+      const outlineResponse = await fetch('https://api.lovable.dev/ai/api', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + LOVABLE_API_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash', // Fast model for outlines
+          messages: [
+            { role: 'system', content: 'Du erstellst SEO-optimierte Content-Gliederungen. Antworte NUR mit validem JSON.' },
+            { role: 'user', content: outlinePrompt }
+          ],
+          temperature: 0.5,
+        }),
+      });
+
+      if (!outlineResponse.ok) {
+        throw new Error('Outline generation failed: ' + outlineResponse.status);
+      }
+
+      const outlineData = await outlineResponse.json();
+      const outlineContent = outlineData.choices?.[0]?.message?.content || '';
+
+      // Parse JSON from response
+      let outline;
+      try {
+        const jsonMatch = outlineContent.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          outline = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error('No JSON found in response');
+        }
+      } catch (e) {
+        console.error('Outline parse error:', e);
+        outline = { error: 'Could not parse outline', raw: outlineContent };
+      }
+
+      console.log('Outline generated:', outline);
+
+      return new Response(JSON.stringify({
+        success: true,
+        outline,
+        focusKeyword: formData.focusKeyword,
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // ═══ MODE: GENERATE (default) ═══
     // ═══ LOGGING mit Prompt-Version ═══
     const promptVersion = formData.promptVersion || 'v9-master-prompt';
@@ -619,10 +705,33 @@ serve(async (req) => {
         { role: 'user', content: changeInstructions + '\n\nAktueller Text:\n' + JSON.stringify(formData.existingContent, null, 2) + '\n\nGib den angepassten Text im gleichen JSON-Format zurueck.' }
       ];
     } else if (formData.refinementPrompt && formData.existingContent) {
-      console.log('Processing refinement request');
+      console.log('Processing refinement request with FULL system prompt');
+
+      // WICHTIG: Nutze den vollständigen System-Prompt auch bei Refinement!
+      // So bleibt die Qualität und alle Regeln (E-E-A-T, Compliance, etc.) erhalten.
+      const refinementSystemPrompt = systemPrompt + `
+
+═══ REFINEMENT-MODUS AKTIV ═══
+
+Du überarbeitest BESTEHENDEN Content. Behalte:
+- Die bestehende Struktur und Überschriften (sofern nicht explizit anders gewünscht)
+- Die SEO-Optimierungen (Keyword-Platzierung, Meta-Daten)
+- Die Tonalität und Anredeform
+
+Ändere NUR was in der Anweisung explizit verlangt wird.
+Gib den kompletten Text zurück, nicht nur die geänderten Teile.`;
+
       messages = [
-        { role: 'system', content: 'Du bist ein erfahrener SEO-Texter. Ueberarbeite den vorhandenen Text. Behalte die JSON-Struktur bei.' },
-        { role: 'user', content: 'Hier ist der aktuelle Text:\n\n' + JSON.stringify(formData.existingContent, null, 2) + '\n\nBitte ueberarbeite:\n' + formData.refinementPrompt + '\n\nGib den Text im gleichen JSON-Format zurueck.' }
+        { role: 'system', content: refinementSystemPrompt },
+        { role: 'user', content: `AKTUELLER TEXT ZUR ÜBERARBEITUNG:
+
+${JSON.stringify(formData.existingContent, null, 2)}
+
+═══ ÄNDERUNGSWUNSCH ═══
+${formData.refinementPrompt}
+
+═══ AUSGABE ═══
+Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seoText, title, metaDescription, faq).` }
       ];
     } else {
       // Single content generation based on tone
@@ -749,12 +858,70 @@ serve(async (req) => {
     const totalDuration = Date.now() - startTime;
     console.log(`=== GENERATION COMPLETE in ${totalDuration}ms ===`);
 
+    // ═══ ANALYTICS LOGGING ═══
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const analyticsClient = createClient(supabaseUrl, supabaseKey);
+
+      const wordCount = parsedContent.seoText?.split(/\s+/).filter((w: string) => w.length > 0).length || 0;
+      const faqCount = parsedContent.faq?.length || 0;
+
+      await analyticsClient.from('content_generations').insert({
+        user_id: user.id,
+        organization_id: formData.organizationId || null,
+        focus_keyword: formData.focusKeyword,
+        secondary_keywords: formData.secondaryKeywords || [],
+        page_type: formData.pageType || null,
+        target_audience: formData.targetAudience || null,
+        word_count_target: parseInt(formData.wordCount) || null,
+        tonality: formData.tone || formData.tonality || null,
+        form_of_address: formData.formOfAddress || null,
+        ai_model: modelConfig.id,
+        prompt_version: promptVersion,
+        serp_used: !!(formData.serpContext && formData.serpContext.length > 0),
+        serp_terms_count: formData.serpContext ? (formData.serpContext.match(/PFLICHT|EMPFOHLEN|OPTIONAL/g) || []).length : 0,
+        domain_knowledge_used: !!(formData.additionalInfo || formData.manufacturerInfo),
+        compliance_mdr: formData.complianceChecks?.mdr || formData.checkMDR || false,
+        compliance_hwg: formData.complianceChecks?.hwg || formData.checkHWG || false,
+        output_word_count: wordCount,
+        output_has_faq: faqCount > 0,
+        output_faq_count: faqCount,
+        generation_time_ms: totalDuration,
+        success: true,
+      });
+      console.log('Analytics logged successfully');
+    } catch (analyticsError) {
+      // Don't fail the request if analytics logging fails
+      console.error('Analytics logging failed:', analyticsError);
+    }
+
     return new Response(JSON.stringify(parsedContent), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (error) {
     console.error('=== GENERATION ERROR ===');
     console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error);
     console.error('Error message:', error instanceof Error ? error.message : String(error));
+
+    // ═══ ERROR ANALYTICS LOGGING ═══
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const analyticsClient = createClient(supabaseUrl, supabaseKey);
+
+      await analyticsClient.from('content_generations').insert({
+        user_id: null, // May not have user context in error
+        focus_keyword: 'error',
+        ai_model: 'unknown',
+        prompt_version: 'unknown',
+        success: false,
+        error_message: error instanceof Error ? error.message : String(error),
+        generation_time_ms: 0,
+      });
+    } catch (analyticsError) {
+      console.error('Error analytics logging failed:', analyticsError);
+    }
+
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unbekannter Fehler' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });
@@ -836,9 +1003,84 @@ function buildSystemPrompt(formData: any): string {
   // ═══ SERP-ANALYSE KONTEXT ═══
   let serpBlock = '';
   if (formData.serpContext && formData.serpContext.trim().length > 0) {
-    serpBlock = '\n\n# SERP-ANALYSE (Google Top-10)\n\n' + formData.serpContext.trim() + '\n\nWICHTIG: Integriere die PFLICHT-BEGRIFFE natürlich in den Text. Die EMPFOHLENEN BEGRIFFE sollten ebenfalls vorkommen. Nutze die HÄUFIGEN FRAGEN als Inspiration für FAQ und Zwischenüberschriften.';
+    serpBlock = '\n\n# SERP-ANALYSE (Google Top-10)\n\n' + formData.serpContext.trim();
     console.log('SERP-Kontext integriert: ' + formData.serpContext.length + ' Zeichen');
   }
+
+  // ═══ STRUKTURIERTE SERP-TERMS (Gewichtet) ═══
+  if (formData.serpTermsStructured) {
+    const { mustHave, shouldHave, niceToHave } = formData.serpTermsStructured;
+
+    if (mustHave?.length > 0 || shouldHave?.length > 0) {
+      serpBlock += '\n\n# KEYWORD-INTEGRATION (PFLICHT)\n\n';
+
+      if (mustHave?.length > 0) {
+        serpBlock += '## PFLICHT-BEGRIFFE (MÜSSEN im Text vorkommen):\n';
+        serpBlock += mustHave.map((term: string) => `- "${term}"`).join('\n');
+        serpBlock += '\n\n';
+      }
+
+      if (shouldHave?.length > 0) {
+        serpBlock += '## EMPFOHLENE BEGRIFFE (SOLLTEN vorkommen):\n';
+        serpBlock += shouldHave.slice(0, 10).map((term: string) => `- "${term}"`).join('\n');
+        serpBlock += '\n\n';
+      }
+
+      if (niceToHave?.length > 0) {
+        serpBlock += '## OPTIONALE BEGRIFFE (können vorkommen):\n';
+        serpBlock += niceToHave.slice(0, 5).map((term: string) => `- "${term}"`).join('\n');
+        serpBlock += '\n\n';
+      }
+
+      serpBlock += `ANWEISUNG FÜR TERM-INTEGRATION:
+
+1. ALLE Pflicht-Begriffe MÜSSEN im Text vorkommen (natürlich eingebaut)
+2. Mindestens 70% der empfohlenen Begriffe sollten vorkommen
+3. Diese Terms erscheinen in den Top-10 Google-Ergebnissen!
+
+BEISPIEL für natürliche Integration:
+❌ FALSCH: "Kinesio Tape ist gut. Kinesio Tape hilft. Kinesio Tape kaufen."
+✓ RICHTIG: "Das elastische Kinesio Tape unterstützt die Muskulatur und fördert den Heilungsprozess durch sanfte Stimulation."
+
+REGEL: Jeder Pflicht-Begriff sollte in einem SINNVOLLEN Kontext stehen, nicht isoliert.
+`;
+
+      console.log('Strukturierte SERP-Terms: ' + (mustHave?.length || 0) + ' Pflicht, ' + (shouldHave?.length || 0) + ' Empfohlen');
+    }
+  }
+
+  // ═══ DOMAIN KNOWLEDGE INTEGRATION ═══
+  let domainBlock = '';
+  if (formData.domainKnowledge) {
+    const dk = formData.domainKnowledge;
+    domainBlock = '\n\n# MARKEN-WISSEN\n\n';
+
+    if (dk.companyName) {
+      domainBlock += `Unternehmen: ${dk.companyName}\n`;
+    }
+
+    if (dk.brandVoice) {
+      domainBlock += `\n## BRAND VOICE (Schreibstil der Marke):\n${dk.brandVoice}\n`;
+      domainBlock += '\nWICHTIG: Passe den Schreibstil an diese Brand Voice an!\n';
+    }
+
+    if (dk.uniqueSellingPoints?.length > 0) {
+      domainBlock += `\n## UNIQUE SELLING POINTS (USPs):\n`;
+      dk.uniqueSellingPoints.forEach((usp: string) => {
+        domainBlock += `- ${usp}\n`;
+      });
+      domainBlock += '\nWICHTIG: Integriere diese USPs natürlich in den Text!\n';
+    }
+
+    if (dk.aiSummary) {
+      domainBlock += `\n## UNTERNEHMENSPROFIL:\n${dk.aiSummary}\n`;
+    }
+
+    console.log('Domain Knowledge integriert: ' + (dk.companyName || 'Kein Name'));
+  }
+
+  // Kombiniere SERP + Domain Block für alle Versionen
+  const contextBlock = serpBlock + domainBlock;
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // VERSION ROUTING - AKTIVE VERSIONEN: v1, v2, v6, v8, v9 (default), v10, v11
@@ -846,7 +1088,7 @@ function buildSystemPrompt(formData: any): string {
 
   // ═══ VERSION 11: SURFER-STYLE (Weighted Terms, No Hallucination) ═══
   if (promptVersion === 'v11-surfer-style') {
-    return buildV11SurferStylePrompt(formData, tonality, addressStyle, wordCount, minKeywords, maxKeywords, density, compliance, serpBlock);
+    return buildV11SurferStylePrompt(formData, tonality, addressStyle, wordCount, minKeywords, maxKeywords, density, compliance, contextBlock);
   }
 
   // ═══ VERSION 10: GEO-OPTIMIZED (Generative Engine Optimization) ═══
@@ -1056,7 +1298,7 @@ Liefere das Ergebnis als JSON:
 
   // ═══ VERSION 9: MASTER-PROMPT (DEFAULT) ═══
   // Enthält ALLE Fixes und das Beste aus allen Versionen
-  return buildV9MasterPrompt(formData, tonality, addressStyle, wordCount, minKeywords, maxKeywords, density, compliance, serpBlock);
+  return buildV9MasterPrompt(formData, tonality, addressStyle, wordCount, minKeywords, maxKeywords, density, compliance, contextBlock);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1072,7 +1314,7 @@ function buildV9MasterPrompt(
   maxKeywords: number,
   density: { min: number; max: number; label: string },
   compliance: string,
-  serpBlock: string = ''
+  contextBlock: string = '' // SERP + Domain Knowledge combined
 ): string {
 
   const maxPara = formData.maxParagraphLength || 300;
@@ -1238,6 +1480,19 @@ ANREDE: ${addressStyle}
 TEXTLÄNGE: ca. ${wordCount} Wörter
 ${audienceBlock}
 ${complianceBlock}
+${contextBlock}
+
+═══ INFORMATION GAIN (KRITISCH FÜR 2025!) ═══
+
+Dein Content MUSS sich von der Konkurrenz abheben durch:
+1. EINZIGARTIGE PERSPEKTIVE: Was kann nur ${brandName} bieten?
+2. TIEFERE DETAILS: Gehe über die SERP-Oberflächeninfos hinaus
+3. PRAKTISCHE TIPPS: Konkrete Handlungsanweisungen die Konkurrenten nicht haben
+4. AKTUELLE DATEN: Nutze Jahr 2025/2026 Kontext wo relevant
+5. EXPERTEN-INSIGHTS: Zeige Fachwissen das nicht überall steht
+
+FRAGE DICH: "Würde ein Nutzer nach dem Lesen meines Textes noch einen Konkurrenten besuchen müssen?"
+→ Wenn JA, dann fehlt Information Gain!
 
 ═══ GRUNDPRINZIPIEN ═══
 
@@ -1411,7 +1666,8 @@ Prüfe BEVOR du ausgibst:
 □ Mindestens 2-3 Listen im Text? ✓
 □ Keine verbotenen Phrasen? ✓
 □ FAQ mit direkten Antworten? ✓
-□ E-E-A-T-Signale vorhanden? ✓${serpBlock}`;
+□ E-E-A-T-Signale vorhanden? ✓
+□ Information Gain vorhanden? ✓`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

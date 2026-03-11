@@ -63,23 +63,31 @@ export const ContentScorePanel = ({
     const h1Content = content.match(/<h1[^>]*>(.*?)<\/h1>/gi)?.[0] || '';
     const keywordInH1 = focusKeyword && h1Content.toLowerCase().includes(focusKeyword);
 
-    // SERP terms tracking
+    // SERP terms tracking - use word boundaries for accurate matching
     let serpTermsFound: { term: string; count: number; type: 'must' | 'should' | 'nice' }[] = [];
     if (serpResult?.serpTerms) {
       const { mustHave, shouldHave, niceToHave } = serpResult.serpTerms;
 
+      // Helper function for word-boundary matching (works with German umlauts)
+      const countTermOccurrences = (searchTerm: string) => {
+        const escaped = searchTerm.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // Use word boundary or start/end of string for more accurate matching
+        const regex = new RegExp(`(?:^|\\s|[.,;:!?"'()-])${escaped}(?:$|\\s|[.,;:!?"'()-])`, 'gi');
+        return (text.match(regex) || []).length;
+      };
+
       mustHave.forEach((term: string) => {
-        const count = (text.match(new RegExp(term.toLowerCase(), 'g')) || []).length;
+        const count = countTermOccurrences(term);
         serpTermsFound.push({ term, count, type: 'must' });
       });
 
       shouldHave.slice(0, 5).forEach((term: string) => {
-        const count = (text.match(new RegExp(term.toLowerCase(), 'g')) || []).length;
+        const count = countTermOccurrences(term);
         serpTermsFound.push({ term, count, type: 'should' });
       });
 
       niceToHave.slice(0, 3).forEach((term: string) => {
-        const count = (text.match(new RegExp(term.toLowerCase(), 'g')) || []).length;
+        const count = countTermOccurrences(term);
         serpTermsFound.push({ term, count, type: 'nice' });
       });
     }
