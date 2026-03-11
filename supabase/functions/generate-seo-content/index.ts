@@ -532,7 +532,7 @@ AUSGABE ALS JSON:
   "estimatedWordCount": ${formData.wordCount || 1500}
 }`;
 
-      const outlineResponse = await fetch('https://api.lovable.dev/ai/api', {
+      const outlineResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Authorization': 'Bearer ' + LOVABLE_API_KEY,

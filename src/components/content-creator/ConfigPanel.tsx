@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Loader2,
   Sparkles,
@@ -168,19 +169,31 @@ export const ConfigPanel = ({
                 placeholder="z.B. Kinesio Tape"
                 className="flex-1"
               />
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={onSerpAnalyze}
-                disabled={serpLoading || !config.focusKeyword.trim()}
-              >
-                {serpLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Search className="h-4 w-4" />
-                )}
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={onSerpAnalyze}
+                      disabled={serpLoading || !config.focusKeyword.trim()}
+                    >
+                      {serpLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Search className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    <p className="font-medium">SERP-Analyse starten</p>
+                    <p className="text-xs text-muted-foreground">
+                      Analysiert die Top 10 Google-Ergebnisse für dein Keyword und extrahiert wichtige Begriffe, die dein Text enthalten sollte.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
 
             {/* SERP Results */}
