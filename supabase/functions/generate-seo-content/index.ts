@@ -796,13 +796,14 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
       console.log('Generating single content with tone:', formData.tone);
 
       // Map tone to writing style instruction (supports both old German keys and new English keys)
+      // WICHTIG: Fließtext bevorzugen, Bullet Points nur bei echten Aufzählungen (z.B. Vorteile-Liste am Ende)
       const toneInstructions: Record<string, string> = {
-        'sachlich': 'SCHREIBSTIL: SACHLICH & STRUKTURIERT\n- Faktenbasiert mit klarer Hierarchie\n- Nutze Listen und Aufzählungen wo sinnvoll\n- Ruhiger, vertrauensbildender Ton\n- Daten und Fakten zur Untermauerung\n- Objektiv und informativ',
-        'factual': 'SCHREIBSTIL: SACHLICH & STRUKTURIERT\n- Faktenbasiert mit klarer Hierarchie\n- Nutze Listen und Aufzählungen wo sinnvoll\n- Ruhiger, vertrauensbildender Ton\n- Daten und Fakten zur Untermauerung\n- Objektiv und informativ',
-        'beratend': 'SCHREIBSTIL: BERATEND & NUTZENORIENTIERT\n- Fokus auf praktischen Nutzen und Lösungen\n- Empathisch und hilfreich\n- "Du fragst dich..."-Einstiege\n- Konkrete Empfehlungen und Tipps\n- Vertrauensaufbauend und unterstützend',
-        'advisory': 'SCHREIBSTIL: BERATEND & NUTZENORIENTIERT\n- Fokus auf praktischen Nutzen und Lösungen\n- Empathisch und hilfreich\n- "Du fragst dich..."-Einstiege\n- Konkrete Empfehlungen und Tipps\n- Vertrauensaufbauend und unterstützend',
-        'aktivierend': 'SCHREIBSTIL: AKTIVIEREND & ÜBERZEUGEND\n- Starte mit starkem Nutzenversprechen\n- Zeige Transformation (vorher → nachher)\n- Integriere CTAs an passenden Stellen\n- Konkrete Ergebnisse hervorheben\n- Aktivierende Verben und überzeugende Sprache',
-        'sales': 'SCHREIBSTIL: AKTIVIEREND & ÜBERZEUGEND\n- Starte mit starkem Nutzenversprechen\n- Zeige Transformation (vorher → nachher)\n- Integriere CTAs an passenden Stellen\n- Konkrete Ergebnisse hervorheben\n- Aktivierende Verben und überzeugende Sprache'
+        'sachlich': 'SCHREIBSTIL: SACHLICH & STRUKTURIERT\n- Faktenbasiert mit klarer Hierarchie\n- Schreibe in FLIEẞTEXT, KEINE Bullet Points im Haupttext\n- Ruhiger, vertrauensbildender Ton\n- Daten und Fakten in Sätze einbauen\n- Objektiv und informativ',
+        'factual': 'SCHREIBSTIL: SACHLICH & STRUKTURIERT\n- Faktenbasiert mit klarer Hierarchie\n- Schreibe in FLIEẞTEXT, KEINE Bullet Points im Haupttext\n- Ruhiger, vertrauensbildender Ton\n- Daten und Fakten in Sätze einbauen\n- Objektiv und informativ',
+        'beratend': 'SCHREIBSTIL: BERATEND & NUTZENORIENTIERT\n- Fokus auf praktischen Nutzen und Lösungen\n- Schreibe in FLIEẞTEXT, KEINE Bullet Points im Haupttext\n- Empathisch und hilfreich im Erzählstil\n- Konkrete Empfehlungen als Fließtext formulieren\n- Vertrauensaufbauend und unterstützend',
+        'advisory': 'SCHREIBSTIL: BERATEND & NUTZENORIENTIERT\n- Fokus auf praktischen Nutzen und Lösungen\n- Schreibe in FLIEẞTEXT, KEINE Bullet Points im Haupttext\n- Empathisch und hilfreich im Erzählstil\n- Konkrete Empfehlungen als Fließtext formulieren\n- Vertrauensaufbauend und unterstützend',
+        'aktivierend': 'SCHREIBSTIL: AKTIVIEREND & ÜBERZEUGEND\n- Starte mit starkem Nutzenversprechen\n- Schreibe in FLIEẞTEXT, KEINE Bullet Points im Haupttext\n- Zeige Transformation (vorher → nachher) als Geschichte\n- CTAs natürlich in den Text einbauen\n- Aktivierende Verben und überzeugende Sprache',
+        'sales': 'SCHREIBSTIL: AKTIVIEREND & ÜBERZEUGEND\n- Starte mit starkem Nutzenversprechen\n- Schreibe in FLIEẞTEXT, KEINE Bullet Points im Haupttext\n- Zeige Transformation (vorher → nachher) als Geschichte\n- CTAs natürlich in den Text einbauen\n- Aktivierende Verben und überzeugende Sprache'
       };
 
       const toneInstruction = toneInstructions[formData.tone || 'advisory'] || toneInstructions['advisory'];
@@ -2116,7 +2117,24 @@ STATTDESSEN NUTZEN:
 ✓ Aktive Verben statt Passiv
 ✓ Kurze, prägnante Sätze
 
-REGEL: Jeder Satz muss INFORMIEREN oder ÜBERZEUGEN. Füllsätze → LÖSCHEN!`;
+REGEL: Jeder Satz muss INFORMIEREN oder ÜBERZEUGEN. Füllsätze → LÖSCHEN!
+
+═══ FORMATIERUNG: FLIEẞTEXT STATT BULLET POINTS ═══
+
+STRIKT VERBOTEN im Haupttext:
+❌ Bullet Points (-, •, *)
+❌ Nummerierte Listen (1., 2., 3.)
+❌ Aufzählungen nach Doppelpunkt
+
+ERLAUBT NUR:
+✓ Eine "Vorteile auf einen Blick" Liste am ENDE (max 1x pro Text)
+✓ FAQ-Bereich mit Frage-Antwort Format
+
+STATTDESSEN: Schreibe in zusammenhängenden Absätzen (Fließtext).
+Mehrere Punkte → In Sätze umformulieren.
+Beispiel: NICHT "Vorteile: - hautfreundlich - elastisch - wasserfest"
+SONDERN: "Das Material überzeugt durch seine Hautfreundlichkeit, bleibt elastisch und ist zudem wasserfest."`;
+</invoke>
 
   // ═══ STRUKTUR-TEMPLATE ═══
   let structureTemplate = '';
