@@ -29,6 +29,7 @@ import {
   Minus
 } from "lucide-react";
 import type { ContentConfig } from "@/pages/ContentCreator";
+import type { SerpResult } from "./types";
 
 interface ContentScorePanelProps {
   score: number;
@@ -36,7 +37,7 @@ interface ContentScorePanelProps {
   title: string;
   metaDescription: string;
   config: ContentConfig;
-  serpResult?: any;
+  serpResult?: SerpResult;
 }
 
 interface CheckItem {

@@ -41,26 +41,15 @@ import {
   Brain
 } from "lucide-react";
 import type { ContentConfig } from "@/pages/ContentCreator";
-
-interface OutlineSection {
-  h2: string;
-  h3s?: string[];
-}
-
-interface Outline {
-  h1: string;
-  sections: OutlineSection[];
-  faqs?: string[];
-  estimatedWordCount?: number;
-}
+import type { SerpResult, DomainKnowledge, Outline } from "./types";
 
 interface ConfigPanelProps {
   config: ContentConfig;
   onConfigChange: (updates: Partial<ContentConfig>) => void;
-  serpResult?: any;
+  serpResult?: SerpResult;
   serpLoading: boolean;
   onSerpAnalyze: () => void;
-  domainKnowledge?: any;
+  domainKnowledge?: DomainKnowledge;
   onGenerate: () => void;
   isGenerating: boolean;
   onGenerateOutline?: () => void;
@@ -608,12 +597,13 @@ export const ConfigPanel = ({
 
           <Separator />
 
-          {/* AI Settings - Grouped */}
-          <Collapsible>
+          {/* AI Settings - Grouped (Default OPEN for visibility) */}
+          <Collapsible defaultOpen={true}>
             <CollapsibleTrigger className="flex items-center justify-between w-full py-2 text-sm font-medium hover:text-primary transition-colors">
               <span className="flex items-center gap-2">
                 <Brain className="h-4 w-4 text-muted-foreground" />
                 AI-Einstellungen
+                <Badge variant="outline" className="text-[9px] h-4 px-1.5 border-green-500 text-green-600">v12</Badge>
               </span>
               <ChevronRight className="h-4 w-4 transition-transform [[data-state=open]>&]:rotate-90" />
             </CollapsibleTrigger>

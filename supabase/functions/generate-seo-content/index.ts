@@ -366,7 +366,7 @@ WICHTIG: Antworte AUSSCHLIESSLICH mit diesem JSON-Format, KEIN anderer Text:
 
 // Input validation schema
 const formDataSchema = z.object({
-  mode: z.enum(['generate', 'analyze-keyword', 'generate-outline']).optional().default('generate'),
+  mode: z.enum(['generate', 'generate-outline', 'analyze-keyword']).optional().default('generate'),
   focusKeyword: z.string().min(1, 'Fokus-Keyword ist erforderlich').max(200, 'Fokus-Keyword zu lang'),
   language: z.string().optional().default('de'),
   pageType: z.string().max(100).optional(),
@@ -419,6 +419,20 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // ═══ SUPABASE CLIENT (einmalig erstellen, überall verwenden) ═══
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    console.error('Missing Supabase environment variables');
+    return new Response(
+      JSON.stringify({ error: 'Server configuration error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
   try {
     // ===== AUTHENTICATION =====
     const authHeader = req.headers.get('Authorization');
@@ -429,10 +443,6 @@ serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
@@ -612,10 +622,7 @@ AUSGABE ALS JSON:
     // Process uploaded briefing files if any
     let briefingContent = '';
     if (formData.briefingFiles && formData.briefingFiles.length > 0) {
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-      const supabase = createClient(supabaseUrl, supabaseKey);
-
+      // Reuse existing supabase client from authentication (line 430)
       const briefingPromises = formData.briefingFiles.map(async (filePath: string) => {
         try {
           const { data, error } = await supabase.storage
@@ -865,14 +872,11 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
 
     // ═══ ANALYTICS LOGGING ═══
     try {
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-      const analyticsClient = createClient(supabaseUrl, supabaseKey);
-
+      // Reuse existing supabase client from authentication (line 430)
       const wordCount = parsedContent.seoText?.split(/\s+/).filter((w: string) => w.length > 0).length || 0;
       const faqCount = parsedContent.faq?.length || 0;
 
-      await analyticsClient.from('content_generations').insert({
+      await supabase.from('content_generations').insert({
         user_id: user.id,
         organization_id: formData.organizationId || null,
         focus_keyword: formData.focusKeyword,
@@ -910,11 +914,8 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
 
     // ═══ ERROR ANALYTICS LOGGING ═══
     try {
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-      const analyticsClient = createClient(supabaseUrl, supabaseKey);
-
-      await analyticsClient.from('content_generations').insert({
+      // Reuse shared supabase client (created at function start)
+      await supabase.from('content_generations').insert({
         user_id: null, // May not have user context in error
         focus_keyword: 'error',
         ai_model: 'unknown',
@@ -2032,19 +2033,42 @@ COMPLIANCE-SICHERE FORMULIERUNGEN:
 • STATT "beseitigt Verspannungen" → "wurde entwickelt, um Verspannungen zu adressieren"
 • STATT "garantierte Wirkung" → "viele Anwender berichten von positiven Erfahrungen"`;
 
-  // ═══ ANTI-FLUFF BLACKLIST ═══
+  // ═══ ANTI-FLUFF BLACKLIST (ERWEITERT: 25 Einträge) ═══
   const antiFluffBlock = `
 ═══ ANTI-FLUFF BLACKLIST (STRIKT VERBOTEN!) ═══
 
-KI-TYPISCHE PHRASEN (NIEMALS verwenden):
-❌ "In der heutigen Zeit..." / "In der modernen Welt..."
-❌ "Es ist wichtig zu beachten, dass..."
-❌ "Zusammenfassend lässt sich sagen..."
-❌ "In diesem Artikel erfahren Sie..."
-❌ "Herzlich willkommen..."
-❌ "Wie wir alle wissen..."
-❌ "Optimal unterstützen..." (HWG-problematisch!)
-❌ "Kennst du das Gefühl, wenn..." (max. 1x im GESAMTEN Text!)
+KI-TYPISCHE EINLEITUNGEN (NIEMALS verwenden):
+❌ "In der heutigen Zeit..." / "In der modernen Welt..." / "In der digitalen Ära..."
+❌ "Es ist wichtig zu beachten, dass..." / "Dabei ist es entscheidend..."
+❌ "Zusammenfassend lässt sich sagen..." / "Abschließend kann man festhalten..."
+❌ "In diesem Artikel erfahren Sie..." / "Hier erfahren Sie alles über..."
+❌ "Herzlich willkommen..." / "Willkommen zu unserem Ratgeber..."
+❌ "Wie wir alle wissen..." / "Bekanntlich..."
+
+LEERE VERSTÄRKER (NIEMALS verwenden):
+❌ "Nicht umsonst..." / "Zweifellos..." / "Selbstverständlich..."
+❌ "Grundsätzlich..." / "Im Grunde genommen..." / "Prinzipiell..."
+❌ "Sozusagen..." / "Gewissermaßen..." / "Quasi..."
+❌ "Optimal unterstützen..." / "Perfekt geeignet..." (auch HWG-problematisch!)
+❌ "Einzigartig..." / "Revolutionär..." (ohne Beweis = Fluff)
+
+RHETORISCHE FRAGEN (MAX 1x im gesamten Text!):
+⚠️ "Kennst du das Gefühl, wenn..."
+⚠️ "Hast du dich schon mal gefragt..."
+⚠️ "Wer kennt es nicht..."
+→ Diese Hooks funktionieren NUR einmal. Mehrfach = nervig!
+
+ÜBERFLÜSSIGE FÜLLWÖRTER:
+❌ "natürlich" (wenn nicht wirklich natürlich)
+❌ "selbstverständlich" (wenn nicht selbstverständlich)
+❌ "durchaus" / "durchweg" / "letztendlich"
+❌ "im Endeffekt" / "schlussendlich" / "letzten Endes"
+
+STATTDESSEN NUTZEN:
+✓ Konkrete Zahlen und Fakten
+✓ Direkte Aussagen ohne Abschwächung
+✓ Aktive Verben statt Passiv
+✓ Kurze, prägnante Sätze
 
 REGEL: Jeder Satz muss INFORMIEREN oder ÜBERZEUGEN. Füllsätze → LÖSCHEN!`;
 
@@ -2195,7 +2219,26 @@ FOKUS-KEYWORD PLATZIERUNG (PFLICHT):
 ZIEL-HÄUFIGKEIT: \${minKeywords}-\${maxKeywords}x (bei \${wordCount} Wörtern)
 
 AGGREGATIONS-REGEL: Long-Tail Keywords zählen als Variationen, nicht separat!
+
+═══ SERP-TERMS INTEGRATION (SURFER SEO LEVEL!) ═══
+
+WICHTIG: Die folgenden SERP-Terms stammen aus der Google Top-10 Analyse.
+Sie sind der SCHLÜSSEL zu guten Rankings!
+
+VOR DEM SCHREIBEN: Lies die SERP-Terms im Context-Block sorgfältig!
+BEIM SCHREIBEN: Integriere JEDEN "mustHave"-Term mindestens 1x natürlich in den Text!
+NACH DEM SCHREIBEN: Prüfe ob ALLE Pflicht-Terms enthalten sind!
+
 \${contextBlock}
+
+═══ KONTRAINDIKATIONEN (BEI MEDIZINPRODUKTEN PFLICHT!) ═══
+
+Wenn das Produkt ein Medizinprodukt ist (TENS, EMS, Tapes etc.):
+- Erwähne IMMER wichtige Kontraindikationen im FAQ oder Text
+- Typische Kontraindikationen: Herzschrittmacher, Schwangerschaft (Bauchbereich),
+  offene Wunden, akute Entzündungen, Tumore, Epilepsie
+- Formulierung: "Nicht geeignet bei..." oder "Bei folgenden Bedingungen
+  sollte vor der Anwendung ein Arzt konsultiert werden:..."
 \${structureTemplate}
 
 ═══ HEADING-HIERARCHIE (ABSOLUT KRITISCH!) ═══
@@ -2221,6 +2264,38 @@ AGGREGATIONS-REGEL: Long-Tail Keywords zählen als Variationen, nicht separat!
   "seoText": "HTML mit <h1>, <h2>, <h3>, <p>, <ul>, <strong>",
   "faq": [{"question": "W-Frage?", "answer": "Direkte Antwort (40-60 Wörter)..."}]
 }
+
+═══ BEISPIEL-OUTPUTS (GOLD STANDARD) ═══
+
+BEISPIEL META-TITLE (60 Zeichen max):
+✓ "Kinesiologie Tape kaufen | K-Active® Original | Für Sport & Therapie"
+✓ "TENS Gerät für zuhause | Bluetens® | Schmerztherapie ohne Medikamente"
+✗ "Willkommen bei K-Active - Ihr Partner für hochwertige Kinesiologie Tapes" (zu lang, kein Keyword vorne)
+
+BEISPIEL META-DESCRIPTION (155 Zeichen max):
+✓ "K-Active Kinesiologie Tape: elastisch, hautverträglich, wasserfest. Entwickelt in Japan, bewährt im Spitzensport. Jetzt entdecken!"
+✗ "In diesem Artikel erfahren Sie alles über unsere Produkte..." (Fluff!)
+
+BEISPIEL FAQ (40-60 Wörter pro Antwort):
+{
+  "question": "Wie lange kann ich das Kinesiologie Tape tragen?",
+  "answer": "Das K-Active Tape kann in der Regel 5-7 Tage getragen werden. Es ist wasserfest und hält auch beim Duschen oder Schwimmen. Für optimalen Halt sollte die Haut vor dem Anlegen sauber und trocken sein. Bei Hautreizungen das Tape sofort entfernen."
+}
+
+BEISPIEL H2-ÜBERSCHRIFT:
+✓ "Endlich ein Tape, das hält und trotzdem zart zu deiner Haut ist"
+✓ "Wissenschaftlich fundiert, vertraut von Experten weltweit"
+✗ "Produkteigenschaften" (langweilig, kein Benefit)
+✗ "Über unser Tape" (generisch, austauschbar)
+
+═══ TEXTLÄNGEN-ANFORDERUNG (KRITISCH!) ═══
+
+MINDESTLÄNGE: \${Math.max(800, wordCount - 200)} Wörter
+ZIELLÄNGE: \${wordCount} Wörter
+MAXIMALLÄNGE: \${wordCount + 200} Wörter
+
+Der Text MUSS mindestens 800 Wörter haben um SEO-relevant zu sein!
+Wenn der Text kürzer wird, füge mehr Details, Anwendungsszenarien oder FAQ hinzu.
 
 ═══ QUALITÄTS-CHECK VOR OUTPUT ═══
 
