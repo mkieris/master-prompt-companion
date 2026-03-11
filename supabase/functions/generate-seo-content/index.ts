@@ -1132,8 +1132,54 @@ REGEL: Jeder Pflicht-Begriff sollte in einem SINNVOLLEN Kontext stehen, nicht is
     console.log('Domain Knowledge integriert: ' + (dk.companyName || 'Kein Name'));
   }
 
-  // Kombiniere SERP + Domain Block für alle Versionen
-  const contextBlock = serpBlock + domainBlock;
+  // ═══ MANAGEMENT INFO (CEO-Zitate, Philosophie) ═══
+  let managementBlock = '';
+  if (formData.managementInfo && formData.managementInfo.trim()) {
+    managementBlock = `
+
+# GESCHÄFTSFÜHRUNG / MANAGEMENT
+
+Die folgenden Informationen stammen von der Geschäftsführung des Unternehmens.
+Nutze diese Aussagen, um dem Text mehr Authentizität und Persönlichkeit zu verleihen.
+Du kannst Zitate einbauen oder die Philosophie in den Text einfließen lassen.
+
+${formData.managementInfo.trim()}
+
+HINWEIS: Integriere Management-Aussagen NATÜRLICH in den Fließtext, nicht als separate Zitat-Blöcke.
+`;
+    console.log('Management-Info integriert: ' + formData.managementInfo.length + ' Zeichen');
+  }
+
+  // ═══ RESEARCH CONTENT (Gecrawlte URLs) ═══
+  let researchBlock = '';
+  if (formData.researchContent && Array.isArray(formData.researchContent) && formData.researchContent.length > 0) {
+    researchBlock = `
+
+# RECHERCHIERTE INHALTE (aus gecrawlten URLs)
+
+Die folgenden Inhalte wurden von relevanten Webseiten extrahiert.
+Nutze diese Informationen als Faktengrundlage für deinen Text.
+Kombiniere sie intelligent mit den anderen Quellen.
+
+`;
+    formData.researchContent.forEach((research: { url: string; title: string; content: string }, idx: number) => {
+      researchBlock += `## Quelle ${idx + 1}: ${research.title || research.url}\n`;
+      researchBlock += `URL: ${research.url}\n\n`;
+      researchBlock += research.content.substring(0, 2000) + '\n\n';
+    });
+
+    researchBlock += `
+ANWEISUNG FÜR RESEARCH-INTEGRATION:
+- Nutze die recherchierten Inhalte als FAKTENGRUNDLAGE
+- Kombiniere sie mit SERP-Daten, Brand Voice und Management-Infos
+- Schreibe EIGENEN Text, kopiere NICHT wörtlich
+- Ziehe relevante Details heraus und formuliere sie neu
+`;
+    console.log('Research Content integriert: ' + formData.researchContent.length + ' URLs');
+  }
+
+  // Kombiniere SERP + Domain + Management + Research für alle Versionen
+  const contextBlock = serpBlock + domainBlock + managementBlock + researchBlock;
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // VERSION ROUTING - AKTIVE VERSIONEN: v12 (default/healthcare), v11, v10, v9, v8, v6

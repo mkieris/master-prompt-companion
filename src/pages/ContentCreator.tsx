@@ -57,6 +57,7 @@ import {
 import { ContentScorePanel } from "@/components/content-creator/ContentScorePanel";
 import { ConfigPanel } from "@/components/content-creator/ConfigPanel";
 import { ContentEditor } from "@/components/content-creator/ContentEditor";
+import type { ResearchUrl } from "@/components/content-creator/types";
 
 interface ContentCreatorProps {
   session: Session | null;
@@ -164,6 +165,7 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
   const [editedMeta, setEditedMeta] = useState<string>('');
   const [isEditing, setIsEditing] = useState(false);
   const [domainKnowledge, setDomainKnowledge] = useState<any>(null);
+  const [researchUrls, setResearchUrls] = useState<ResearchUrl[]>([]);
 
   // Debounce keyword for auto SERP
   const debouncedKeyword = useDebounce(config.focusKeyword, 1500);
@@ -240,6 +242,79 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
   const updateConfig = useCallback((updates: Partial<ContentConfig>) => {
     setConfig(prev => ({ ...prev, ...updates }));
   }, []);
+
+  // ═══ RESEARCH URLs HANDLERS ═══
+  const handleAddResearchUrl = (url: string) => {
+    if (researchUrls.length >= 3) return;
+
+    // Normalize URL
+    let normalizedUrl = url.trim();
+    if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
+      normalizedUrl = 'https://' + normalizedUrl;
+    }
+
+    // Check for duplicates
+    if (researchUrls.some(r => r.url === normalizedUrl)) {
+      toast({
+        title: "URL bereits vorhanden",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setResearchUrls(prev => [...prev, { url: normalizedUrl, status: 'pending' }]);
+  };
+
+  const handleRemoveResearchUrl = (index: number) => {
+    setResearchUrls(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleCrawlResearchUrl = async (index: number) => {
+    const researchUrl = researchUrls[index];
+    if (!researchUrl || researchUrl.status === 'crawling') return;
+
+    // Update status to crawling
+    setResearchUrls(prev => prev.map((r, i) =>
+      i === index ? { ...r, status: 'crawling' as const } : r
+    ));
+
+    try {
+      const { data, error } = await supabase.functions.invoke('scrape-website', {
+        body: { url: researchUrl.url, mode: 'single' },
+      });
+
+      if (error) throw error;
+
+      setResearchUrls(prev => prev.map((r, i) =>
+        i === index ? {
+          ...r,
+          status: 'completed' as const,
+          content: data.content?.substring(0, 5000) || data.summary || '',
+          title: data.title || '',
+        } : r
+      ));
+
+      toast({
+        title: "URL gecrawlt",
+        description: `Inhalte von "${data.title || researchUrl.url}" geladen`,
+      });
+    } catch (error) {
+      console.error('Crawl error:', error);
+      setResearchUrls(prev => prev.map((r, i) =>
+        i === index ? {
+          ...r,
+          status: 'error' as const,
+          error: error instanceof Error ? error.message : 'Crawling fehlgeschlagen',
+        } : r
+      ));
+
+      toast({
+        title: "Crawling fehlgeschlagen",
+        description: error instanceof Error ? error.message : "URL konnte nicht geladen werden",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleGenerateOutline = async () => {
     if (!config.focusKeyword.trim()) {
@@ -322,6 +397,16 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
             uniqueSellingPoints: config.domainKnowledge.unique_selling_points || [],
             aiSummary: config.domainKnowledge.ai_summary || '',
           } : null,
+          // Include management info (CEO quotes, philosophy)
+          managementInfo: domainKnowledge?.management_info || null,
+          // Include crawled research content
+          researchContent: researchUrls
+            .filter(r => r.status === 'completed' && r.content)
+            .map(r => ({
+              url: r.url,
+              title: r.title || '',
+              content: r.content || '',
+            })),
           // Include outline if available (for structured generation)
           outline: outline || null,
           // Legacy field for backwards compatibility
@@ -537,6 +622,10 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
                   isGeneratingOutline={isGeneratingOutline}
                   outline={outline}
                   onClearOutline={() => setOutline(null)}
+                  researchUrls={researchUrls}
+                  onAddResearchUrl={handleAddResearchUrl}
+                  onRemoveResearchUrl={handleRemoveResearchUrl}
+                  onCrawlResearchUrl={handleCrawlResearchUrl}
                 />
               </ResizablePanel>
               <ResizableHandle withHandle />
