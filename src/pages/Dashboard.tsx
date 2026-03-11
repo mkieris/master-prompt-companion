@@ -27,8 +27,8 @@ interface DashboardProps {
 const DashboardHome = () => {
   const quickActions = [
     { title: "SEO-Check", description: "Analysiere eine bestehende Seite", icon: Search, href: "/seo-check", color: "from-blue-500 to-cyan-500" },
-    { title: "Content Basic", description: "Schnelle SEO-Texte erstellen", icon: FileText, href: "/basic", color: "from-emerald-500 to-teal-500" },
-    { title: "Content Pro", description: "Professioneller 5-Step Wizard", icon: Sparkles, href: "/pro", color: "from-violet-500 to-purple-500" },
+    { title: "Content Creator", description: "SEO-Content mit Live-Score erstellen", icon: Sparkles, href: "/content", color: "from-violet-500 to-purple-500" },
+    { title: "AI Chat", description: "Interaktive Content-Erstellung", icon: FileText, href: "/dashboard/ai-content", color: "from-emerald-500 to-teal-500" },
   ];
 
   const features = [

@@ -29,6 +29,7 @@ import UserPromptVersions from "./pages/UserPromptVersions";
 import SloganCreator from "./pages/SloganCreator";
 import CodeAnalysis from "./pages/CodeAnalysis";
 import TextCheck from "./pages/TextCheck";
+import ContentCreator from "./pages/ContentCreator";
 
 const queryClient = new QueryClient();
 
@@ -60,8 +61,10 @@ const App = () => {
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index session={session} />} />
-              <Route path="/basic" element={<BasicVersion session={session} />} />
-              <Route path="/pro" element={<ProVersion session={session} />} />
+              <Route path="/content" element={<ContentCreator session={session} />} />
+              {/* Legacy routes - redirect to new unified Content Creator */}
+              <Route path="/basic" element={<ContentCreator session={session} />} />
+              <Route path="/pro" element={<ContentCreator session={session} />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/seo-check" element={<SEOCheck session={session} />} />
