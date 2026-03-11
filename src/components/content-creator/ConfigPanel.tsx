@@ -310,97 +310,121 @@ export const ConfigPanel = ({
               </div>
             )}
 
-            {/* SERP Results */}
+            {/* SERP Results - Enhanced */}
             {serpResult && (
-              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-blue-700 dark:text-blue-400 flex items-center gap-1">
-                    <TrendingUp className="h-3 w-3" />
-                    SERP-Analyse
+              <div className="bg-gradient-to-b from-blue-500/10 to-indigo-500/5 border border-blue-500/20 rounded-lg overflow-hidden">
+                {/* Header */}
+                <div className="flex items-center justify-between px-3 py-2 bg-blue-500/10 border-b border-blue-500/20">
+                  <span className="text-xs font-semibold text-blue-700 dark:text-blue-400 flex items-center gap-1.5">
+                    <TrendingUp className="h-3.5 w-3.5" />
+                    SERP Intelligence
                   </span>
-                  <Badge variant="secondary" className="text-xs">
+                  <Badge className="text-[10px] bg-blue-600">
                     {serpResult.serpTerms.all.length} Begriffe
                   </Badge>
                 </div>
 
-                {/* Must-Have Terms */}
-                {serpResult.serpTerms.mustHave.length > 0 && (
-                  <div>
-                    <span className="text-xs text-red-600 font-medium">Pflicht:</span>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {serpResult.serpTerms.mustHave.slice(0, 5).map((term: string) => (
-                        <Badge
-                          key={term}
-                          variant="destructive"
-                          className="text-xs cursor-pointer"
-                          onClick={() => {
-                            if (!config.secondaryKeywords.includes(term)) {
-                              onConfigChange({
-                                secondaryKeywords: [...config.secondaryKeywords, term],
-                              });
-                            }
-                          }}
-                        >
-                          <Plus className="h-2 w-2 mr-1" />
-                          {term}
-                        </Badge>
-                      ))}
+                <div className="p-3 space-y-3">
+                  {/* Must-Have Terms */}
+                  {serpResult.serpTerms.mustHave.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <div className="h-2 w-2 rounded-full bg-red-500" />
+                        <span className="text-[10px] uppercase tracking-wider font-semibold text-red-600 dark:text-red-400">
+                          Pflicht-Begriffe
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          ({serpResult.serpTerms.mustHave.length})
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {serpResult.serpTerms.mustHave.slice(0, 6).map((term: string) => (
+                          <Badge
+                            key={term}
+                            variant="outline"
+                            className="text-[10px] cursor-pointer border-red-300 dark:border-red-700 hover:bg-red-500/10 transition-colors"
+                            onClick={() => {
+                              if (!config.secondaryKeywords.includes(term)) {
+                                onConfigChange({
+                                  secondaryKeywords: [...config.secondaryKeywords, term],
+                                });
+                              }
+                            }}
+                          >
+                            <Plus className="h-2 w-2 mr-0.5 text-red-500" />
+                            {term}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Should-Have Terms */}
-                {serpResult.serpTerms.shouldHave.length > 0 && (
-                  <div>
-                    <span className="text-xs text-yellow-600 font-medium">Empfohlen:</span>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {serpResult.serpTerms.shouldHave.slice(0, 4).map((term: string) => (
-                        <Badge
-                          key={term}
-                          variant="secondary"
-                          className="text-xs cursor-pointer bg-yellow-500/20"
-                          onClick={() => {
-                            if (!config.secondaryKeywords.includes(term)) {
-                              onConfigChange({
-                                secondaryKeywords: [...config.secondaryKeywords, term],
-                              });
-                            }
-                          }}
-                        >
-                          <Plus className="h-2 w-2 mr-1" />
-                          {term}
-                        </Badge>
-                      ))}
+                  {/* Should-Have Terms */}
+                  {serpResult.serpTerms.shouldHave.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <div className="h-2 w-2 rounded-full bg-amber-500" />
+                        <span className="text-[10px] uppercase tracking-wider font-semibold text-amber-600 dark:text-amber-400">
+                          Empfohlen
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          ({serpResult.serpTerms.shouldHave.length})
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {serpResult.serpTerms.shouldHave.slice(0, 5).map((term: string) => (
+                          <Badge
+                            key={term}
+                            variant="outline"
+                            className="text-[10px] cursor-pointer border-amber-300 dark:border-amber-700 hover:bg-amber-500/10 transition-colors"
+                            onClick={() => {
+                              if (!config.secondaryKeywords.includes(term)) {
+                                onConfigChange({
+                                  secondaryKeywords: [...config.secondaryKeywords, term],
+                                });
+                              }
+                            }}
+                          >
+                            <Plus className="h-2 w-2 mr-0.5 text-amber-500" />
+                            {term}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Quick Add Buttons */}
-                <div className="flex gap-2 pt-1">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs h-7"
-                    onClick={addSerpKeywords}
-                  >
-                    + Alle Keywords
-                  </Button>
-                  {serpResult.questions.peopleAlsoAsk.length > 0 && (
+                  {/* Quick Actions */}
+                  <Separator className="bg-blue-200/50 dark:bg-blue-800/50" />
+                  <div className="flex gap-2">
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="text-xs h-7"
-                      onClick={addSerpQuestions}
+                      className="text-[10px] h-6 px-2 text-blue-600 dark:text-blue-400 hover:bg-blue-500/10"
+                      onClick={addSerpKeywords}
                     >
-                      + PAA Fragen
+                      <Plus className="h-2.5 w-2.5 mr-1" />
+                      Alle hinzufugen
                     </Button>
-                  )}
+                    {serpResult.questions?.peopleAlsoAsk?.length > 0 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-[10px] h-6 px-2 text-blue-600 dark:text-blue-400 hover:bg-blue-500/10"
+                        onClick={addSerpQuestions}
+                      >
+                        <HelpCircle className="h-2.5 w-2.5 mr-1" />
+                        PAA Fragen
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
           </div>
+
+          <Separator />
 
           {/* Secondary Keywords */}
           <div className="space-y-2">
