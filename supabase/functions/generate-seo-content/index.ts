@@ -946,7 +946,18 @@ function buildSystemPrompt(formData: any): string {
         serpBlock += '\n\n';
       }
 
-      serpBlock += 'ANWEISUNG: Integriere ALLE Pflicht-Begriffe natürlich in den Text. Nutze mindestens 70% der empfohlenen Begriffe. Diese Terms erscheinen in den Top-10 Google-Ergebnissen und sind für das Ranking essentiell.\n';
+      serpBlock += `ANWEISUNG FÜR TERM-INTEGRATION:
+
+1. ALLE Pflicht-Begriffe MÜSSEN im Text vorkommen (natürlich eingebaut)
+2. Mindestens 70% der empfohlenen Begriffe sollten vorkommen
+3. Diese Terms erscheinen in den Top-10 Google-Ergebnissen!
+
+BEISPIEL für natürliche Integration:
+❌ FALSCH: "Kinesio Tape ist gut. Kinesio Tape hilft. Kinesio Tape kaufen."
+✓ RICHTIG: "Das elastische Kinesio Tape unterstützt die Muskulatur und fördert den Heilungsprozess durch sanfte Stimulation."
+
+REGEL: Jeder Pflicht-Begriff sollte in einem SINNVOLLEN Kontext stehen, nicht isoliert.
+`;
 
       console.log('Strukturierte SERP-Terms: ' + (mustHave?.length || 0) + ' Pflicht, ' + (shouldHave?.length || 0) + ' Empfohlen');
     }
@@ -1383,6 +1394,19 @@ ANREDE: ${addressStyle}
 TEXTLÄNGE: ca. ${wordCount} Wörter
 ${audienceBlock}
 ${complianceBlock}
+${contextBlock}
+
+═══ INFORMATION GAIN (KRITISCH FÜR 2025!) ═══
+
+Dein Content MUSS sich von der Konkurrenz abheben durch:
+1. EINZIGARTIGE PERSPEKTIVE: Was kann nur ${brandName} bieten?
+2. TIEFERE DETAILS: Gehe über die SERP-Oberflächeninfos hinaus
+3. PRAKTISCHE TIPPS: Konkrete Handlungsanweisungen die Konkurrenten nicht haben
+4. AKTUELLE DATEN: Nutze Jahr 2025/2026 Kontext wo relevant
+5. EXPERTEN-INSIGHTS: Zeige Fachwissen das nicht überall steht
+
+FRAGE DICH: "Würde ein Nutzer nach dem Lesen meines Textes noch einen Konkurrenten besuchen müssen?"
+→ Wenn JA, dann fehlt Information Gain!
 
 ═══ GRUNDPRINZIPIEN ═══
 
@@ -1556,7 +1580,8 @@ Prüfe BEVOR du ausgibst:
 □ Mindestens 2-3 Listen im Text? ✓
 □ Keine verbotenen Phrasen? ✓
 □ FAQ mit direkten Antworten? ✓
-□ E-E-A-T-Signale vorhanden? ✓${contextBlock}`;
+□ E-E-A-T-Signale vorhanden? ✓
+□ Information Gain vorhanden? ✓`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
