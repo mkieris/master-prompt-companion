@@ -260,9 +260,24 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
       const { data, error } = await supabase.functions.invoke("generate-seo-content", {
         body: {
           ...config,
-          // Include SERP context
+          // Organization ID for analytics
+          organizationId: currentOrg?.id || null,
+          // Include SERP context (text summary)
           serpContext: config.serpContext,
-          // Include domain knowledge
+          // Include structured SERP terms for weighted integration
+          serpTermsStructured: config.serpTerms ? {
+            mustHave: config.serpTerms.mustHave || [],
+            shouldHave: config.serpTerms.shouldHave || [],
+            niceToHave: config.serpTerms.niceToHave || [],
+          } : null,
+          // Include complete domain knowledge
+          domainKnowledge: config.domainKnowledge ? {
+            companyName: config.domainKnowledge.company_name || '',
+            brandVoice: config.domainKnowledge.brand_voice || '',
+            uniqueSellingPoints: config.domainKnowledge.unique_selling_points || [],
+            aiSummary: config.domainKnowledge.ai_summary || '',
+          } : null,
+          // Legacy field for backwards compatibility
           additionalInfo: config.domainKnowledge?.ai_summary || '',
         },
       });

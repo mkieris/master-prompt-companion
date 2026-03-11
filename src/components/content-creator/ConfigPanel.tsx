@@ -587,7 +587,7 @@ export const ConfigPanel = ({
           {isGenerating ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Generiere 3 Varianten...
+              Generiere SEO-Content...
             </>
           ) : (
             <>

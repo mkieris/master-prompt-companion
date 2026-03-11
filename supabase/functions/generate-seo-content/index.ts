@@ -619,10 +619,33 @@ serve(async (req) => {
         { role: 'user', content: changeInstructions + '\n\nAktueller Text:\n' + JSON.stringify(formData.existingContent, null, 2) + '\n\nGib den angepassten Text im gleichen JSON-Format zurueck.' }
       ];
     } else if (formData.refinementPrompt && formData.existingContent) {
-      console.log('Processing refinement request');
+      console.log('Processing refinement request with FULL system prompt');
+
+      // WICHTIG: Nutze den vollständigen System-Prompt auch bei Refinement!
+      // So bleibt die Qualität und alle Regeln (E-E-A-T, Compliance, etc.) erhalten.
+      const refinementSystemPrompt = systemPrompt + `
+
+═══ REFINEMENT-MODUS AKTIV ═══
+
+Du überarbeitest BESTEHENDEN Content. Behalte:
+- Die bestehende Struktur und Überschriften (sofern nicht explizit anders gewünscht)
+- Die SEO-Optimierungen (Keyword-Platzierung, Meta-Daten)
+- Die Tonalität und Anredeform
+
+Ändere NUR was in der Anweisung explizit verlangt wird.
+Gib den kompletten Text zurück, nicht nur die geänderten Teile.`;
+
       messages = [
-        { role: 'system', content: 'Du bist ein erfahrener SEO-Texter. Ueberarbeite den vorhandenen Text. Behalte die JSON-Struktur bei.' },
-        { role: 'user', content: 'Hier ist der aktuelle Text:\n\n' + JSON.stringify(formData.existingContent, null, 2) + '\n\nBitte ueberarbeite:\n' + formData.refinementPrompt + '\n\nGib den Text im gleichen JSON-Format zurueck.' }
+        { role: 'system', content: refinementSystemPrompt },
+        { role: 'user', content: `AKTUELLER TEXT ZUR ÜBERARBEITUNG:
+
+${JSON.stringify(formData.existingContent, null, 2)}
+
+═══ ÄNDERUNGSWUNSCH ═══
+${formData.refinementPrompt}
+
+═══ AUSGABE ═══
+Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seoText, title, metaDescription, faq).` }
       ];
     } else {
       // Single content generation based on tone
@@ -894,9 +917,73 @@ function buildSystemPrompt(formData: any): string {
   // ═══ SERP-ANALYSE KONTEXT ═══
   let serpBlock = '';
   if (formData.serpContext && formData.serpContext.trim().length > 0) {
-    serpBlock = '\n\n# SERP-ANALYSE (Google Top-10)\n\n' + formData.serpContext.trim() + '\n\nWICHTIG: Integriere die PFLICHT-BEGRIFFE natürlich in den Text. Die EMPFOHLENEN BEGRIFFE sollten ebenfalls vorkommen. Nutze die HÄUFIGEN FRAGEN als Inspiration für FAQ und Zwischenüberschriften.';
+    serpBlock = '\n\n# SERP-ANALYSE (Google Top-10)\n\n' + formData.serpContext.trim();
     console.log('SERP-Kontext integriert: ' + formData.serpContext.length + ' Zeichen');
   }
+
+  // ═══ STRUKTURIERTE SERP-TERMS (Gewichtet) ═══
+  if (formData.serpTermsStructured) {
+    const { mustHave, shouldHave, niceToHave } = formData.serpTermsStructured;
+
+    if (mustHave?.length > 0 || shouldHave?.length > 0) {
+      serpBlock += '\n\n# KEYWORD-INTEGRATION (PFLICHT)\n\n';
+
+      if (mustHave?.length > 0) {
+        serpBlock += '## PFLICHT-BEGRIFFE (MÜSSEN im Text vorkommen):\n';
+        serpBlock += mustHave.map((term: string) => `- "${term}"`).join('\n');
+        serpBlock += '\n\n';
+      }
+
+      if (shouldHave?.length > 0) {
+        serpBlock += '## EMPFOHLENE BEGRIFFE (SOLLTEN vorkommen):\n';
+        serpBlock += shouldHave.slice(0, 10).map((term: string) => `- "${term}"`).join('\n');
+        serpBlock += '\n\n';
+      }
+
+      if (niceToHave?.length > 0) {
+        serpBlock += '## OPTIONALE BEGRIFFE (können vorkommen):\n';
+        serpBlock += niceToHave.slice(0, 5).map((term: string) => `- "${term}"`).join('\n');
+        serpBlock += '\n\n';
+      }
+
+      serpBlock += 'ANWEISUNG: Integriere ALLE Pflicht-Begriffe natürlich in den Text. Nutze mindestens 70% der empfohlenen Begriffe. Diese Terms erscheinen in den Top-10 Google-Ergebnissen und sind für das Ranking essentiell.\n';
+
+      console.log('Strukturierte SERP-Terms: ' + (mustHave?.length || 0) + ' Pflicht, ' + (shouldHave?.length || 0) + ' Empfohlen');
+    }
+  }
+
+  // ═══ DOMAIN KNOWLEDGE INTEGRATION ═══
+  let domainBlock = '';
+  if (formData.domainKnowledge) {
+    const dk = formData.domainKnowledge;
+    domainBlock = '\n\n# MARKEN-WISSEN\n\n';
+
+    if (dk.companyName) {
+      domainBlock += `Unternehmen: ${dk.companyName}\n`;
+    }
+
+    if (dk.brandVoice) {
+      domainBlock += `\n## BRAND VOICE (Schreibstil der Marke):\n${dk.brandVoice}\n`;
+      domainBlock += '\nWICHTIG: Passe den Schreibstil an diese Brand Voice an!\n';
+    }
+
+    if (dk.uniqueSellingPoints?.length > 0) {
+      domainBlock += `\n## UNIQUE SELLING POINTS (USPs):\n`;
+      dk.uniqueSellingPoints.forEach((usp: string) => {
+        domainBlock += `- ${usp}\n`;
+      });
+      domainBlock += '\nWICHTIG: Integriere diese USPs natürlich in den Text!\n';
+    }
+
+    if (dk.aiSummary) {
+      domainBlock += `\n## UNTERNEHMENSPROFIL:\n${dk.aiSummary}\n`;
+    }
+
+    console.log('Domain Knowledge integriert: ' + (dk.companyName || 'Kein Name'));
+  }
+
+  // Kombiniere SERP + Domain Block für alle Versionen
+  const contextBlock = serpBlock + domainBlock;
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // VERSION ROUTING - AKTIVE VERSIONEN: v1, v2, v6, v8, v9 (default), v10, v11
@@ -904,7 +991,7 @@ function buildSystemPrompt(formData: any): string {
 
   // ═══ VERSION 11: SURFER-STYLE (Weighted Terms, No Hallucination) ═══
   if (promptVersion === 'v11-surfer-style') {
-    return buildV11SurferStylePrompt(formData, tonality, addressStyle, wordCount, minKeywords, maxKeywords, density, compliance, serpBlock);
+    return buildV11SurferStylePrompt(formData, tonality, addressStyle, wordCount, minKeywords, maxKeywords, density, compliance, contextBlock);
   }
 
   // ═══ VERSION 10: GEO-OPTIMIZED (Generative Engine Optimization) ═══
@@ -1114,7 +1201,7 @@ Liefere das Ergebnis als JSON:
 
   // ═══ VERSION 9: MASTER-PROMPT (DEFAULT) ═══
   // Enthält ALLE Fixes und das Beste aus allen Versionen
-  return buildV9MasterPrompt(formData, tonality, addressStyle, wordCount, minKeywords, maxKeywords, density, compliance, serpBlock);
+  return buildV9MasterPrompt(formData, tonality, addressStyle, wordCount, minKeywords, maxKeywords, density, compliance, contextBlock);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1130,7 +1217,7 @@ function buildV9MasterPrompt(
   maxKeywords: number,
   density: { min: number; max: number; label: string },
   compliance: string,
-  serpBlock: string = ''
+  contextBlock: string = '' // SERP + Domain Knowledge combined
 ): string {
 
   const maxPara = formData.maxParagraphLength || 300;
@@ -1469,7 +1556,7 @@ Prüfe BEVOR du ausgibst:
 □ Mindestens 2-3 Listen im Text? ✓
 □ Keine verbotenen Phrasen? ✓
 □ FAQ mit direkten Antworten? ✓
-□ E-E-A-T-Signale vorhanden? ✓${serpBlock}`;
+□ E-E-A-T-Signale vorhanden? ✓${contextBlock}`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
