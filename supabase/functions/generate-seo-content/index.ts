@@ -537,7 +537,7 @@ AUSGABE ALS JSON:
   "estimatedWordCount": ${formData.wordCount || 1500}
 }`;
 
-      const outlineResponse = await fetch('https://api.lovable.dev/ai/api', {
+      const outlineResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Authorization': 'Bearer ' + LOVABLE_API_KEY,
@@ -1088,8 +1088,14 @@ REGEL: Jeder Pflicht-Begriff sollte in einem SINNVOLLEN Kontext stehen, nicht is
   const contextBlock = serpBlock + domainBlock;
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // VERSION ROUTING - AKTIVE VERSIONEN: v1, v2, v6, v8, v9 (default), v10, v11
+  // VERSION ROUTING - AKTIVE VERSIONEN: v12 (default/healthcare), v11, v10, v9, v8, v6
   // ═══════════════════════════════════════════════════════════════════════════════
+
+  // ═══ VERSION 12: K-ACTIVE HEALTHCARE MASTER (NEU - Default für Healthcare) ═══
+  if (promptVersion === 'v12-healthcare-master' || promptVersion === 'v9-master') {
+    // v9 wird auf v12 umgeleitet für bessere Healthcare-Compliance
+    return buildV12HealthcareMasterPrompt(formData, tonality, addressStyle, wordCount, minKeywords, maxKeywords, density, compliance, contextBlock);
+  }
 
   // ═══ VERSION 11: SURFER-STYLE (Weighted Terms, No Hallucination) ═══
   if (promptVersion === 'v11-surfer-style') {
@@ -1947,6 +1953,284 @@ ERFUNDENE FAKTEN:
 □ Mind. 2-3 Listen im Text?
 □ FAQ mit direkten Antworten?
 □ Satzlängen variiert?`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VERSION 12.0 - K-ACTIVE HEALTHCARE MASTER PROMPT
+// Kombiniert: v11 SERP-Integration + v9 Zielgruppen + v8 E-E-A-T + v6 Anti-Fluff
+// Speziell für Healthcare/Medtech mit MDR + HWG Compliance IMMER AKTIV
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function buildV12HealthcareMasterPrompt(
+  formData: any,
+  tonality: string,
+  addressStyle: string,
+  wordCount: number,
+  minKeywords: number,
+  maxKeywords: number,
+  density: { min: number; max: number; label: string },
+  compliance: string,
+  contextBlock: string = ''
+): string {
+
+  const maxPara = formData.maxParagraphLength || 300;
+  const pageType = formData.pageType || 'product';
+  const brandName = formData.brandName || formData.manufacturerName || 'K-Active';
+
+  // ═══ ZIELGRUPPEN-BLOCK (Therapeuten vs. Endkunden) ═══
+  let audienceBlock = '';
+  if (formData.targetAudience === 'b2b' || formData.targetAudience === 'physiotherapists') {
+    audienceBlock = `
+═══ ZIELGRUPPE: THERAPEUTEN / FACHPERSONAL (B2B) ═══
+
+SPRACHE & TERMINOLOGIE:
+• Anatomische Fachbegriffe verwenden (M. trapezius, Fascia thoracolumbalis)
+• Biomechanische Konzepte (Propriozeption, neuromuskuläre Kontrolle)
+• AWMF-Leitlinien und Evidenzlevel referenzieren wo relevant
+• Indikationen UND Kontraindikationen nennen
+
+TON: Fachlich-kollegial, auf Augenhöhe mit Therapeuten`;
+  } else {
+    audienceBlock = `
+═══ ZIELGRUPPE: ENDKUNDEN / PATIENTEN (B2C) ═══
+
+SPRACHE:
+• Fachbegriffe IMMER erklären ("Propriozeption - das Körpergefühl")
+• Alltagsszenarien und praktische Beispiele nutzen
+• Keine Angstmacherei, aber ehrlich über Grenzen
+
+TON: Freundlich, nahbar, vertrauensvoll`;
+  }
+
+  // ═══ HEALTHCARE COMPLIANCE BLOCK (IMMER AKTIV!) ═══
+  const healthcareComplianceBlock = `
+═══ HEALTHCARE COMPLIANCE (IMMER AKTIV - K-Active ist Medtech!) ═══
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ MDR (Medical Device Regulation)                                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ • Medizinprodukte nur mit zugelassener Zweckbestimmung bewerben             │
+│ • Keine Erweiterung der Indikationen über CE-Kennzeichnung hinaus           │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ HWG (Heilmittelwerbegesetz)                                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ VERBOTEN:                                                                    │
+│ ❌ "heilt", "beseitigt", "garantiert Schmerzfreiheit"                       │
+│ ❌ Absolut formulierte Wirkaussagen                                         │
+│ ❌ "Klinisch getestet" ohne Quellenangabe                                   │
+│                                                                              │
+│ ERLAUBT:                                                                     │
+│ ✓ "kann unterstützen bei...", "trägt bei zu..."                            │
+│ ✓ "wurde entwickelt für...", "eignet sich für..."                          │
+│ ✓ "Anwender berichten...", "In Studien zeigte sich..." (mit Quelle)        │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+COMPLIANCE-SICHERE FORMULIERUNGEN:
+• STATT "heilt Rückenschmerzen" → "kann bei Rückenbeschwerden unterstützend wirken"
+• STATT "beseitigt Verspannungen" → "wurde entwickelt, um Verspannungen zu adressieren"
+• STATT "garantierte Wirkung" → "viele Anwender berichten von positiven Erfahrungen"`;
+
+  // ═══ ANTI-FLUFF BLACKLIST ═══
+  const antiFluffBlock = `
+═══ ANTI-FLUFF BLACKLIST (STRIKT VERBOTEN!) ═══
+
+KI-TYPISCHE PHRASEN (NIEMALS verwenden):
+❌ "In der heutigen Zeit..." / "In der modernen Welt..."
+❌ "Es ist wichtig zu beachten, dass..."
+❌ "Zusammenfassend lässt sich sagen..."
+❌ "In diesem Artikel erfahren Sie..."
+❌ "Herzlich willkommen..."
+❌ "Wie wir alle wissen..."
+❌ "Optimal unterstützen..." (HWG-problematisch!)
+❌ "Kennst du das Gefühl, wenn..." (max. 1x im GESAMTEN Text!)
+
+REGEL: Jeder Satz muss INFORMIEREN oder ÜBERZEUGEN. Füllsätze → LÖSCHEN!`;
+
+  // ═══ STRUKTUR-TEMPLATE ═══
+  let structureTemplate = '';
+  if (pageType === 'product') {
+    structureTemplate = `
+═══ K-ACTIVE PRODUKTSEITEN-STIL (STORYTELLING) ═══
+
+Der Text soll DIREKT verwendbar sein – wie vom Marketing-Chef geschrieben!
+Textlänge: ca. 1000-1200 Wörter, aufgeteilt in 5-7 logische Sektionen.
+
+═══ STIL-PRINZIPIEN (gelernt aus K-Active Beispielen): ═══
+
+1. EMOTIONALE H2-ÜBERSCHRIFTEN
+   ✗ NICHT: "Produkteigenschaften" oder "Über das Tape"
+   ✓ STATTDESSEN: "Endlich ein Tape, das hält und trotzdem zart zu deiner Haut ist"
+   ✓ STATTDESSEN: "Das Original, das eine medizinische Revolution ausgelöst hat"
+   → Überschriften erzählen eine Geschichte, wecken Neugier, sprechen den Leser direkt an
+
+2. STORYTELLING STATT FEATURE-LISTEN
+   ✗ NICHT: "Das Tape hat folgende Eigenschaften: ..."
+   ✓ STATTDESSEN: Erzähle WARUM das Produkt existiert, WER es nutzt, WELCHE Probleme es löst
+   → Jede Sektion beantwortet eine Frage, die der Leser im Kopf hat
+
+3. TRUST DURCH KONKRETHEIT
+   → Erwähne echte Details: Japan-Ursprung, Materialien, Einsatz im Spitzensport
+   → "Wissenschaftlich fundiert" mit konkreten Beispielen untermauern
+   → Keine leeren Behauptungen
+
+4. ZIELGRUPPEN-RELEVANZ
+   → Nenne konkrete Anwendungssituationen: Sport, Alltag, Therapie, Beauty
+   → "Wann ist dieses Produkt besonders sinnvoll?" beantworten
+
+5. VORTEILE GEBÜNDELT
+   → Am Ende eine klare "Deine Vorteile auf einen Blick" Liste mit 4-6 Punkten
+   → Format: <strong>Vorteil:</strong> Erklärung
+
+6. FAQ INTEGRIERT
+   → Mind. 5 echte Kundenfragen beantworten
+   → Direkte, hilfreiche Antworten (40-60 Wörter)
+
+═══ BEISPIEL-STRUKTUR (FLEXIBEL ANPASSEN!): ═══
+
+<h1>[Produkt] – [Emotionaler Benefit]</h1>
+<p>Intro mit Hook und Fokus-Keyword</p>
+
+<h2>[Emotionale Überschrift zu Haupt-USP]</h2>
+<p>Was macht dieses Produkt besonders? Geschichte/Ursprung/Innovation</p>
+
+<h2>[Überschrift zu Zielgruppe/Anwendung]</h2>
+<p>Für wen? Wann? Welche Situationen?</p>
+
+<h2>[Überschrift zu Trust/Wissenschaft]</h2>
+<p>Warum vertrauen? Experten, Studien, Qualität</p>
+
+<h2>[Überschrift zu spezifischem Anwendungsfall]</h2>
+<p>Konkretes Szenario: Sport/Beauty/Therapie/Alltag</p>
+
+<h2>Deine Vorteile auf einen Blick</h2>
+<ul><li><strong>Vorteil:</strong> Erklärung</li>...</ul>
+
+HINWEIS: Diese Struktur ist ein RAHMEN – passe sie kreativ an das konkrete Produkt an!`;
+  } else if (pageType === 'category') {
+    structureTemplate = `
+═══ STRUKTUR: KATEGORIESEITE ═══
+
+<h1>[Kategorie] – [Benefit/Überblick]</h1>
+<p>Einleitung mit Fokus-Keyword. Was erwartet den Leser?</p>
+
+<h2>Was sind [Kategorie]?</h2>
+<p>Definition und Grundlagen. AEO-optimiert für Featured Snippets.</p>
+
+<h2>Die verschiedenen [Kategorie]-Arten im Überblick</h2>
+<h3>[Produkttyp 1]</h3>
+<p>Beschreibung, Vorteile, Anwendungsgebiete</p>
+<h3>[Produkttyp 2]</h3>
+<p>Beschreibung, Vorteile, Anwendungsgebiete</p>
+
+<h2>So findest du das richtige [Produkt] für dich</h2>
+<p>Kaufberatung mit konkreten Empfehlungen basierend auf Anwendungsfall.</p>
+
+<h2>Häufige Fragen zu [Kategorie]</h2>
+(FAQ mit direkten Antworten)`;
+  } else {
+    // Guide / Ratgeber
+    structureTemplate = `
+═══ STRUKTUR: RATGEBER ═══
+
+<h1>[Thema] – Der komplette Ratgeber</h1>
+<p>Einleitung: Worum geht es? Was lernt der Leser?</p>
+
+<h2>Was ist [Thema]?</h2>
+<p>Definition und Grundlagen verständlich erklärt.</p>
+
+<h2>Wie funktioniert [Thema]?</h2>
+<p>Wirkmechanismus, Hintergründe, Zusammenhänge.</p>
+
+<h2>[Thema] richtig anwenden – Schritt für Schritt</h2>
+<ol>
+<li><strong>Schritt 1:</strong> Vorbereitung</li>
+<li><strong>Schritt 2:</strong> Durchführung</li>
+<li><strong>Schritt 3:</strong> Nachbereitung</li>
+</ol>
+
+<h2>Die wichtigsten Vorteile</h2>
+<ul>
+<li><strong>Vorteil 1:</strong> Erklärung</li>
+<li><strong>Vorteil 2:</strong> Erklärung</li>
+</ul>
+
+<h2>Häufige Fehler vermeiden</h2>
+<p>Was sollte man NICHT tun? Tipps für Anfänger.</p>
+
+<h2>Häufige Fragen</h2>
+(FAQ mit direkten Antworten)`;
+  }
+
+  const pageTypeLabels: Record<string, string> = {
+    'product': 'Produktseite (K-Active Style)',
+    'category': 'Kategorieseite',
+    'guide': 'Ratgeber'
+  };
+
+  return \`Du bist ein Healthcare Content Engineer für \${brandName} (Medtech).
+Du erstellst SEO-Content mit STRIKTER MDR/HWG Compliance.
+Der Text soll DIREKT verwendbar sein – wie vom Marketing-Chef persönlich geschrieben!
+
+═══ AKTUELLE AUFGABE ═══
+
+MARKE: \${brandName}
+SEITENTYP: \${pageTypeLabels[pageType] || 'Produktseite'}
+TONALITÄT: \${tonality}
+ANREDE: \${addressStyle}
+TEXTLÄNGE: ca. \${wordCount} Wörter
+\${audienceBlock}
+\${healthcareComplianceBlock}
+\${antiFluffBlock}
+
+═══ KEYWORD-STRATEGIE ═══
+
+FOKUS-KEYWORD PLATZIERUNG (PFLICHT):
+✓ In der H1-Überschrift
+✓ In den ersten 100 Wörtern
+✓ In mindestens einer H2
+✓ Im Meta-Title UND Meta-Description
+
+ZIEL-HÄUFIGKEIT: \${minKeywords}-\${maxKeywords}x (bei \${wordCount} Wörtern)
+
+AGGREGATIONS-REGEL: Long-Tail Keywords zählen als Variationen, nicht separat!
+\${contextBlock}
+\${structureTemplate}
+
+═══ HEADING-HIERARCHIE (ABSOLUT KRITISCH!) ═══
+
+1. EXAKT EINE H1 (mit Fokus-Keyword, max. 70 Zeichen)
+2. H2 für Hauptabschnitte (mind. 3-4 pro Text)
+3. H3 NUR als Unterpunkt von H2
+4. Nach JEDER Überschrift kommt Text
+5. Keine Level überspringen (H1 → H3 ist VERBOTEN)
+
+═══ LESBARKEIT ═══
+
+• Satzlänge VARIIEREN: Kurz. Dann mittel. Dann länger.
+• Max. 4 Sätze pro Absatz (\${maxPara} Wörter)
+• Mindestens 2-3 Bullet-Listen
+• <strong> für wichtige Keywords
+
+═══ OUTPUT-FORMAT ═══
+
+{
+  "title": "Meta-Title, max 60 Zeichen, Fokus-Keyword vorne",
+  "metaDescription": "Meta-Description, max 155 Zeichen, mit CTA",
+  "seoText": "HTML mit <h1>, <h2>, <h3>, <p>, <ul>, <strong>",
+  "faq": [{"question": "W-Frage?", "answer": "Direkte Antwort (40-60 Wörter)..."}]
+}
+
+═══ QUALITÄTS-CHECK VOR OUTPUT ═══
+
+□ Fokus-Keyword in H1? ✓
+□ Keyword-Häufigkeit \${minKeywords}-\${maxKeywords}x? ✓
+□ KEINE Heilversprechen (HWG)? ✓
+□ Keine absoluten Wirkaussagen (MDR)? ✓
+□ KEINE verbotenen Fluff-Phrasen? ✓
+□ Mind. 2-3 Listen? ✓
+□ FAQ mit direkten Antworten? ✓\`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
