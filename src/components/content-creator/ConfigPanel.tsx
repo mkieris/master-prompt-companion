@@ -426,252 +426,291 @@ export const ConfigPanel = ({
 
           <Separator />
 
-          {/* Secondary Keywords */}
-          <div className="space-y-2">
-            <Label>Sekundäre Keywords</Label>
-            <div className="flex gap-2">
-              <Input
-                value={keywordInput}
-                onChange={(e) => setKeywordInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addSecondaryKeyword())}
-                placeholder="Keyword hinzufügen"
-                className="flex-1"
-              />
-              <Button type="button" variant="outline" size="icon" onClick={addSecondaryKeyword}>
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            {config.secondaryKeywords.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {config.secondaryKeywords.map((keyword) => (
-                  <Badge key={keyword} variant="secondary" className="pr-1">
-                    {keyword}
+          {/* Content Settings - Grouped */}
+          <Collapsible defaultOpen>
+            <CollapsibleTrigger className="flex items-center justify-between w-full py-2 text-sm font-medium hover:text-primary transition-colors">
+              <span className="flex items-center gap-2">
+                <LayoutTemplate className="h-4 w-4 text-muted-foreground" />
+                Content-Einstellungen
+              </span>
+              <ChevronRight className="h-4 w-4 transition-transform [[data-state=open]>&]:rotate-90" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-3 pt-2">
+              {/* Page Type - Visual Cards */}
+              <div className="space-y-2">
+                <Label className="text-xs">Seitentyp</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { value: 'product', label: 'Produkt', icon: '🛍️' },
+                    { value: 'category', label: 'Kategorie', icon: '📁' },
+                    { value: 'guide', label: 'Ratgeber', icon: '📖' },
+                  ].map((type) => (
                     <button
-                      onClick={() => removeSecondaryKeyword(keyword)}
-                      className="ml-1 hover:text-destructive"
+                      key={type.value}
+                      type="button"
+                      onClick={() => onConfigChange({ pageType: type.value as any })}
+                      className={`flex flex-col items-center gap-1 p-2 rounded-lg border-2 transition-all text-center ${
+                        config.pageType === type.value
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50'
+                      }`}
                     >
-                      <X className="h-3 w-3" />
+                      <span className="text-lg">{type.icon}</span>
+                      <span className="text-[10px] font-medium">{type.label}</span>
                     </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Word Count - Slider Style */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Textlange</Label>
+                  <Badge variant="outline" className="text-[10px]">
+                    {config.wordCount} Worter
                   </Badge>
-                ))}
+                </div>
+                <Select
+                  value={config.wordCount}
+                  onValueChange={(value) => onConfigChange({ wordCount: value })}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="500">Kurz (ca. 500)</SelectItem>
+                    <SelectItem value="800">Kompakt (ca. 800)</SelectItem>
+                    <SelectItem value="1000">Mittel (ca. 1000)</SelectItem>
+                    <SelectItem value="1500">Standard (ca. 1500)</SelectItem>
+                    <SelectItem value="2000">Umfangreich (ca. 2000)</SelectItem>
+                    <SelectItem value="3000">Ausfuhrlich (ca. 3000+)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            )}
-          </div>
 
-          {/* Page Type */}
-          <div className="space-y-2">
-            <Label>Seitentyp</Label>
-            <Select
-              value={config.pageType}
-              onValueChange={(value) => onConfigChange({ pageType: value as any })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="product">Produktseite</SelectItem>
-                <SelectItem value="category">Kategorieseite</SelectItem>
-                <SelectItem value="guide">Ratgeber / Blog</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Target Audience */}
-          <div className="space-y-2">
-            <Label>Zielgruppe</Label>
-            <RadioGroup
-              value={config.targetAudience}
-              onValueChange={(value) => onConfigChange({ targetAudience: value as any })}
-              className="flex gap-4"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="b2b" id="b2b" />
-                <Label htmlFor="b2b" className="font-normal">B2B</Label>
+              {/* Secondary Keywords */}
+              <div className="space-y-2">
+                <Label className="text-xs">Sekundare Keywords</Label>
+                <div className="flex gap-1.5">
+                  <Input
+                    value={keywordInput}
+                    onChange={(e) => setKeywordInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addSecondaryKeyword())}
+                    placeholder="Keyword hinzufugen"
+                    className="flex-1 h-8 text-xs"
+                  />
+                  <Button type="button" variant="outline" size="icon" onClick={addSecondaryKeyword} className="h-8 w-8">
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </div>
+                {config.secondaryKeywords.length > 0 && (
+                  <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
+                    {config.secondaryKeywords.map((keyword) => (
+                      <Badge key={keyword} variant="secondary" className="text-[10px] pr-1 h-5">
+                        {keyword}
+                        <button
+                          onClick={() => removeSecondaryKeyword(keyword)}
+                          className="ml-1 hover:text-destructive"
+                        >
+                          <X className="h-2.5 w-2.5" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="b2c" id="b2c" />
-                <Label htmlFor="b2c" className="font-normal">B2C</Label>
+            </CollapsibleContent>
+          </Collapsible>
+
+          <Separator />
+
+          {/* Audience & Tone - Grouped */}
+          <Collapsible>
+            <CollapsibleTrigger className="flex items-center justify-between w-full py-2 text-sm font-medium hover:text-primary transition-colors">
+              <span className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                Zielgruppe & Tonalitat
+              </span>
+              <ChevronRight className="h-4 w-4 transition-transform [[data-state=open]>&]:rotate-90" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-3 pt-2">
+              {/* Target Audience - Visual */}
+              <div className="space-y-2">
+                <Label className="text-xs">Zielgruppe</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { value: 'b2b', label: 'B2B', desc: 'Geschaftskunden' },
+                    { value: 'b2c', label: 'B2C', desc: 'Endkunden' },
+                    { value: 'mixed', label: 'Mixed', desc: 'Beide' },
+                  ].map((audience) => (
+                    <button
+                      key={audience.value}
+                      type="button"
+                      onClick={() => onConfigChange({ targetAudience: audience.value as any })}
+                      className={`p-2 rounded-lg border-2 transition-all text-center ${
+                        config.targetAudience === audience.value
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                    >
+                      <span className="text-xs font-bold block">{audience.label}</span>
+                      <span className="text-[9px] text-muted-foreground">{audience.desc}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="mixed" id="mixed" />
-                <Label htmlFor="mixed" className="font-normal">Mixed</Label>
+
+              {/* Form of Address */}
+              <div className="space-y-2">
+                <Label className="text-xs">Anredeform</Label>
+                <div className="flex gap-2">
+                  {[
+                    { value: 'du', label: 'Du (informell)' },
+                    { value: 'sie', label: 'Sie (formell)' },
+                  ].map((form) => (
+                    <button
+                      key={form.value}
+                      type="button"
+                      onClick={() => onConfigChange({ formOfAddress: form.value as any })}
+                      className={`flex-1 p-2 rounded-lg border-2 transition-all text-xs font-medium ${
+                        config.formOfAddress === form.value
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                    >
+                      {form.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </RadioGroup>
-          </div>
 
-          {/* Tonality */}
-          <div className="space-y-2">
-            <Label>Tonalität</Label>
-            <Select
-              value={config.tonality}
-              onValueChange={(value) => onConfigChange({ tonality: value })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="expert-mix">Expertenmix (70/20/10)</SelectItem>
-                <SelectItem value="consultant-mix">Beratermix (40/40/20)</SelectItem>
-                <SelectItem value="storytelling-mix">Storytelling-Mix (30/30/40)</SelectItem>
-                <SelectItem value="conversion-mix">Conversion-Mix (20/60/20)</SelectItem>
-                <SelectItem value="balanced-mix">Balanced-Mix (33/33/33)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Form of Address */}
-          <div className="space-y-2">
-            <Label>Anredeform</Label>
-            <RadioGroup
-              value={config.formOfAddress}
-              onValueChange={(value) => onConfigChange({ formOfAddress: value as any })}
-              className="flex gap-4"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="du" id="du" />
-                <Label htmlFor="du" className="font-normal">Du</Label>
+              {/* Tonality */}
+              <div className="space-y-2">
+                <Label className="text-xs">Tonalitat</Label>
+                <Select
+                  value={config.tonality}
+                  onValueChange={(value) => onConfigChange({ tonality: value })}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="expert-mix">Expertenmix (70/20/10)</SelectItem>
+                    <SelectItem value="consultant-mix">Beratermix (40/40/20)</SelectItem>
+                    <SelectItem value="storytelling-mix">Storytelling-Mix (30/30/40)</SelectItem>
+                    <SelectItem value="conversion-mix">Conversion-Mix (20/60/20)</SelectItem>
+                    <SelectItem value="balanced-mix">Balanced-Mix (33/33/33)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="sie" id="sie" />
-                <Label htmlFor="sie" className="font-normal">Sie</Label>
+            </CollapsibleContent>
+          </Collapsible>
+
+          <Separator />
+
+          {/* AI Settings - Grouped */}
+          <Collapsible>
+            <CollapsibleTrigger className="flex items-center justify-between w-full py-2 text-sm font-medium hover:text-primary transition-colors">
+              <span className="flex items-center gap-2">
+                <Brain className="h-4 w-4 text-muted-foreground" />
+                AI-Einstellungen
+              </span>
+              <ChevronRight className="h-4 w-4 transition-transform [[data-state=open]>&]:rotate-90" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-3 pt-2">
+              {/* AI Model - Visual Cards */}
+              <div className="space-y-2">
+                <Label className="text-xs">AI-Modell</Label>
+                <div className="space-y-1.5">
+                  {[
+                    { value: 'gemini-flash', label: 'Gemini Flash', desc: 'Schnell & kosteneffizient', icon: Zap, color: 'text-yellow-500', badge: null },
+                    { value: 'gemini-pro', label: 'Gemini Pro', desc: 'Bessere Qualitat', icon: Sparkles, color: 'text-blue-500', badge: null },
+                    { value: 'claude-sonnet', label: 'Claude Sonnet', desc: 'Premium Qualitat', icon: Crown, color: 'text-purple-500', badge: 'PRO' },
+                  ].map((model) => (
+                    <button
+                      key={model.value}
+                      type="button"
+                      onClick={() => onConfigChange({ aiModel: model.value as any })}
+                      className={`w-full flex items-center gap-3 p-2.5 rounded-lg border-2 transition-all ${
+                        config.aiModel === model.value
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                    >
+                      <model.icon className={`h-4 w-4 ${model.color}`} />
+                      <div className="flex-1 text-left">
+                        <span className="text-xs font-medium block">{model.label}</span>
+                        <span className="text-[10px] text-muted-foreground">{model.desc}</span>
+                      </div>
+                      {model.badge && (
+                        <Badge variant="default" className="text-[9px] h-4 px-1.5">
+                          {model.badge}
+                        </Badge>
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </RadioGroup>
-          </div>
 
-          {/* Word Count */}
-          <div className="space-y-2">
-            <Label>Textlänge</Label>
-            <Select
-              value={config.wordCount}
-              onValueChange={(value) => onConfigChange({ wordCount: value })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="500">Kurz (ca. 500 Wörter)</SelectItem>
-                <SelectItem value="800">Kompakt (ca. 800 Wörter)</SelectItem>
-                <SelectItem value="1000">Mittel (ca. 1000 Wörter)</SelectItem>
-                <SelectItem value="1500">Standard (ca. 1500 Wörter)</SelectItem>
-                <SelectItem value="2000">Umfangreich (ca. 2000 Wörter)</SelectItem>
-                <SelectItem value="3000">Ausführlich (ca. 3000+ Wörter)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+              {/* Prompt Version */}
+              <div className="space-y-2">
+                <Label className="text-xs">Prompt-Version</Label>
+                <Select
+                  value={config.promptVersion}
+                  onValueChange={(value) => onConfigChange({ promptVersion: value })}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="v9-master">v9: Master (Standard)</SelectItem>
+                    <SelectItem value="v11-surfer-style">v11: Surfer-Style (NEU)</SelectItem>
+                    <SelectItem value="v10-geo-optimized">v10: GEO-Optimized</SelectItem>
+                    <SelectItem value="v8-natural-seo">v8: Naturlich SEO</SelectItem>
+                    <SelectItem value="v6-quality-auditor">v6: Anti-Fluff</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
 
-          {/* AI Model */}
-          <div className="space-y-2">
-            <Label>AI-Modell</Label>
-            <Select
-              value={config.aiModel}
-              onValueChange={(value) => onConfigChange({ aiModel: value as any })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="gemini-flash">
-                  <span className="flex items-center gap-2">
-                    <Zap className="h-3 w-3 text-yellow-500" />
-                    Gemini Flash (schnell)
-                  </span>
-                </SelectItem>
-                <SelectItem value="gemini-pro">
-                  <span className="flex items-center gap-2">
-                    <Sparkles className="h-3 w-3 text-blue-500" />
-                    Gemini Pro (besser)
-                  </span>
-                </SelectItem>
-                <SelectItem value="claude-sonnet">
-                  <span className="flex items-center gap-2">
-                    <Crown className="h-3 w-3 text-purple-500" />
-                    Claude Sonnet (premium)
-                  </span>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Prompt Version - WICHTIG für Qualität */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-              Prompt-Version
-              <Badge variant="secondary" className="text-xs">Qualität</Badge>
-            </Label>
-            <Select
-              value={config.promptVersion}
-              onValueChange={(value) => onConfigChange({ promptVersion: value })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="v9-master">
-                  <span className="flex items-center gap-2">
-                    ⭐ v9: Master (Standard)
-                  </span>
-                </SelectItem>
-                <SelectItem value="v11-surfer-style">
-                  <span className="flex items-center gap-2">
-                    🎯 v11: Surfer-Style (NEU)
-                  </span>
-                </SelectItem>
-                <SelectItem value="v10-geo-optimized">
-                  <span className="flex items-center gap-2">
-                    🚀 v10: GEO-Optimized
-                  </span>
-                </SelectItem>
-                <SelectItem value="v8-natural-seo">
-                  <span className="flex items-center gap-2">
-                    🌿 v8: Natürlich SEO
-                  </span>
-                </SelectItem>
-                <SelectItem value="v6-quality-auditor">
-                  <span className="flex items-center gap-2">
-                    📝 v6: Anti-Fluff
-                  </span>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              v9-master für beste Ergebnisse empfohlen
-            </p>
-          </div>
+          <Separator />
 
           {/* Advanced Settings */}
           <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" className="w-full justify-between">
-                Erweiterte Einstellungen
-                {advancedOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              </Button>
+            <CollapsibleTrigger className="flex items-center justify-between w-full py-2 text-sm font-medium hover:text-primary transition-colors">
+              <span className="flex items-center gap-2">
+                <Settings2 className="h-4 w-4 text-muted-foreground" />
+                Erweiterte Optionen
+              </span>
+              <ChevronRight className={`h-4 w-4 transition-transform ${advancedOpen ? 'rotate-90' : ''}`} />
             </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-4 pt-2">
+            <CollapsibleContent className="space-y-3 pt-2">
               {/* W-Questions */}
               <div className="space-y-2">
-                <Label className="flex items-center gap-1">
-                  <HelpCircle className="h-3.5 w-3.5" />
-                  W-Fragen
+                <Label className="text-xs flex items-center gap-1">
+                  <HelpCircle className="h-3 w-3" />
+                  W-Fragen fur FAQ
                 </Label>
-                <div className="flex gap-2">
+                <div className="flex gap-1.5">
                   <Input
                     value={questionInput}
                     onChange={(e) => setQuestionInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addQuestion())}
-                    placeholder="Frage hinzufügen"
-                    className="flex-1"
+                    placeholder="Frage hinzufugen"
+                    className="flex-1 h-8 text-xs"
                   />
-                  <Button type="button" variant="outline" size="icon" onClick={addQuestion}>
-                    <Plus className="h-4 w-4" />
+                  <Button type="button" variant="outline" size="icon" onClick={addQuestion} className="h-8 w-8">
+                    <Plus className="h-3 w-3" />
                   </Button>
                 </div>
                 {config.wQuestions.length > 0 && (
-                  <div className="space-y-1">
+                  <div className="space-y-1 max-h-24 overflow-y-auto">
                     {config.wQuestions.map((question) => (
-                      <div key={question} className="flex items-center justify-between text-sm bg-muted/50 rounded px-2 py-1">
-                        <span className="truncate">{question}</span>
+                      <div key={question} className="flex items-center justify-between text-[10px] bg-muted/50 rounded px-2 py-1.5">
+                        <span className="truncate flex-1">{question}</span>
                         <button onClick={() => removeQuestion(question)} className="ml-2 hover:text-destructive">
-                          <X className="h-3 w-3" />
+                          <X className="h-2.5 w-2.5" />
                         </button>
                       </div>
                     ))}
@@ -679,69 +718,62 @@ export const ConfigPanel = ({
                 )}
               </div>
 
-              {/* Include Options */}
+              {/* Content Structure Options */}
               <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="includeIntro"
-                    checked={config.includeIntro}
-                    onCheckedChange={(checked) => onConfigChange({ includeIntro: checked as boolean })}
-                  />
-                  <Label htmlFor="includeIntro" className="font-normal">Einleitung</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="includeFAQ"
-                    checked={config.includeFAQ}
-                    onCheckedChange={(checked) => onConfigChange({ includeFAQ: checked as boolean })}
-                  />
-                  <Label htmlFor="includeFAQ" className="font-normal">FAQ-Bereich</Label>
+                <Label className="text-xs">Struktur-Elemente</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all ${
+                    config.includeIntro ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+                  }`}>
+                    <Checkbox
+                      id="includeIntro"
+                      checked={config.includeIntro}
+                      onCheckedChange={(checked) => onConfigChange({ includeIntro: checked as boolean })}
+                    />
+                    <span className="text-xs">Einleitung</span>
+                  </label>
+                  <label className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all ${
+                    config.includeFAQ ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+                  }`}>
+                    <Checkbox
+                      id="includeFAQ"
+                      checked={config.includeFAQ}
+                      onCheckedChange={(checked) => onConfigChange({ includeFAQ: checked as boolean })}
+                    />
+                    <span className="text-xs">FAQ-Bereich</span>
+                  </label>
                 </div>
               </div>
 
-              {/* Compliance */}
+              {/* Compliance - Healthcare Specific */}
               <div className="space-y-2">
-                <Label className="flex items-center gap-1">
-                  <Shield className="h-3.5 w-3.5" />
-                  Compliance
+                <Label className="text-xs flex items-center gap-1">
+                  <Shield className="h-3 w-3" />
+                  Compliance (Healthcare)
                 </Label>
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="mdr"
-                      checked={config.complianceChecks.mdr}
-                      onCheckedChange={(checked) =>
-                        onConfigChange({
-                          complianceChecks: { ...config.complianceChecks, mdr: checked as boolean },
-                        })
-                      }
-                    />
-                    <Label htmlFor="mdr" className="font-normal text-sm">MDR/MPDG</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="hwg"
-                      checked={config.complianceChecks.hwg}
-                      onCheckedChange={(checked) =>
-                        onConfigChange({
-                          complianceChecks: { ...config.complianceChecks, hwg: checked as boolean },
-                        })
-                      }
-                    />
-                    <Label htmlFor="hwg" className="font-normal text-sm">HWG</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="studies"
-                      checked={config.complianceChecks.studies}
-                      onCheckedChange={(checked) =>
-                        onConfigChange({
-                          complianceChecks: { ...config.complianceChecks, studies: checked as boolean },
-                        })
-                      }
-                    />
-                    <Label htmlFor="studies" className="font-normal text-sm">Studien prüfen</Label>
-                  </div>
+                <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-2 space-y-2">
+                  {[
+                    { id: 'mdr', label: 'MDR/MPDG', desc: 'Medizinprodukte-Verordnung' },
+                    { id: 'hwg', label: 'HWG', desc: 'Heilmittelwerbegesetz' },
+                    { id: 'studies', label: 'Studien', desc: 'Wissenschaftliche Belege' },
+                  ].map((item) => (
+                    <label key={item.id} className="flex items-start gap-2 cursor-pointer group">
+                      <Checkbox
+                        id={item.id}
+                        checked={config.complianceChecks[item.id as keyof typeof config.complianceChecks]}
+                        onCheckedChange={(checked) =>
+                          onConfigChange({
+                            complianceChecks: { ...config.complianceChecks, [item.id]: checked as boolean },
+                          })
+                        }
+                        className="mt-0.5"
+                      />
+                      <div>
+                        <span className="text-xs font-medium group-hover:text-primary transition-colors">{item.label}</span>
+                        <span className="text-[10px] text-muted-foreground block">{item.desc}</span>
+                      </div>
+                    </label>
+                  ))}
                 </div>
               </div>
             </CollapsibleContent>
