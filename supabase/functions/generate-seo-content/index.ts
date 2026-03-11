@@ -2047,50 +2047,131 @@ REGEL: Jeder Satz muss INFORMIEREN oder ÜBERZEUGEN. Füllsätze → LÖSCHEN!`;
   let structureTemplate = '';
   if (pageType === 'product') {
     structureTemplate = `
-═══ STRUKTUR: PRODUKTSEITE ═══
+═══ K-ACTIVE PRODUKTSEITEN-STIL (STORYTELLING) ═══
 
-<h1>[Produktname] – [Hauptnutzen]</h1>
-<p>Einleitung: Fokus-Keyword in ersten 50 Wörtern</p>
+Der Text soll DIREKT verwendbar sein – wie vom Marketing-Chef geschrieben!
+Textlänge: ca. 1000-1200 Wörter, aufgeteilt in 5-7 logische Sektionen.
 
-<h2>Was ist [Produkt] und wie funktioniert es?</h2>
-<p>Definition (AEO-optimiert), Wirkmechanismus</p>
+═══ STIL-PRINZIPIEN (gelernt aus K-Active Beispielen): ═══
 
-<h2>Für wen eignet sich [Produkt]?</h2>
-<p>Zielgruppen, Anwendungsfälle (keine Heilversprechen!)</p>
+1. EMOTIONALE H2-ÜBERSCHRIFTEN
+   ✗ NICHT: "Produkteigenschaften" oder "Über das Tape"
+   ✓ STATTDESSEN: "Endlich ein Tape, das hält und trotzdem zart zu deiner Haut ist"
+   ✓ STATTDESSEN: "Das Original, das eine medizinische Revolution ausgelöst hat"
+   → Überschriften erzählen eine Geschichte, wecken Neugier, sprechen den Leser direkt an
 
-<h2>[Produkt] richtig anwenden</h2>
-<p>Schritt-für-Schritt Anleitung</p>
+2. STORYTELLING STATT FEATURE-LISTEN
+   ✗ NICHT: "Das Tape hat folgende Eigenschaften: ..."
+   ✓ STATTDESSEN: Erzähle WARUM das Produkt existiert, WER es nutzt, WELCHE Probleme es löst
+   → Jede Sektion beantwortet eine Frage, die der Leser im Kopf hat
 
-<h2>Vorteile von [Produkt]</h2>
-<ul><li><strong>Vorteil:</strong> Erklärung</li></ul>
+3. TRUST DURCH KONKRETHEIT
+   → Erwähne echte Details: Japan-Ursprung, Materialien, Einsatz im Spitzensport
+   → "Wissenschaftlich fundiert" mit konkreten Beispielen untermauern
+   → Keine leeren Behauptungen
 
-<h2>Häufige Fragen</h2>
-<!-- FAQ mit direkten Antworten -->`;
-  } else {
+4. ZIELGRUPPEN-RELEVANZ
+   → Nenne konkrete Anwendungssituationen: Sport, Alltag, Therapie, Beauty
+   → "Wann ist dieses Produkt besonders sinnvoll?" beantworten
+
+5. VORTEILE GEBÜNDELT
+   → Am Ende eine klare "Deine Vorteile auf einen Blick" Liste mit 4-6 Punkten
+   → Format: <strong>Vorteil:</strong> Erklärung
+
+6. FAQ INTEGRIERT
+   → Mind. 5 echte Kundenfragen beantworten
+   → Direkte, hilfreiche Antworten (40-60 Wörter)
+
+═══ BEISPIEL-STRUKTUR (FLEXIBEL ANPASSEN!): ═══
+
+<h1>[Produkt] – [Emotionaler Benefit]</h1>
+<p>Intro mit Hook und Fokus-Keyword</p>
+
+<h2>[Emotionale Überschrift zu Haupt-USP]</h2>
+<p>Was macht dieses Produkt besonders? Geschichte/Ursprung/Innovation</p>
+
+<h2>[Überschrift zu Zielgruppe/Anwendung]</h2>
+<p>Für wen? Wann? Welche Situationen?</p>
+
+<h2>[Überschrift zu Trust/Wissenschaft]</h2>
+<p>Warum vertrauen? Experten, Studien, Qualität</p>
+
+<h2>[Überschrift zu spezifischem Anwendungsfall]</h2>
+<p>Konkretes Szenario: Sport/Beauty/Therapie/Alltag</p>
+
+<h2>Deine Vorteile auf einen Blick</h2>
+<ul><li><strong>Vorteil:</strong> Erklärung</li>...</ul>
+
+HINWEIS: Diese Struktur ist ein RAHMEN – passe sie kreativ an das konkrete Produkt an!`;
+  } else if (pageType === 'category') {
     structureTemplate = `
 ═══ STRUKTUR: KATEGORIESEITE ═══
 
-<h1>[Kategorie] – Überblick</h1>
-<p>Einleitung mit Fokus-Keyword</p>
+<h1>[Kategorie] – [Benefit/Überblick]</h1>
+<p>Einleitung mit Fokus-Keyword. Was erwartet den Leser?</p>
 
 <h2>Was sind [Kategorie]?</h2>
-<p>Grundlegende Erklärung</p>
+<p>Definition und Grundlagen. AEO-optimiert für Featured Snippets.</p>
 
-<h2>Die verschiedenen Arten</h2>
-<h3>[Unterkategorie 1]</h3>
-<h3>[Unterkategorie 2]</h3>
+<h2>Die verschiedenen [Kategorie]-Arten im Überblick</h2>
+<h3>[Produkttyp 1]</h3>
+<p>Beschreibung, Vorteile, Anwendungsgebiete</p>
+<h3>[Produkttyp 2]</h3>
+<p>Beschreibung, Vorteile, Anwendungsgebiete</p>
 
-<h2>So findest du das richtige [Produkt]</h2>
-<p>Kaufberatung</p>`;
+<h2>So findest du das richtige [Produkt] für dich</h2>
+<p>Kaufberatung mit konkreten Empfehlungen basierend auf Anwendungsfall.</p>
+
+<h2>Häufige Fragen zu [Kategorie]</h2>
+(FAQ mit direkten Antworten)`;
+  } else {
+    // Guide / Ratgeber
+    structureTemplate = `
+═══ STRUKTUR: RATGEBER ═══
+
+<h1>[Thema] – Der komplette Ratgeber</h1>
+<p>Einleitung: Worum geht es? Was lernt der Leser?</p>
+
+<h2>Was ist [Thema]?</h2>
+<p>Definition und Grundlagen verständlich erklärt.</p>
+
+<h2>Wie funktioniert [Thema]?</h2>
+<p>Wirkmechanismus, Hintergründe, Zusammenhänge.</p>
+
+<h2>[Thema] richtig anwenden – Schritt für Schritt</h2>
+<ol>
+<li><strong>Schritt 1:</strong> Vorbereitung</li>
+<li><strong>Schritt 2:</strong> Durchführung</li>
+<li><strong>Schritt 3:</strong> Nachbereitung</li>
+</ol>
+
+<h2>Die wichtigsten Vorteile</h2>
+<ul>
+<li><strong>Vorteil 1:</strong> Erklärung</li>
+<li><strong>Vorteil 2:</strong> Erklärung</li>
+</ul>
+
+<h2>Häufige Fehler vermeiden</h2>
+<p>Was sollte man NICHT tun? Tipps für Anfänger.</p>
+
+<h2>Häufige Fragen</h2>
+(FAQ mit direkten Antworten)`;
   }
+
+  const pageTypeLabels: Record<string, string> = {
+    'product': 'Produktseite (K-Active Style)',
+    'category': 'Kategorieseite',
+    'guide': 'Ratgeber'
+  };
 
   return \`Du bist ein Healthcare Content Engineer für \${brandName} (Medtech).
 Du erstellst SEO-Content mit STRIKTER MDR/HWG Compliance.
+Der Text soll DIREKT verwendbar sein – wie vom Marketing-Chef persönlich geschrieben!
 
 ═══ AKTUELLE AUFGABE ═══
 
 MARKE: \${brandName}
-SEITENTYP: \${pageType === 'product' ? 'Produktseite' : 'Kategorieseite'}
+SEITENTYP: \${pageTypeLabels[pageType] || 'Produktseite'}
 TONALITÄT: \${tonality}
 ANREDE: \${addressStyle}
 TEXTLÄNGE: ca. \${wordCount} Wörter
