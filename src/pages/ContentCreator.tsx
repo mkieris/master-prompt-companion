@@ -578,6 +578,7 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
         </ResizablePanelGroup>
       </main>
     </div>
+    </TooltipProvider>
   );
 };
 
