@@ -879,7 +879,7 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
         secondary_keywords: formData.secondaryKeywords || [],
         page_type: formData.pageType || null,
         target_audience: formData.targetAudience || null,
-        word_count_target: parseInt(formData.wordCount) || null,
+        word_count_target: formData.wordCount ? parseInt(formData.wordCount) : null,
         tonality: formData.tone || formData.tonality || null,
         form_of_address: formData.formOfAddress || null,
         ai_model: modelConfig.id,
