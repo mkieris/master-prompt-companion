@@ -129,32 +129,67 @@ export const ContentEditor = ({
     setRefinePrompt("");
   };
 
-  // Empty state
+  // Empty state - Modern onboarding design
   if (!hasContent && !isGenerating) {
     return (
-      <Card className="flex-1 flex flex-col items-center justify-center">
-        <div className="text-center space-y-4 p-8 max-w-md">
-          <div className="h-20 w-20 rounded-full bg-primary/10 mx-auto flex items-center justify-center">
-            <FileText className="h-10 w-10 text-primary/60" />
-          </div>
-          <div className="space-y-2">
-            <h3 className="text-xl font-semibold">Bereit zur Content-Erstellung</h3>
-            <p className="text-muted-foreground">
-              Konfigurieren Sie Ihr Keyword und die Einstellungen links, dann klicken Sie auf "Content generieren".
-            </p>
-          </div>
-          <div className="flex flex-col gap-2 text-sm text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-xs">1</Badge>
-              Fokus-Keyword eingeben
+      <Card className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col items-center justify-center p-8">
+          {/* Hero Section */}
+          <div className="text-center space-y-6 max-w-lg">
+            {/* Animated Icon */}
+            <div className="relative mx-auto w-fit">
+              <div className="h-24 w-24 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center border border-primary/20">
+                <PenLine className="h-12 w-12 text-primary" />
+              </div>
+              <div className="absolute -top-2 -right-2 h-8 w-8 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg">
+                <Sparkles className="h-4 w-4 text-white" />
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-xs">2</Badge>
-              SERP-Analyse durchführen (automatisch)
+
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold tracking-tight">SEO-Content erstellen</h2>
+              <p className="text-muted-foreground">
+                Erstelle hochwertige, SEO-optimierte Texte mit KI-Unterstutzung
+              </p>
             </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-xs">3</Badge>
-              3 Varianten generieren lassen
+
+            {/* Workflow Steps - Modern Cards */}
+            <div className="flex items-center justify-center gap-3 pt-4">
+              {[
+                { icon: Target, label: 'Keyword', desc: 'Fokus definieren' },
+                { icon: Search, label: 'SERP', desc: 'Automatisch analysiert' },
+                { icon: Sparkles, label: 'Generieren', desc: 'KI erstellt Content' },
+              ].map((step, idx) => (
+                <div key={step.label} className="flex items-center">
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="h-12 w-12 rounded-xl bg-muted/50 border border-border flex items-center justify-center group-hover:border-primary transition-colors">
+                      <step.icon className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div className="text-center">
+                      <span className="text-xs font-medium block">{step.label}</span>
+                      <span className="text-[10px] text-muted-foreground">{step.desc}</span>
+                    </div>
+                  </div>
+                  {idx < 2 && (
+                    <ArrowRight className="h-4 w-4 text-muted-foreground mx-2 mt-[-20px]" />
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Quick Start Hint */}
+            <div className="bg-muted/50 rounded-xl p-4 border border-border/50 mt-6">
+              <div className="flex items-start gap-3">
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Zap className="h-4 w-4 text-primary" />
+                </div>
+                <div className="text-left">
+                  <span className="text-sm font-medium">Schnellstart</span>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Gib links ein Fokus-Keyword ein. Die SERP-Analyse startet automatisch und du kannst sofort Content generieren.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -162,27 +197,55 @@ export const ContentEditor = ({
     );
   }
 
-  // Loading state
+  // Loading state - Enhanced with progress simulation
   if (isGenerating) {
     return (
-      <Card className="flex-1 flex flex-col items-center justify-center">
-        <div className="text-center space-y-4 p-8">
-          <div className="relative mx-auto w-fit">
-            <div className="h-16 w-16 rounded-full bg-primary/20 flex items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <Card className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col items-center justify-center p-8">
+          <div className="text-center space-y-6 max-w-md">
+            {/* Animated Loading */}
+            <div className="relative mx-auto w-fit">
+              <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+              </div>
+              <div className="absolute inset-0 rounded-2xl bg-primary/5 animate-pulse" />
+              <div className="absolute -inset-4 rounded-3xl border-2 border-primary/20 animate-ping opacity-75" />
             </div>
-            <div className="absolute -inset-2 rounded-full bg-primary/10 animate-pulse" />
-          </div>
-          <div className="space-y-2">
-            <h3 className="text-lg font-semibold">Generiere 3 Content-Varianten...</h3>
-            <p className="text-sm text-muted-foreground">
-              KI analysiert SERP-Daten und erstellt optimierten Content
+
+            <div className="space-y-2">
+              <h3 className="text-xl font-semibold">Content wird generiert...</h3>
+              <p className="text-sm text-muted-foreground">
+                KI analysiert SERP-Daten und erstellt SEO-optimierten Content
+              </p>
+            </div>
+
+            {/* Progress Steps */}
+            <div className="space-y-3 w-full max-w-xs mx-auto">
+              {[
+                { label: 'SERP-Daten analysieren', done: true },
+                { label: 'Content-Struktur erstellen', done: true },
+                { label: 'SEO-optimierten Text generieren', done: false },
+              ].map((step, idx) => (
+                <div key={idx} className="flex items-center gap-3">
+                  <div className={`h-6 w-6 rounded-full flex items-center justify-center ${
+                    step.done ? 'bg-green-500' : 'bg-primary/20'
+                  }`}>
+                    {step.done ? (
+                      <CheckCircle2 className="h-4 w-4 text-white" />
+                    ) : (
+                      <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                    )}
+                  </div>
+                  <span className={`text-sm ${step.done ? 'text-muted-foreground line-through' : 'font-medium'}`}>
+                    {step.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-xs text-muted-foreground animate-pulse">
+              Dies kann 15-30 Sekunden dauern...
             </p>
-          </div>
-          <div className="flex justify-center gap-4 text-xs text-muted-foreground">
-            <span>Variante A: Strukturiert</span>
-            <span>Variante B: Nutzenorientiert</span>
-            <span>Variante C: Emotional</span>
           </div>
         </div>
       </Card>
