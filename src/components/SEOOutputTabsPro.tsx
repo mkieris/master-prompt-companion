@@ -2,6 +2,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle, CheckCircle, AlertTriangle } from "lucide-react";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 export interface GeneratedContent {
   seoText: string;
@@ -82,7 +83,7 @@ export const SEOOutputTabsPro = ({ content }: SEOOutputTabsProps) => {
             <div 
               className="prose prose-sm max-w-none" 
               dangerouslySetInnerHTML={{ 
-                __html: typeof content.seoText === 'string' ? content.seoText : '' 
+                __html: sanitizeHtml(typeof content.seoText === 'string' ? content.seoText : '')
               }} 
             />
           </Card>

@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ContentRating } from "@/components/ContentRating";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 // Model display names and icons
 const MODEL_DISPLAY: Record<string, { name: string; icon: React.ReactNode }> = {
@@ -123,9 +124,11 @@ export const Step4Preview = ({
       <div 
         className="whitespace-pre-wrap" 
         dangerouslySetInnerHTML={{ 
-          __html: typeof content?.seoText === 'string' 
-            ? content.seoText 
-            : (typeof content?.text === 'string' ? content.text : '') 
+          __html: sanitizeHtml(
+            typeof content?.seoText === 'string' 
+              ? content.seoText 
+              : (typeof content?.text === 'string' ? content.text : '')
+          )
         }} 
       />
     </div>

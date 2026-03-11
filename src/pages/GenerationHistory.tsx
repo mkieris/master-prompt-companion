@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 interface GeneratedProject {
   id: string;
@@ -274,7 +275,7 @@ export default function GenerationHistory() {
                       <h3 className="font-semibold mb-2">Generierter Content</h3>
                       <div 
                         className="prose prose-sm max-w-none"
-                        dangerouslySetInnerHTML={{ __html: selectedProject.generated_content?.seoText || '' }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedProject.generated_content?.seoText || '') }}
                       />
                     </div>
 

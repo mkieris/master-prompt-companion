@@ -72,9 +72,14 @@ export interface ValidationSummary {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const TONE_TO_TONALITY: Record<string, string> = {
+  // English values (advanced forms)
   'factual': 'Sachlich & Informativ',
   'advisory': 'Beratend & Nutzenorientiert',
-  'sales': 'Aktivierend & Überzeugend'
+  'sales': 'Aktivierend & Überzeugend',
+  // German values (BasicVersion)
+  'sachlich': 'Sachlich & Informativ',
+  'beratend': 'Beratend & Nutzenorientiert',
+  'aktivierend': 'Aktivierend & Überzeugend'
 };
 
 const ADDRESS_STYLE_MAP: Record<string, string> = {

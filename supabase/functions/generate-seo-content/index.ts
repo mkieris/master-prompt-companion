@@ -81,13 +81,298 @@ function calculateCost(model: ModelConfig, inputTokens: number, outputTokens: nu
   };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// KEYWORD ANALYSIS (integrated mode) - PROFESSIONAL GRADE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+interface KeywordAnalysis {
+  secondaryKeywords: string[];
+  wQuestions: string[];
+  searchIntent: "know" | "do" | "buy" | "go";
+  suggestedTopics: string[];
+}
+
+/**
+ * Extracts JSON from AI response text using multiple strategies
+ */
+function extractJsonFromText(text: string): any | null {
+  // Strategy 1: Direct parse (if response is pure JSON)
+  try {
+    return JSON.parse(text.trim());
+  } catch (e) {
+    // Continue to next strategy
+  }
+
+  // Strategy 2: Extract from markdown code block
+  const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeBlockMatch) {
+    try {
+      return JSON.parse(codeBlockMatch[1].trim());
+    } catch (e) {
+      // Continue to next strategy
+    }
+  }
+
+  // Strategy 3: Find JSON object with greedy match
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    try {
+      return JSON.parse(jsonMatch[0]);
+    } catch (e) {
+      // Continue to next strategy
+    }
+  }
+
+  // Strategy 4: Find JSON by looking for opening/closing braces more carefully
+  const startIdx = text.indexOf('{');
+  const endIdx = text.lastIndexOf('}');
+  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+    try {
+      return JSON.parse(text.substring(startIdx, endIdx + 1));
+    } catch (e) {
+      // All strategies failed
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Validates and sanitizes keyword analysis results
+ */
+function validateKeywordAnalysis(parsed: any, focusKeyword: string): KeywordAnalysis {
+  const validIntents = ['know', 'do', 'buy', 'go'];
+
+  // Extract arrays safely
+  const extractStringArray = (arr: any, fallback: string[] = []): string[] => {
+    if (!Array.isArray(arr)) return fallback;
+    return arr.filter((item: any) => typeof item === 'string' && item.trim().length > 0).slice(0, 15);
+  };
+
+  const secondaryKeywords = extractStringArray(parsed.secondaryKeywords);
+  const wQuestions = extractStringArray(parsed.wQuestions);
+  const suggestedTopics = extractStringArray(parsed.suggestedTopics);
+
+  // Validate search intent
+  let searchIntent: "know" | "do" | "buy" | "go" = 'know';
+  if (parsed.searchIntent && validIntents.includes(parsed.searchIntent)) {
+    searchIntent = parsed.searchIntent;
+  }
+
+  return {
+    secondaryKeywords,
+    wQuestions,
+    searchIntent,
+    suggestedTopics,
+  };
+}
+
+/**
+ * Generates fallback keyword suggestions when AI fails
+ */
+function generateFallbackAnalysis(focusKeyword: string, targetAudience: string | undefined): KeywordAnalysis {
+  const keyword = focusKeyword.toLowerCase();
+  const isB2B = targetAudience === 'physiotherapists';
+
+  // Generate basic secondary keywords
+  const secondaryKeywords = [
+    `${focusKeyword} kaufen`,
+    `${focusKeyword} Anwendung`,
+    `${focusKeyword} Vorteile`,
+    `beste ${focusKeyword}`,
+    `${focusKeyword} Erfahrungen`,
+    `${focusKeyword} Test`,
+    isB2B ? `${focusKeyword} Therapie` : `${focusKeyword} Tipps`,
+    isB2B ? `${focusKeyword} Indikation` : `${focusKeyword} für Anfänger`,
+  ];
+
+  // Generate basic W-questions
+  const wQuestions = [
+    `Was ist ${focusKeyword}?`,
+    `Wie funktioniert ${focusKeyword}?`,
+    `Wann sollte man ${focusKeyword} verwenden?`,
+    `Welche Vorteile hat ${focusKeyword}?`,
+    `Wo kann man ${focusKeyword} kaufen?`,
+    isB2B ? `Welche Kontraindikationen gibt es bei ${focusKeyword}?` : `Wie wendet man ${focusKeyword} richtig an?`,
+  ];
+
+  // Generate basic topics
+  const suggestedTopics = [
+    `Was ist ${focusKeyword}`,
+    `Anwendungsbereiche`,
+    `Vorteile und Nutzen`,
+    isB2B ? 'Evidenz und Studien' : 'Tipps zur Anwendung',
+    'Häufige Fragen',
+  ];
+
+  return {
+    secondaryKeywords,
+    wQuestions,
+    searchIntent: 'know',
+    suggestedTopics,
+  };
+}
+
+async function handleKeywordAnalysis(
+  focusKeyword: string,
+  targetAudience: string | undefined,
+  language: string,
+  apiKey: string
+): Promise<KeywordAnalysis> {
+  console.log('=== KEYWORD ANALYSIS START ===');
+  console.log('Focus Keyword:', focusKeyword);
+  console.log('Target Audience:', targetAudience);
+  console.log('Language:', language);
+
+  const audienceContext = targetAudience === 'physiotherapists'
+    ? 'B2B-Zielgruppe: Therapeuten, Ärzte, medizinisches Fachpersonal. Verwende Fachterminologie.'
+    : 'B2C-Zielgruppe: Endkunden, Patienten, Verbraucher. Verwende allgemeinverständliche Sprache.';
+
+  const analysisPrompt = `Analysiere das Fokus-Keyword für SEO-Content-Erstellung.
+
+FOKUS-KEYWORD: "${focusKeyword}"
+ZIELGRUPPE: ${audienceContext}
+SPRACHE: ${language === 'de' ? 'Deutsch' : 'Englisch'}
+
+Generiere:
+
+1. SEKUNDÄRE KEYWORDS (10-12 Stück):
+   - Long-Tail-Varianten (z.B. "${focusKeyword} kaufen", "${focusKeyword} Anwendung")
+   - LSI-Keywords (semantisch verwandte Begriffe)
+   - Synonyme und verwandte Suchbegriffe
+   - Kombinationen mit Adjektiven (beste, günstige, professionelle)
+
+2. W-FRAGEN (6-8 Stück):
+   - Beginne mit: Was, Wie, Warum, Wann, Welche, Wo, Wer
+   - Typische Fragen die Nutzer bei Google stellen
+   - Fragen die im FAQ beantwortet werden können
+
+3. SUCHINTENTION (eine der folgenden):
+   - "know": Nutzer sucht Informationen/Wissen
+   - "do": Nutzer will etwas tun/anwenden
+   - "buy": Nutzer hat Kaufabsicht
+   - "go": Nutzer sucht bestimmte Website/Marke
+
+4. THEMEN-VORSCHLÄGE (4-6 Stück):
+   - Hauptabschnitte für einen umfassenden Artikel
+   - Logische Gliederung des Themas
+
+WICHTIG: Antworte AUSSCHLIESSLICH mit diesem JSON-Format, KEIN anderer Text:
+{"secondaryKeywords":["keyword1","keyword2"],"wQuestions":["Frage 1?","Frage 2?"],"searchIntent":"know","suggestedTopics":["Thema 1","Thema 2"]}`;
+
+  let lastError: Error | null = null;
+
+  // Try up to 2 times with different temperatures
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      console.log(`API Attempt ${attempt}/2...`);
+
+      const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            {
+              role: 'system',
+              content: 'Du bist ein SEO-Experte. Antworte NUR mit validem JSON, ohne Erklärungen oder Markdown.'
+            },
+            { role: 'user', content: analysisPrompt }
+          ],
+          temperature: attempt === 1 ? 0.3 : 0.5, // Lower temp first for more consistent JSON
+        }),
+      });
+
+      if (!aiResponse.ok) {
+        const errorText = await aiResponse.text();
+        console.error(`API Error (attempt ${attempt}):`, aiResponse.status, errorText);
+
+        if (aiResponse.status === 429) {
+          throw new Error('Rate limit erreicht. Bitte versuche es in 1 Minute erneut.');
+        }
+        if (aiResponse.status === 402) {
+          throw new Error('AI-Credits aufgebraucht. Bitte Lovable-Guthaben prüfen.');
+        }
+        if (aiResponse.status === 401) {
+          throw new Error('API-Authentifizierung fehlgeschlagen. Bitte Support kontaktieren.');
+        }
+
+        lastError = new Error(`AI API Fehler: ${aiResponse.status}`);
+        continue;
+      }
+
+      const aiData = await aiResponse.json();
+      const analysisText = aiData.choices?.[0]?.message?.content || '';
+
+      console.log('Raw AI Response (first 500 chars):', analysisText.substring(0, 500));
+
+      if (!analysisText || analysisText.trim().length < 10) {
+        console.error('Empty or too short AI response');
+        lastError = new Error('AI-Antwort war leer');
+        continue;
+      }
+
+      // Try to extract JSON
+      const parsed = extractJsonFromText(analysisText);
+
+      if (!parsed) {
+        console.error('Failed to extract JSON from response');
+        console.error('Full response:', analysisText);
+        lastError = new Error('JSON-Parsing fehlgeschlagen');
+        continue;
+      }
+
+      // Validate and sanitize
+      const analysis = validateKeywordAnalysis(parsed, focusKeyword);
+
+      // Check if we got meaningful results
+      if (analysis.secondaryKeywords.length === 0 && analysis.wQuestions.length === 0) {
+        console.error('Parsed JSON but arrays are empty');
+        lastError = new Error('Keine Keywords in der Analyse gefunden');
+        continue;
+      }
+
+      console.log('=== KEYWORD ANALYSIS SUCCESS ===');
+      console.log('Secondary Keywords:', analysis.secondaryKeywords.length);
+      console.log('W-Questions:', analysis.wQuestions.length);
+      console.log('Search Intent:', analysis.searchIntent);
+      console.log('Suggested Topics:', analysis.suggestedTopics.length);
+
+      return analysis;
+
+    } catch (error) {
+      console.error(`Attempt ${attempt} failed:`, error);
+      lastError = error instanceof Error ? error : new Error(String(error));
+
+      // Wait before retry
+      if (attempt < 2) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+  }
+
+  // All attempts failed - use fallback
+  console.warn('=== USING FALLBACK ANALYSIS ===');
+  console.warn('Reason:', lastError?.message || 'Unknown error');
+
+  const fallback = generateFallbackAnalysis(focusKeyword, targetAudience);
+  console.log('Fallback generated:', fallback.secondaryKeywords.length, 'keywords,', fallback.wQuestions.length, 'questions');
+
+  return fallback;
+}
+
 // Input validation schema
 const formDataSchema = z.object({
+  mode: z.enum(['generate', 'analyze-keyword']).optional().default('generate'),
   focusKeyword: z.string().min(1, 'Fokus-Keyword ist erforderlich').max(200, 'Fokus-Keyword zu lang'),
+  language: z.string().optional().default('de'),
   pageType: z.string().max(100).optional(),
   targetAudience: z.string().max(100).optional(),
   formOfAddress: z.enum(['du', 'sie', 'neutral']).optional(),
-  tone: z.enum(['factual', 'advisory', 'sales']).optional(),
+  tone: z.enum(['factual', 'advisory', 'sales', 'sachlich', 'beratend', 'aktivierend']).optional(),
   contentLength: z.enum(['short', 'medium', 'long']).optional(),
   keywordDensity: z.enum(['minimal', 'low', 'normal', 'medium', 'high']).optional(),
   secondaryKeywords: z.array(z.string().max(100)).max(20).optional(),
@@ -172,9 +457,9 @@ serve(async (req) => {
 
     const formData = parseResult.data;
     // ===== END VALIDATION =====
-    
+
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    
+
     if (!LOVABLE_API_KEY) {
       console.error('LOVABLE_API_KEY not configured');
       return new Response(
@@ -183,6 +468,33 @@ serve(async (req) => {
       );
     }
 
+    // ═══ MODE: KEYWORD ANALYSIS ═══
+    if (formData.mode === 'analyze-keyword') {
+      console.log('Mode: analyze-keyword for:', formData.focusKeyword);
+
+      const analysis = await handleKeywordAnalysis(
+        formData.focusKeyword,
+        formData.targetAudience,
+        formData.language || 'de',
+        LOVABLE_API_KEY
+      );
+
+      console.log('Keyword analysis completed:', {
+        secondaryKeywordsCount: analysis.secondaryKeywords?.length,
+        wQuestionsCount: analysis.wQuestions?.length,
+        searchIntent: analysis.searchIntent,
+      });
+
+      return new Response(JSON.stringify({
+        success: true,
+        focusKeyword: formData.focusKeyword,
+        analysis,
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // ═══ MODE: GENERATE (default) ═══
     // ═══ LOGGING mit Prompt-Version ═══
     const promptVersion = formData.promptVersion || 'v9-master-prompt';
     const modelConfig = getModelConfig(formData.aiModel);
@@ -313,179 +625,137 @@ serve(async (req) => {
         { role: 'user', content: 'Hier ist der aktuelle Text:\n\n' + JSON.stringify(formData.existingContent, null, 2) + '\n\nBitte ueberarbeite:\n' + formData.refinementPrompt + '\n\nGib den Text im gleichen JSON-Format zurueck.' }
       ];
     } else {
-      console.log('Generating 3 content variants in parallel with model: ' + modelConfig.modelName);
+      // Single content generation based on tone
+      console.log('Generating single content with tone:', formData.tone);
 
-      // v9.0 Varianten-Stile
-      const variantApproaches = [
-        {
-          name: 'Variante A',
-          description: 'Sachlich & Strukturiert',
-          instruction: 'STIL: SACHLICH & STRUKTURIERT\n- Faktenbasiert mit klarer Hierarchie\n- Nutze Listen und Aufzählungen wo sinnvoll\n- Ruhiger, vertrauensbildender Ton\n- Daten und Fakten zur Untermauerung\n- Objektiv und informativ'
-        },
-        {
-          name: 'Variante B',
-          description: 'Nutzenorientiert & Aktivierend',
-          instruction: 'STIL: NUTZENORIENTIERT & AKTIVIEREND\n- Starte Abschnitte mit Nutzenversprechen\n- Zeige Transformation (vorher → nachher)\n- Integriere CTAs an passenden Stellen\n- Konkrete Ergebnisse hervorheben\n- Aktivierende Verben und Sprache'
-        },
-        {
-          name: 'Variante C',
-          description: 'Nahbar & Authentisch',
-          instruction: 'STIL: NAHBAR & AUTHENTISCH\n- Beginne mit realem Szenario aus dem Alltag\n- "Kennst du das?"-Einstiege\n- Nutze bildhafte, sensorische Sprache\n- Zeige Empathie für Nutzerbedürfnisse\n- Warmherziger, menschlicher Ton'
-        }
-      ];
-
-      // Track total costs across variants
-      let totalInputTokens = 0;
-      let totalOutputTokens = 0;
-
-      const generateVariant = async (variantIndex: number): Promise<any> => {
-        const approach = variantApproaches[variantIndex];
-
-        // Kombiniere System-Prompt mit Varianten-Stil
-        const enhancedUserPrompt = approach.instruction + '\n\n' + userPrompt;
-
-        const variantMessages = [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: enhancedUserPrompt }
-        ];
-
-        // Estimate input tokens for cost tracking
-        const inputTokens = estimateTokens(systemPrompt + enhancedUserPrompt);
-
-        const maxRetries = 3;
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-          try {
-            console.log('Variant ' + (variantIndex + 1) + ' (' + approach.name + '): attempt ' + attempt + ' | Model: ' + modelConfig.modelName);
-            console.log('System prompt length:', systemPrompt?.length || 0);
-            console.log('User prompt length:', enhancedUserPrompt?.length || 0);
-
-            const requestBody = {
-              model: modelConfig.modelName,
-              messages: variantMessages,
-              temperature: modelConfig.temperature
-            };
-            
-            const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-              method: 'POST',
-              headers: { 'Authorization': 'Bearer ' + LOVABLE_API_KEY, 'Content-Type': 'application/json' },
-              body: JSON.stringify(requestBody),
-            });
-            
-            if (!response.ok) {
-              const errorText = await response.text();
-              console.error('API Error Response:', response.status, errorText);
-            }
-
-            if (response.ok) {
-              const data = await response.json();
-              const rawContent = data.choices[0].message.content;
-              console.log('Variant ' + (variantIndex + 1) + ' raw response length:', rawContent?.length || 0);
-
-              // Track tokens for cost calculation
-              const outputTokens = estimateTokens(rawContent || '');
-              totalInputTokens += inputTokens;
-              totalOutputTokens += outputTokens;
-
-              const parsed = parseGeneratedContent(rawContent, formData);
-
-              if (!parsed.seoText || parsed.seoText.length < 50) {
-                console.error('CRITICAL: Variant ' + (variantIndex + 1) + ' has empty or too short seoText:', parsed.seoText?.length || 0);
-                if (attempt < maxRetries) {
-                  console.log('Retrying variant ' + (variantIndex + 1) + ' due to empty content...');
-                  await new Promise(resolve => setTimeout(resolve, 1000));
-                  continue;
-                }
-              }
-
-              parsed._variantInfo = { name: approach.name, description: approach.description, index: variantIndex };
-              console.log('Variant ' + (variantIndex + 1) + ' successfully parsed. seoText length:', parsed.seoText?.length || 0);
-              return parsed;
-            }
-            
-            if (response.status === 429 || response.status === 402) {
-              throw new Error(response.status === 429 ? 'Rate limit exceeded' : 'Payment required');
-            }
-            
-            if (response.status >= 500 && attempt < maxRetries) {
-              console.log('Server error for variant ' + (variantIndex + 1) + ', retrying...');
-              await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
-              continue;
-            }
-            
-            throw new Error('AI Gateway error: ' + response.status);
-          } catch (err) {
-            console.error('Error generating variant ' + (variantIndex + 1) + ':', err);
-            if (attempt === maxRetries) throw err;
-            await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
-          }
-        }
-        throw new Error('Failed to generate variant ' + variantIndex + ' after ' + maxRetries + ' attempts');
+      // Map tone to writing style instruction (supports both old German keys and new English keys)
+      const toneInstructions: Record<string, string> = {
+        'sachlich': 'SCHREIBSTIL: SACHLICH & STRUKTURIERT\n- Faktenbasiert mit klarer Hierarchie\n- Nutze Listen und Aufzählungen wo sinnvoll\n- Ruhiger, vertrauensbildender Ton\n- Daten und Fakten zur Untermauerung\n- Objektiv und informativ',
+        'factual': 'SCHREIBSTIL: SACHLICH & STRUKTURIERT\n- Faktenbasiert mit klarer Hierarchie\n- Nutze Listen und Aufzählungen wo sinnvoll\n- Ruhiger, vertrauensbildender Ton\n- Daten und Fakten zur Untermauerung\n- Objektiv und informativ',
+        'beratend': 'SCHREIBSTIL: BERATEND & NUTZENORIENTIERT\n- Fokus auf praktischen Nutzen und Lösungen\n- Empathisch und hilfreich\n- "Du fragst dich..."-Einstiege\n- Konkrete Empfehlungen und Tipps\n- Vertrauensaufbauend und unterstützend',
+        'advisory': 'SCHREIBSTIL: BERATEND & NUTZENORIENTIERT\n- Fokus auf praktischen Nutzen und Lösungen\n- Empathisch und hilfreich\n- "Du fragst dich..."-Einstiege\n- Konkrete Empfehlungen und Tipps\n- Vertrauensaufbauend und unterstützend',
+        'aktivierend': 'SCHREIBSTIL: AKTIVIEREND & ÜBERZEUGEND\n- Starte mit starkem Nutzenversprechen\n- Zeige Transformation (vorher → nachher)\n- Integriere CTAs an passenden Stellen\n- Konkrete Ergebnisse hervorheben\n- Aktivierende Verben und überzeugende Sprache',
+        'sales': 'SCHREIBSTIL: AKTIVIEREND & ÜBERZEUGEND\n- Starte mit starkem Nutzenversprechen\n- Zeige Transformation (vorher → nachher)\n- Integriere CTAs an passenden Stellen\n- Konkrete Ergebnisse hervorheben\n- Aktivierende Verben und überzeugende Sprache'
       };
-      
-      const variants = await Promise.all([generateVariant(0), generateVariant(1), generateVariant(2)]);
-      console.log('Successfully generated 3 variants');
 
-      // Calculate and log costs
-      const costInfo = calculateCost(modelConfig, totalInputTokens, totalOutputTokens);
-      console.log('=== COST SUMMARY ===');
-      console.log('Model:', modelConfig.modelName);
-      console.log('Input tokens:', totalInputTokens);
-      console.log('Output tokens:', totalOutputTokens);
-      console.log('Total cost:', costInfo.formatted);
+      const toneInstruction = toneInstructions[formData.tone || 'advisory'] || toneInstructions['advisory'];
+      const enhancedUserPrompt = toneInstruction + '\n\n' + userPrompt;
 
-      return new Response(JSON.stringify({
-        variants,
-        selectedVariant: 0,
-        variantDescriptions: variantApproaches.map(a => ({ name: a.name, description: a.description })),
-        _meta: {
-          model: modelConfig.id,
-          modelName: modelConfig.modelName,
-          inputTokens: totalInputTokens,
-          outputTokens: totalOutputTokens,
-          cost: costInfo
-        }
-      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      messages = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: enhancedUserPrompt }
+      ];
     }
 
-    // Refinement/quick change - single generation
-    const maxRetries = 3;
+    // Single generation (for new content and refinement/quick change)
+    // IMPORTANT: Supabase Edge Functions have ~120s timeout
+    // We must complete within that time, so use shorter API timeout and fewer retries
+    const maxRetries = 2;
+    const TIMEOUT_MS = 55000; // 55 seconds per attempt (2 attempts + processing = ~115s max)
     let response: Response | null = null;
 
-    console.log('Refinement/Quick-Change with model:', modelConfig.modelName);
+    const startTime = Date.now();
+    console.log('=== STARTING CONTENT GENERATION ===');
+    console.log('Max retries:', maxRetries, 'Timeout per attempt:', TIMEOUT_MS, 'ms');
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const attemptStart = Date.now();
       try {
-        response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Authorization': 'Bearer ' + LOVABLE_API_KEY, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: modelConfig.modelName, messages: messages, temperature: modelConfig.temperature }),
-        });
+        console.log(`API attempt ${attempt}/${maxRetries} starting at ${attemptStart - startTime}ms...`);
 
-        if (response.ok) break;
-        
-        if (response.status === 429) return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-        if (response.status === 402) return new Response(JSON.stringify({ error: 'Payment required' }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-        
+        // Create abort controller for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+          console.log(`Timeout triggered for attempt ${attempt}`);
+          controller.abort();
+        }, TIMEOUT_MS);
+
+        try {
+          response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + LOVABLE_API_KEY, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: modelConfig.modelName, messages: messages, temperature: modelConfig.temperature }),
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(timeoutId);
+        }
+
+        const attemptDuration = Date.now() - attemptStart;
+        console.log(`API attempt ${attempt} completed in ${attemptDuration}ms, status: ${response.status}`);
+
+        if (response.ok) {
+          console.log('=== API CALL SUCCESSFUL ===');
+          break;
+        }
+
+        if (response.status === 429) {
+          console.log('Rate limit hit');
+          return new Response(JSON.stringify({ error: 'Rate limit erreicht. Bitte warte 1 Minute.' }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        if (response.status === 402) {
+          console.log('Payment required');
+          return new Response(JSON.stringify({ error: 'Keine AI-Credits mehr. Bitte Lovable-Guthaben aufladen.' }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+
         if (response.status >= 500 && attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+          console.log(`Server error ${response.status}, retrying in 2 seconds...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
           continue;
         }
-        throw new Error('AI Gateway error: ' + response.status);
+        throw new Error('AI Gateway Fehler: ' + response.status);
       } catch (err) {
-        if (attempt === maxRetries) throw err;
-        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+        const attemptDuration = Date.now() - attemptStart;
+        // Check if it's an abort error (timeout)
+        if (err instanceof Error && err.name === 'AbortError') {
+          console.error(`API attempt ${attempt} TIMED OUT after ${attemptDuration}ms`);
+          if (attempt === maxRetries) {
+            throw new Error('Zeitüberschreitung bei AI-Generierung (55s). Versuche es mit kürzerem Text oder erneut.');
+          }
+          console.log('Waiting 2s before retry...');
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        } else {
+          console.error(`API attempt ${attempt} failed after ${attemptDuration}ms:`, err);
+          if (attempt === maxRetries) throw err;
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
       }
     }
-    
-    if (!response || !response.ok) throw new Error('AI Gateway request failed');
+
+    if (!response || !response.ok) {
+      throw new Error('AI-Generierung fehlgeschlagen. Bitte erneut versuchen.');
+    }
+
+    console.log('=== PARSING RESPONSE ===');
 
     const data = await response.json();
-    const parsedContent = parseGeneratedContent(data.choices[0].message.content, formData);
+
+    // Validate response structure
+    if (!data || !data.choices || !Array.isArray(data.choices) || data.choices.length === 0) {
+      console.error('Invalid AI response structure:', JSON.stringify(data).substring(0, 500));
+      throw new Error('Ungültige AI-Antwort erhalten. Bitte erneut versuchen.');
+    }
+
+    const aiContent = data.choices[0]?.message?.content;
+    if (!aiContent || typeof aiContent !== 'string') {
+      console.error('Missing or invalid content in AI response');
+      throw new Error('AI-Antwort war leer. Bitte erneut versuchen.');
+    }
+
+    console.log('AI content received, length:', aiContent.length);
+
+    const parsedContent = parseGeneratedContent(aiContent, formData);
+
+    const totalDuration = Date.now() - startTime;
+    console.log(`=== GENERATION COMPLETE in ${totalDuration}ms ===`);
+
     return new Response(JSON.stringify(parsedContent), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    
+
   } catch (error) {
-    console.error('Error:', error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    console.error('=== GENERATION ERROR ===');
+    console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error);
+    console.error('Error message:', error instanceof Error ? error.message : String(error));
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unbekannter Fehler' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });
 
@@ -513,15 +783,23 @@ function buildSystemPrompt(formData: any): string {
   };
   
   // ═══ FIX: tone → tonality MAPPING ═══
+  // Support both English (from advanced forms) and German (from BasicVersion) tone values
   const toneToTonality: Record<string, string> = {
+    // English values
     'factual': 'Sachlich & Informativ',
     'advisory': 'Beratend & Nutzenorientiert',
-    'sales': 'Aktivierend & Überzeugend'
+    'sales': 'Aktivierend & Überzeugend',
+    // German values (from BasicVersion)
+    'sachlich': 'Sachlich & Informativ',
+    'beratend': 'Beratend & Nutzenorientiert',
+    'aktivierend': 'Aktivierend & Überzeugend'
   };
-  
-  const tonality = formData.tone 
+
+  const tonality = formData.tone
     ? toneToTonality[formData.tone] || tonalityMap[formData.tonality] || 'Balanced-Mix'
     : tonalityMap[formData.tonality] || 'Balanced-Mix';
+
+  console.log('Tone mapping:', formData.tone, '->', tonality);
   
   const maxPara = formData.maxParagraphLength || 300;
   
@@ -563,8 +841,13 @@ function buildSystemPrompt(formData: any): string {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // VERSION ROUTING - AKTIVE VERSIONEN: v1, v2, v6, v8, v9 (default), v10
+  // VERSION ROUTING - AKTIVE VERSIONEN: v1, v2, v6, v8, v9 (default), v10, v11
   // ═══════════════════════════════════════════════════════════════════════════════
+
+  // ═══ VERSION 11: SURFER-STYLE (Weighted Terms, No Hallucination) ═══
+  if (promptVersion === 'v11-surfer-style') {
+    return buildV11SurferStylePrompt(formData, tonality, addressStyle, wordCount, minKeywords, maxKeywords, density, compliance, serpBlock);
+  }
 
   // ═══ VERSION 10: GEO-OPTIMIZED (Generative Engine Optimization) ═══
   if (promptVersion === 'v10-geo-optimized') {
@@ -1197,6 +1480,215 @@ Liefere das Ergebnis als JSON:
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// VERSION 11.0 - SURFER-STYLE PROMPT (Weighted Terms, No Hallucination)
+// Inspiriert von Surfer SEO, Clearscope - Term Importance statt Keyword-Stuffing
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function buildV11SurferStylePrompt(
+  formData: any,
+  tonality: string,
+  addressStyle: string,
+  wordCount: number,
+  minKeywords: number,
+  maxKeywords: number,
+  density: { min: number; max: number; label: string },
+  compliance: string,
+  serpBlock: string = ''
+): string {
+
+  const brandName = formData.brandName || formData.manufacturerName || 'das Unternehmen';
+  const pageType = formData.pageType || 'product';
+
+  // ═══ ZIELGRUPPEN-BLOCK ═══
+  let audienceBlock = '';
+  if (formData.targetAudience === 'physiotherapists') {
+    audienceBlock = `
+ZIELGRUPPE: Therapeuten/Fachpersonal
+→ Fachsprache erlaubt, evidenzbasiert argumentieren`;
+  } else {
+    audienceBlock = `
+ZIELGRUPPE: Endkunden (B2C)
+→ Einfache Sprache, Nutzen in den Vordergrund`;
+  }
+
+  // ═══ COMPLIANCE ═══
+  let complianceBlock = '';
+  const hasMDR = formData.complianceChecks?.mdr || formData.checkMDR;
+  const hasHWG = formData.complianceChecks?.hwg || formData.checkHWG;
+  if (formData.complianceCheck && (hasMDR || hasHWG)) {
+    complianceBlock = `
+
+═══ COMPLIANCE (AKTIV!) ═══
+${hasMDR ? '• MDR/MPDG: Keine Heilversprechen\n' : ''}${hasHWG ? '• HWG: Keine irreführenden Aussagen\n' : ''}
+→ Erlaubt: "kann unterstützen", "trägt bei zu"
+→ Verboten: "heilt", "garantiert", absolute Wirkaussagen`;
+  }
+
+  return `Du bist ein Content-Stratege, der Texte wie Surfer SEO / Clearscope optimiert:
+Basierend auf SERP-Daten, gewichteten Terms, und ohne erfundene Fakten.
+
+═══ GRUNDPRINZIP ═══
+
+Dieses System arbeitet wie professionelle SEO-Tools:
+• Terms werden nach WICHTIGKEIT gewichtet (nicht alle gleich behandelt)
+• Long-Tail Keywords sind VARIATIONEN, nicht separate Pflicht-Keywords
+• Information Gain kommt aus SERP-Lücken, nicht aus Erfindung
+• Content Score > Keyword-Dichte
+
+═══ AKTUELLE AUFGABE ═══
+
+MARKE: ${brandName}
+SEITENTYP: ${pageType === 'product' ? 'Produktseite' : 'Kategorieseite'}
+TONALITÄT: ${tonality}
+ANREDE: ${addressStyle}
+TEXTLÄNGE: ~${wordCount} Wörter${audienceBlock}${complianceBlock}
+
+═══ KEYWORD-STRATEGIE (SURFER-STYLE) ═══
+
+FOKUS-KEYWORD: Muss enthalten sein in:
+✓ H1-Überschrift
+✓ Ersten 100 Wörtern
+✓ Mind. 1x H2
+✓ Letztem Absatz
+✓ Meta-Title & Description
+
+ZIEL-HÄUFIGKEIT: ${minKeywords}-${maxKeywords}x (bei ${wordCount} Wörtern)
+
+AGGREGATIONS-REGEL (KRITISCH!):
+┌─────────────────────────────────────────────────────────────┐
+│ "Jako Trainingshose Herren" = 1 Erwähnung, NICHT 2!        │
+│                                                             │
+│ Long-Tail Keywords sind VARIATIONEN des Fokus-Keywords.    │
+│ Sie zählen NICHT separat!                                  │
+│                                                             │
+│ FALSCH: "Jako Trainingshose" (1) + "Jako Trainingshose     │
+│         Herren" (2) + "Jako Trainingshose Damen" (3) = 3x  │
+│                                                             │
+│ RICHTIG: Alles zusammen = max. ${maxKeywords}x im Text            │
+└─────────────────────────────────────────────────────────────┘
+
+VARIATIONEN NUTZEN statt Wiederholung:
+• "die Trainingshose" / "die Hose" / "das Modell"
+• "Jako Sporthose" / "Jako Jogginghose" (wenn passend)
+• Pronomen: "sie", "diese", "damit"
+${serpBlock ? `
+═══ SERP-ANALYSE (Google Top-10) ═══
+${serpBlock}
+
+WICHTIG zur SERP-Analyse:
+• PFLICHT-BEGRIFFE: Müssen vorkommen (natürlich eingebaut)
+• EMPFOHLENE BEGRIFFE: Sollten vorkommen wo passend
+• OPTIONALE BEGRIFFE: Für Differenzierung, nicht erzwingen
+
+Die Begriffe stammen aus echten Top-10 Seiten.
+Nutze sie als Inspiration, nicht als Checkliste zum Abhaken.` : ''}
+
+═══ INFORMATION GAIN (OHNE ERFINDUNG!) ═══
+
+Du sollst Mehrwert bieten, aber NICHTS ERFINDEN!
+
+✅ ERLAUBT - Allgemeine Aussagen:
+• "Jako bietet verschiedene Modelle und Serien"
+• "Die genauen Größen findest du in der Größentabelle"
+• "Preise variieren je nach Modell und Ausstattung"
+• "Im Shop findest du die aktuelle Produktübersicht"
+• Allgemeine Materialeigenschaften (Polyester ist atmungsaktiv)
+• Allgemeine Anwendungstipps
+
+❌ VERBOTEN - Konkrete erfundene Fakten:
+• Konkrete Preise (z.B. "29,99€")
+• Spezifische Modellnamen die nicht verifiziert sind
+• Exakte technische Specs (z.B. "78% Polyester, 22% Elasthan")
+• Konkrete Lieferzeiten oder Verfügbarkeiten
+
+DIFFERENZIERUNG durch:
+• Ausführlichere Erklärungen als Wettbewerber
+• Bessere Struktur und Lesbarkeit
+• Mehr hilfreiche Fragen im FAQ
+• Praktische Anwendungstipps (allgemein gehalten)
+
+═══ ANTI-PATTERNS (STRIKT VERBOTEN!) ═══
+
+FLUFF-PHRASEN (klingen nach KI):
+❌ "Kennst du das Gefühl, wenn..." → Max. 1x im gesamten Text!
+❌ "In der heutigen Zeit..."
+❌ "Es ist wichtig zu beachten..."
+❌ "Zusammenfassend lässt sich sagen..."
+❌ "Weit mehr als nur..."
+❌ "Optimal unterstützen..."
+❌ Jeder Satz ohne konkreten Informationswert
+
+KEYWORD-STUFFING:
+❌ Mehr als ${maxKeywords}x das Fokus-Keyword
+❌ Unnatürliche Wortstellungen ("Hosen Herren günstig kaufen online")
+❌ Jedes Long-Tail als separates Muss-Keyword behandeln
+
+ERFUNDENE FAKTEN:
+❌ Konkrete Preise ohne Quelle
+❌ Spezifische Produktnamen ohne Verifizierung
+❌ Technische Details ohne Beleg
+
+═══ STRUKTUR ═══
+
+1. H1: Mit Fokus-Keyword + Nutzenversprechen (max. 70 Zeichen)
+
+2. EINSTIEG (80-120 Wörter):
+   • Fokus-Keyword in ersten 50 Wörtern
+   • Problem oder Bedürfnis ansprechen
+   • KEIN "Kennst du das Gefühl" als Einstieg
+
+3. H2-SEKTIONEN:
+   • Was ist [Produkt]?
+   • Vorteile / Für wen geeignet?
+   • Worauf achten beim Kauf?
+   • Pflege / Anwendung
+
+4. VISUELLE ELEMENTE (Pflicht!):
+   • Mind. 2-3 Bullet-Listen
+   • <strong> für wichtige Begriffe
+   • Tabelle bei Vergleichen (optional)
+
+5. FAQ-SEKTION:
+   • 5-8 W-Fragen
+   • DIREKTE Antwort im ersten Satz (40-60 Wörter)
+   • Featured-Snippet-tauglich
+
+═══ LESBARKEIT ═══
+
+• Satzlänge variieren: Kurz. Dann mittel. Dann ein längerer.
+• Keine 3x gleicher Satzanfang hintereinander
+• Max. 4 Sätze pro Absatz
+• Aktive Sprache (max. 15% Passiv)
+• Alle 3 Absätze ein visuelles Element
+
+═══ OUTPUT-FORMAT ═══
+
+{
+  "title": "Meta-Title, max 60 Zeichen, Fokus-Keyword vorne",
+  "metaDescription": "Meta-Description, max 155 Zeichen, mit CTA",
+  "seoText": "HTML mit <h1>, <h2>, <h3>, <p>, <ul>, <strong>",
+  "faq": [{"question": "W-Frage?", "answer": "Direkte Antwort..."}],
+  "internalLinks": ["Verlinkungsvorschläge"],
+  "qualityReport": {
+    "fokusKeywordCount": "Anzahl (Ziel: ${minKeywords}-${maxKeywords})",
+    "wordCount": ${wordCount},
+    "contentScore": "Einschätzung 0-100",
+    "informationGainNotes": "Was macht diesen Text besser als Top-10?"
+  }
+}
+
+═══ QUALITÄTS-CHECK VOR OUTPUT ═══
+
+□ Fokus-Keyword ${minKeywords}-${maxKeywords}x? (NICHT mehr!)
+□ Long-Tails als Variationen gezählt (nicht separat)?
+□ Keine erfundenen Preise/Modellnamen?
+□ Keine Fluff-Phrasen?
+□ Mind. 2-3 Listen im Text?
+□ FAQ mit direkten Antworten?
+□ Satzlängen variiert?`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // USER PROMPT BUILDER (mit allen Frontend-Feldern)
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1448,7 +1940,7 @@ function parseGeneratedContent(text: string, formData: any): any {
 function validateAndFixContent(content: any, mainTopic: string): any {
   const seoText = content.seoText || content.text || '';
   const faq = Array.isArray(content.faq) ? content.faq : [];
-  
+
   if (!seoText || seoText.length < 100) {
     console.error('VALIDATION FAILED: seoText too short or empty:', seoText.length);
     return {
@@ -1458,23 +1950,66 @@ function validateAndFixContent(content: any, mainTopic: string): any {
       metaDescription: '',
       internalLinks: [],
       technicalHints: '',
-      qualityReport: { status: 'error', flags: ['Content too short'], evidenceTable: [] }
+      qualityReport: { status: 'error', flags: ['Content too short'], evidenceTable: [] },
+      guidelineValidation: { overallScore: 0, googleEEAT: {} }
     };
   }
-  
+
+  // Analyze content for quality metrics
+  const plainText = seoText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  const wordCount = plainText.split(' ').filter((w: string) => w.length > 0).length;
+  const h1Count = (seoText.match(/<h1[^>]*>/gi) || []).length;
+  const h2Count = (seoText.match(/<h2[^>]*>/gi) || []).length;
+  const h3Count = (seoText.match(/<h3[^>]*>/gi) || []).length;
+  const listCount = (seoText.match(/<ul[^>]*>|<ol[^>]*>/gi) || []).length;
+  const strongCount = (seoText.match(/<strong[^>]*>/gi) || []).length;
+  const faqCount = faq.length;
+
+  // Calculate E-E-A-T scores based on content analysis
+  const experienceScore = Math.min(100, 50 + (listCount * 10) + (faqCount * 5));
+  const expertiseScore = Math.min(100, 40 + (h2Count * 10) + (h3Count * 5) + (strongCount * 2));
+  const authorityScore = Math.min(100, 50 + (wordCount > 600 ? 20 : wordCount > 400 ? 10 : 0) + (h2Count * 5));
+  const trustScore = Math.min(100, 60 + (faqCount >= 5 ? 20 : faqCount * 4) + (h1Count === 1 ? 10 : 0));
+
+  // Calculate overall score
+  const overallScore = Math.round((experienceScore + expertiseScore + authorityScore + trustScore) / 4);
+
+  // Determine status based on score
+  const getStatus = (score: number) => score >= 70 ? 'green' : score >= 50 ? 'yellow' : 'red';
+
+  const guidelineValidation = {
+    overallScore,
+    googleEEAT: {
+      experience: { score: experienceScore, status: getStatus(experienceScore) },
+      expertise: { score: expertiseScore, status: getStatus(expertiseScore) },
+      authoritativeness: { score: authorityScore, status: getStatus(authorityScore) },
+      trustworthiness: { score: trustScore, status: getStatus(trustScore) }
+    },
+    metrics: {
+      wordCount,
+      h1Count,
+      h2Count,
+      h3Count,
+      listCount,
+      strongCount,
+      faqCount
+    }
+  };
+
   const validated = {
     seoText: seoText,
-    faq: faq.length > 0 ? faq : [{ 
-      question: 'Was zeichnet ' + mainTopic + ' aus?', 
-      answer: 'Detaillierte Informationen finden Sie im Text oben.' 
+    faq: faq.length > 0 ? faq : [{
+      question: 'Was zeichnet ' + mainTopic + ' aus?',
+      answer: 'Detaillierte Informationen finden Sie im Text oben.'
     }],
     title: content.title || mainTopic.substring(0, 60),
     metaDescription: content.metaDescription || content.meta_description || seoText.replace(/<[^>]*>/g, '').substring(0, 155),
     internalLinks: Array.isArray(content.internalLinks) ? content.internalLinks : [],
     technicalHints: content.technicalHints || 'Schema.org Product/Article Markup empfohlen',
-    qualityReport: content.qualityReport || { status: 'green', flags: [], evidenceTable: [] }
+    qualityReport: content.qualityReport || { status: getStatus(overallScore), flags: [], evidenceTable: [] },
+    guidelineValidation
   };
-  
-  console.log('Content validated successfully. seoText length:', validated.seoText.length);
+
+  console.log('Content validated successfully. seoText length:', validated.seoText.length, 'Overall score:', overallScore);
   return validated;
 }
