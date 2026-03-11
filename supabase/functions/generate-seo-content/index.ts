@@ -1083,8 +1083,14 @@ REGEL: Jeder Pflicht-Begriff sollte in einem SINNVOLLEN Kontext stehen, nicht is
   const contextBlock = serpBlock + domainBlock;
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // VERSION ROUTING - AKTIVE VERSIONEN: v1, v2, v6, v8, v9 (default), v10, v11
+  // VERSION ROUTING - AKTIVE VERSIONEN: v12 (default/healthcare), v11, v10, v9, v8, v6
   // ═══════════════════════════════════════════════════════════════════════════════
+
+  // ═══ VERSION 12: K-ACTIVE HEALTHCARE MASTER (NEU - Default für Healthcare) ═══
+  if (promptVersion === 'v12-healthcare-master' || promptVersion === 'v9-master') {
+    // v9 wird auf v12 umgeleitet für bessere Healthcare-Compliance
+    return buildV12HealthcareMasterPrompt(formData, tonality, addressStyle, wordCount, minKeywords, maxKeywords, density, compliance, contextBlock);
+  }
 
   // ═══ VERSION 11: SURFER-STYLE (Weighted Terms, No Hallucination) ═══
   if (promptVersion === 'v11-surfer-style') {
@@ -1942,6 +1948,203 @@ ERFUNDENE FAKTEN:
 □ Mind. 2-3 Listen im Text?
 □ FAQ mit direkten Antworten?
 □ Satzlängen variiert?`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VERSION 12.0 - K-ACTIVE HEALTHCARE MASTER PROMPT
+// Kombiniert: v11 SERP-Integration + v9 Zielgruppen + v8 E-E-A-T + v6 Anti-Fluff
+// Speziell für Healthcare/Medtech mit MDR + HWG Compliance IMMER AKTIV
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function buildV12HealthcareMasterPrompt(
+  formData: any,
+  tonality: string,
+  addressStyle: string,
+  wordCount: number,
+  minKeywords: number,
+  maxKeywords: number,
+  density: { min: number; max: number; label: string },
+  compliance: string,
+  contextBlock: string = ''
+): string {
+
+  const maxPara = formData.maxParagraphLength || 300;
+  const pageType = formData.pageType || 'product';
+  const brandName = formData.brandName || formData.manufacturerName || 'K-Active';
+
+  // ═══ ZIELGRUPPEN-BLOCK (Therapeuten vs. Endkunden) ═══
+  let audienceBlock = '';
+  if (formData.targetAudience === 'b2b' || formData.targetAudience === 'physiotherapists') {
+    audienceBlock = `
+═══ ZIELGRUPPE: THERAPEUTEN / FACHPERSONAL (B2B) ═══
+
+SPRACHE & TERMINOLOGIE:
+• Anatomische Fachbegriffe verwenden (M. trapezius, Fascia thoracolumbalis)
+• Biomechanische Konzepte (Propriozeption, neuromuskuläre Kontrolle)
+• AWMF-Leitlinien und Evidenzlevel referenzieren wo relevant
+• Indikationen UND Kontraindikationen nennen
+
+TON: Fachlich-kollegial, auf Augenhöhe mit Therapeuten`;
+  } else {
+    audienceBlock = `
+═══ ZIELGRUPPE: ENDKUNDEN / PATIENTEN (B2C) ═══
+
+SPRACHE:
+• Fachbegriffe IMMER erklären ("Propriozeption - das Körpergefühl")
+• Alltagsszenarien und praktische Beispiele nutzen
+• Keine Angstmacherei, aber ehrlich über Grenzen
+
+TON: Freundlich, nahbar, vertrauensvoll`;
+  }
+
+  // ═══ HEALTHCARE COMPLIANCE BLOCK (IMMER AKTIV!) ═══
+  const healthcareComplianceBlock = `
+═══ HEALTHCARE COMPLIANCE (IMMER AKTIV - K-Active ist Medtech!) ═══
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ MDR (Medical Device Regulation)                                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ • Medizinprodukte nur mit zugelassener Zweckbestimmung bewerben             │
+│ • Keine Erweiterung der Indikationen über CE-Kennzeichnung hinaus           │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ HWG (Heilmittelwerbegesetz)                                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ VERBOTEN:                                                                    │
+│ ❌ "heilt", "beseitigt", "garantiert Schmerzfreiheit"                       │
+│ ❌ Absolut formulierte Wirkaussagen                                         │
+│ ❌ "Klinisch getestet" ohne Quellenangabe                                   │
+│                                                                              │
+│ ERLAUBT:                                                                     │
+│ ✓ "kann unterstützen bei...", "trägt bei zu..."                            │
+│ ✓ "wurde entwickelt für...", "eignet sich für..."                          │
+│ ✓ "Anwender berichten...", "In Studien zeigte sich..." (mit Quelle)        │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+COMPLIANCE-SICHERE FORMULIERUNGEN:
+• STATT "heilt Rückenschmerzen" → "kann bei Rückenbeschwerden unterstützend wirken"
+• STATT "beseitigt Verspannungen" → "wurde entwickelt, um Verspannungen zu adressieren"
+• STATT "garantierte Wirkung" → "viele Anwender berichten von positiven Erfahrungen"`;
+
+  // ═══ ANTI-FLUFF BLACKLIST ═══
+  const antiFluffBlock = `
+═══ ANTI-FLUFF BLACKLIST (STRIKT VERBOTEN!) ═══
+
+KI-TYPISCHE PHRASEN (NIEMALS verwenden):
+❌ "In der heutigen Zeit..." / "In der modernen Welt..."
+❌ "Es ist wichtig zu beachten, dass..."
+❌ "Zusammenfassend lässt sich sagen..."
+❌ "In diesem Artikel erfahren Sie..."
+❌ "Herzlich willkommen..."
+❌ "Wie wir alle wissen..."
+❌ "Optimal unterstützen..." (HWG-problematisch!)
+❌ "Kennst du das Gefühl, wenn..." (max. 1x im GESAMTEN Text!)
+
+REGEL: Jeder Satz muss INFORMIEREN oder ÜBERZEUGEN. Füllsätze → LÖSCHEN!`;
+
+  // ═══ STRUKTUR-TEMPLATE ═══
+  let structureTemplate = '';
+  if (pageType === 'product') {
+    structureTemplate = `
+═══ STRUKTUR: PRODUKTSEITE ═══
+
+<h1>[Produktname] – [Hauptnutzen]</h1>
+<p>Einleitung: Fokus-Keyword in ersten 50 Wörtern</p>
+
+<h2>Was ist [Produkt] und wie funktioniert es?</h2>
+<p>Definition (AEO-optimiert), Wirkmechanismus</p>
+
+<h2>Für wen eignet sich [Produkt]?</h2>
+<p>Zielgruppen, Anwendungsfälle (keine Heilversprechen!)</p>
+
+<h2>[Produkt] richtig anwenden</h2>
+<p>Schritt-für-Schritt Anleitung</p>
+
+<h2>Vorteile von [Produkt]</h2>
+<ul><li><strong>Vorteil:</strong> Erklärung</li></ul>
+
+<h2>Häufige Fragen</h2>
+<!-- FAQ mit direkten Antworten -->`;
+  } else {
+    structureTemplate = `
+═══ STRUKTUR: KATEGORIESEITE ═══
+
+<h1>[Kategorie] – Überblick</h1>
+<p>Einleitung mit Fokus-Keyword</p>
+
+<h2>Was sind [Kategorie]?</h2>
+<p>Grundlegende Erklärung</p>
+
+<h2>Die verschiedenen Arten</h2>
+<h3>[Unterkategorie 1]</h3>
+<h3>[Unterkategorie 2]</h3>
+
+<h2>So findest du das richtige [Produkt]</h2>
+<p>Kaufberatung</p>`;
+  }
+
+  return \`Du bist ein Healthcare Content Engineer für \${brandName} (Medtech).
+Du erstellst SEO-Content mit STRIKTER MDR/HWG Compliance.
+
+═══ AKTUELLE AUFGABE ═══
+
+MARKE: \${brandName}
+SEITENTYP: \${pageType === 'product' ? 'Produktseite' : 'Kategorieseite'}
+TONALITÄT: \${tonality}
+ANREDE: \${addressStyle}
+TEXTLÄNGE: ca. \${wordCount} Wörter
+\${audienceBlock}
+\${healthcareComplianceBlock}
+\${antiFluffBlock}
+
+═══ KEYWORD-STRATEGIE ═══
+
+FOKUS-KEYWORD PLATZIERUNG (PFLICHT):
+✓ In der H1-Überschrift
+✓ In den ersten 100 Wörtern
+✓ In mindestens einer H2
+✓ Im Meta-Title UND Meta-Description
+
+ZIEL-HÄUFIGKEIT: \${minKeywords}-\${maxKeywords}x (bei \${wordCount} Wörtern)
+
+AGGREGATIONS-REGEL: Long-Tail Keywords zählen als Variationen, nicht separat!
+\${contextBlock}
+\${structureTemplate}
+
+═══ HEADING-HIERARCHIE (ABSOLUT KRITISCH!) ═══
+
+1. EXAKT EINE H1 (mit Fokus-Keyword, max. 70 Zeichen)
+2. H2 für Hauptabschnitte (mind. 3-4 pro Text)
+3. H3 NUR als Unterpunkt von H2
+4. Nach JEDER Überschrift kommt Text
+5. Keine Level überspringen (H1 → H3 ist VERBOTEN)
+
+═══ LESBARKEIT ═══
+
+• Satzlänge VARIIEREN: Kurz. Dann mittel. Dann länger.
+• Max. 4 Sätze pro Absatz (\${maxPara} Wörter)
+• Mindestens 2-3 Bullet-Listen
+• <strong> für wichtige Keywords
+
+═══ OUTPUT-FORMAT ═══
+
+{
+  "title": "Meta-Title, max 60 Zeichen, Fokus-Keyword vorne",
+  "metaDescription": "Meta-Description, max 155 Zeichen, mit CTA",
+  "seoText": "HTML mit <h1>, <h2>, <h3>, <p>, <ul>, <strong>",
+  "faq": [{"question": "W-Frage?", "answer": "Direkte Antwort (40-60 Wörter)..."}]
+}
+
+═══ QUALITÄTS-CHECK VOR OUTPUT ═══
+
+□ Fokus-Keyword in H1? ✓
+□ Keyword-Häufigkeit \${minKeywords}-\${maxKeywords}x? ✓
+□ KEINE Heilversprechen (HWG)? ✓
+□ Keine absoluten Wirkaussagen (MDR)? ✓
+□ KEINE verbotenen Fluff-Phrasen? ✓
+□ Mind. 2-3 Listen? ✓
+□ FAQ mit direkten Antworten? ✓\`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

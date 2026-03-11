@@ -137,12 +137,12 @@ const defaultConfig: ContentConfig = {
   searchIntent: ['know', 'buy'],
   keywordDensity: 'normal',
   complianceChecks: {
-    mdr: false,
-    hwg: false,
+    mdr: true,  // Default ON für Healthcare
+    hwg: true,  // Default ON für Healthcare
     studies: false,
   },
   aiModel: 'gemini-flash',
-  promptVersion: 'v9-master',
+  promptVersion: 'v12-healthcare-master',  // Neuer Healthcare-optimierter Default
 };
 
 const ContentCreator = ({ session }: ContentCreatorProps) => {

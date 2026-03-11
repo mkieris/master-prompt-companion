@@ -654,7 +654,10 @@ export const ConfigPanel = ({
 
               {/* Prompt Version */}
               <div className="space-y-2">
-                <Label className="text-xs">Prompt-Version</Label>
+                <Label className="text-xs flex items-center gap-2">
+                  Prompt-Version
+                  <Badge variant="default" className="text-[9px] h-4 px-1.5 bg-green-600">Healthcare</Badge>
+                </Label>
                 <Select
                   value={config.promptVersion}
                   onValueChange={(value) => onConfigChange({ promptVersion: value })}
@@ -663,13 +666,16 @@ export const ConfigPanel = ({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="v9-master">v9: Master (Standard)</SelectItem>
-                    <SelectItem value="v11-surfer-style">v11: Surfer-Style (NEU)</SelectItem>
+                    <SelectItem value="v12-healthcare-master">v12: Healthcare Master (MDR/HWG)</SelectItem>
+                    <SelectItem value="v11-surfer-style">v11: Surfer-Style</SelectItem>
                     <SelectItem value="v10-geo-optimized">v10: GEO-Optimized</SelectItem>
+                    <SelectItem value="v9-master">v9: Master (Alt)</SelectItem>
                     <SelectItem value="v8-natural-seo">v8: Naturlich SEO</SelectItem>
-                    <SelectItem value="v6-quality-auditor">v6: Anti-Fluff</SelectItem>
                   </SelectContent>
                 </Select>
+                <p className="text-[10px] text-muted-foreground">
+                  v12 enthalt MDR/HWG Compliance fest integriert
+                </p>
               </div>
             </CollapsibleContent>
           </Collapsible>

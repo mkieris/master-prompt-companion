@@ -253,202 +253,287 @@ export const ContentEditor = ({
   }
 
   return (
-    <Card className="flex-1 flex flex-col overflow-hidden">
-      <CardHeader className="pb-2 border-b flex-shrink-0">
-        <div className="flex items-center justify-between">
+    <Card className="flex-1 flex flex-col overflow-hidden border-x-0 rounded-none">
+      {/* Enhanced Header */}
+      <CardHeader className="pb-0 border-b flex-shrink-0 bg-muted/30">
+        <div className="flex items-center justify-between pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            Content Editor
+            <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+              <FileText className="h-4 w-4 text-primary" />
+            </div>
+            <span>Content Editor</span>
+            {content && (
+              <Badge variant="secondary" className="text-[10px] ml-2">
+                {content.split(/\s+/).filter(w => w.length > 0).length} Worter
+              </Badge>
+            )}
           </CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <Button
-              variant="outline"
+              variant={isEditing ? "default" : "outline"}
               size="sm"
               onClick={() => onEditingChange(!isEditing)}
+              className="h-8 text-xs"
             >
               {isEditing ? (
                 <>
-                  <Eye className="h-4 w-4 mr-1" />
+                  <Eye className="h-3.5 w-3.5 mr-1.5" />
                   Vorschau
                 </>
               ) : (
                 <>
-                  <Edit3 className="h-4 w-4 mr-1" />
+                  <Edit3 className="h-3.5 w-3.5 mr-1.5" />
                   Bearbeiten
                 </>
               )}
             </Button>
+            <Separator orientation="vertical" className="h-6" />
             <Button
-              variant="outline"
-              size="sm"
+              variant="ghost"
+              size="icon"
               onClick={() => copyToClipboard(stripHtml(content), 'Content')}
+              className="h-8 w-8"
             >
               {copiedSection === 'Content' ? (
-                <Check className="h-4 w-4" />
+                <Check className="h-4 w-4 text-green-500" />
               ) : (
                 <Copy className="h-4 w-4" />
               )}
             </Button>
-            <Button variant="outline" size="sm" onClick={exportAsHtml}>
+            <Button variant="ghost" size="icon" onClick={exportAsHtml} className="h-8 w-8">
               <Download className="h-4 w-4" />
             </Button>
           </div>
         </div>
+
+        {/* Enhanced Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="w-full h-10 p-1 bg-muted/50 rounded-t-lg rounded-b-none border-b-0">
+            <TabsTrigger value="preview" className="flex-1 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <Eye className="h-3.5 w-3.5 mr-1.5" />
+              Vorschau
+            </TabsTrigger>
+            <TabsTrigger value="meta" className="flex-1 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <Globe className="h-3.5 w-3.5 mr-1.5" />
+              Meta & SEO
+            </TabsTrigger>
+            <TabsTrigger value="html" className="flex-1 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <Code className="h-3.5 w-3.5 mr-1.5" />
+              HTML
+            </TabsTrigger>
+            <TabsTrigger value="refine" className="flex-1 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <Wand2 className="h-3.5 w-3.5 mr-1.5" />
+              KI-Anpassung
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </CardHeader>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-        <TabsList className="mx-4 mt-2 grid w-auto grid-cols-4">
-          <TabsTrigger value="preview" className="text-xs">
-            <Eye className="h-3.5 w-3.5 mr-1" />
-            Vorschau
-          </TabsTrigger>
-          <TabsTrigger value="meta" className="text-xs">
-            <Code className="h-3.5 w-3.5 mr-1" />
-            Meta
-          </TabsTrigger>
-          <TabsTrigger value="html" className="text-xs">
-            <Code className="h-3.5 w-3.5 mr-1" />
-            HTML
-          </TabsTrigger>
-          <TabsTrigger value="refine" className="text-xs">
-            <RefreshCw className="h-3.5 w-3.5 mr-1" />
-            Anpassen
-          </TabsTrigger>
-        </TabsList>
 
-        <ScrollArea className="flex-1 p-4">
-          <TabsContent value="preview" className="mt-0">
-            {isEditing ? (
-              <Textarea
-                value={content}
-                onChange={(e) => onContentChange(e.target.value)}
-                className="min-h-[500px] font-mono text-sm"
-                placeholder="Content hier bearbeiten..."
-              />
-            ) : (
-              <div className="prose prose-sm max-w-none dark:prose-invert">
-                {/* Detect if content is HTML or Markdown */}
-                {content?.trim().startsWith('<') ? (
-                  <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(content || '') }} />
-                ) : (
-                  <ReactMarkdown>{content || ''}</ReactMarkdown>
-                )}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="meta" className="mt-0 space-y-4">
-            <div className="space-y-2">
-              <Label>Title Tag</Label>
-              <Input
-                value={title}
-                onChange={(e) => onTitleChange(e.target.value)}
-                placeholder="SEO Title..."
-              />
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">Zeichen: {title.length}/60</span>
-                {title.length > 60 && (
-                  <Badge variant="destructive" className="text-xs">Zu lang</Badge>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Meta Description</Label>
-              <Textarea
-                value={metaDescription}
-                onChange={(e) => onMetaChange(e.target.value)}
-                placeholder="Meta Description..."
-                rows={3}
-              />
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">Zeichen: {metaDescription.length}/155</span>
-                {metaDescription.length > 155 && (
-                  <Badge variant="destructive" className="text-xs">Zu lang</Badge>
-                )}
-              </div>
-            </div>
-
-            {/* SERP Preview */}
-            <div className="space-y-2">
-              <Label>Google Vorschau</Label>
-              <div className="bg-white dark:bg-gray-900 p-4 rounded-lg border">
-                <div className="text-blue-600 dark:text-blue-400 text-lg hover:underline cursor-pointer">
-                  {title || 'Titel eingeben...'}
-                </div>
-                <div className="text-green-700 dark:text-green-500 text-sm">
-                  www.example.com
-                </div>
-                <div className="text-gray-600 dark:text-gray-400 text-sm mt-1">
-                  {metaDescription || 'Meta Description eingeben...'}
-                </div>
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="html" className="mt-0">
-            <Textarea
-              value={content}
-              onChange={(e) => onContentChange(e.target.value)}
-              className="min-h-[500px] font-mono text-xs"
-              placeholder="HTML Content..."
-            />
-          </TabsContent>
-
-          <TabsContent value="refine" className="mt-0 space-y-4">
-            <div className="space-y-2">
-              <Label>Anpassung beschreiben</Label>
-              <Textarea
-                value={refinePrompt}
-                onChange={(e) => setRefinePrompt(e.target.value)}
-                placeholder="z.B. 'Mache den Text formeller', 'Füge mehr technische Details hinzu', 'Kürze die Einleitung'"
-                rows={4}
-              />
-            </div>
-
-            <Button
-              onClick={handleRefine}
-              disabled={isRefining || !refinePrompt.trim()}
-              className="w-full"
-            >
-              {isRefining ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Wird überarbeitet...
-                </>
+        <ScrollArea className="flex-1">
+          <div className="p-4">
+            <TabsContent value="preview" className="mt-0">
+              {isEditing ? (
+                <Textarea
+                  value={content}
+                  onChange={(e) => onContentChange(e.target.value)}
+                  className="min-h-[500px] font-mono text-sm border-2 focus:border-primary"
+                  placeholder="Content hier bearbeiten..."
+                />
               ) : (
-                <>
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Text anpassen
-                </>
+                <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:font-semibold prose-h1:text-2xl prose-h2:text-xl prose-h2:mt-8 prose-h2:mb-4 prose-p:leading-relaxed prose-ul:my-4 prose-li:my-1">
+                  {/* Detect if content is HTML or Markdown */}
+                  {content?.trim().startsWith('<') ? (
+                    <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(content || '') }} />
+                  ) : (
+                    <ReactMarkdown>{content || ''}</ReactMarkdown>
+                  )}
+                </div>
               )}
-            </Button>
+            </TabsContent>
 
-            {/* Quick Refinements */}
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Schnellanpassungen</Label>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  'Formeller machen',
-                  'Informeller machen',
-                  'Mehr Details',
-                  'Kürzer fassen',
-                  'Mehr CTAs',
-                  'Weniger Fachbegriffe',
-                ].map((quick) => (
-                  <Button
-                    key={quick}
-                    variant="outline"
-                    size="sm"
-                    className="text-xs"
-                    onClick={() => setRefinePrompt(quick)}
-                  >
-                    {quick}
-                  </Button>
-                ))}
+            <TabsContent value="meta" className="mt-0 space-y-6">
+              {/* Title Tag - Enhanced */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2">
+                    <span>Title Tag</span>
+                    {title.length >= 30 && title.length <= 60 ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    ) : title.length > 0 ? (
+                      <AlertCircle className="h-4 w-4 text-amber-500" />
+                    ) : null}
+                  </Label>
+                  <span className={`text-xs font-mono ${
+                    title.length > 60 ? 'text-red-500' :
+                    title.length >= 30 ? 'text-green-500' : 'text-muted-foreground'
+                  }`}>
+                    {title.length} / 60
+                  </span>
+                </div>
+                <Input
+                  value={title}
+                  onChange={(e) => onTitleChange(e.target.value)}
+                  placeholder="SEO Title eingeben..."
+                  className="h-11 text-base"
+                />
+                <Progress
+                  value={Math.min((title.length / 60) * 100, 100)}
+                  className={`h-1.5 ${title.length > 60 ? '[&>div]:bg-red-500' : ''}`}
+                />
               </div>
-            </div>
-          </TabsContent>
+
+              {/* Meta Description - Enhanced */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2">
+                    <span>Meta Description</span>
+                    {metaDescription.length >= 120 && metaDescription.length <= 155 ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    ) : metaDescription.length > 0 ? (
+                      <AlertCircle className="h-4 w-4 text-amber-500" />
+                    ) : null}
+                  </Label>
+                  <span className={`text-xs font-mono ${
+                    metaDescription.length > 155 ? 'text-red-500' :
+                    metaDescription.length >= 120 ? 'text-green-500' : 'text-muted-foreground'
+                  }`}>
+                    {metaDescription.length} / 155
+                  </span>
+                </div>
+                <Textarea
+                  value={metaDescription}
+                  onChange={(e) => onMetaChange(e.target.value)}
+                  placeholder="Meta Description eingeben..."
+                  rows={3}
+                  className="resize-none"
+                />
+                <Progress
+                  value={Math.min((metaDescription.length / 155) * 100, 100)}
+                  className={`h-1.5 ${metaDescription.length > 155 ? '[&>div]:bg-red-500' : ''}`}
+                />
+              </div>
+
+              {/* Google SERP Preview - Enhanced */}
+              <div className="space-y-3">
+                <Label className="flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-muted-foreground" />
+                  Google Suchergebnis-Vorschau
+                </Label>
+                <div className="bg-white dark:bg-zinc-950 p-4 rounded-xl border-2 shadow-sm">
+                  {/* Breadcrumb */}
+                  <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 mb-1">
+                    <span>www.example.com</span>
+                    <span>{'>'}</span>
+                    <span>...</span>
+                  </div>
+                  {/* Title */}
+                  <div className="text-blue-600 dark:text-blue-400 text-lg font-medium hover:underline cursor-pointer leading-tight">
+                    {title || 'Titel hier eingeben...'}
+                  </div>
+                  {/* Description */}
+                  <div className="text-gray-600 dark:text-gray-400 text-sm mt-1 leading-snug">
+                    {metaDescription || 'Meta Description hier eingeben - diese wird in den Google Suchergebnissen angezeigt...'}
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="html" className="mt-0">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs text-muted-foreground">HTML-Quellcode</Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => copyToClipboard(content, 'HTML')}
+                  >
+                    {copiedSection === 'HTML' ? (
+                      <Check className="h-3 w-3 mr-1 text-green-500" />
+                    ) : (
+                      <Copy className="h-3 w-3 mr-1" />
+                    )}
+                    Kopieren
+                  </Button>
+                </div>
+                <Textarea
+                  value={content}
+                  onChange={(e) => onContentChange(e.target.value)}
+                  className="min-h-[500px] font-mono text-xs bg-zinc-950 text-zinc-100 dark:bg-zinc-900 border-zinc-800"
+                  placeholder="HTML Content..."
+                />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="refine" className="mt-0 space-y-6">
+              {/* AI Refinement - Enhanced */}
+              <div className="bg-gradient-to-br from-purple-500/5 to-indigo-500/5 rounded-xl border border-purple-500/20 p-4 space-y-4">
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                    <Wand2 className="h-4 w-4 text-purple-500" />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">KI-Anpassung</Label>
+                    <p className="text-xs text-muted-foreground">Beschreibe, wie der Text verbessert werden soll</p>
+                  </div>
+                </div>
+
+                <Textarea
+                  value={refinePrompt}
+                  onChange={(e) => setRefinePrompt(e.target.value)}
+                  placeholder="z.B. 'Mache den Text formeller', 'Fuge mehr technische Details hinzu', 'Kurze die Einleitung'"
+                  rows={4}
+                  className="resize-none border-purple-500/30 focus:border-purple-500"
+                />
+
+                <Button
+                  onClick={handleRefine}
+                  disabled={isRefining || !refinePrompt.trim()}
+                  className="w-full bg-purple-600 hover:bg-purple-700"
+                >
+                  {isRefining ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      KI arbeitet...
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="mr-2 h-4 w-4" />
+                      Text mit KI anpassen
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* Quick Refinements - Enhanced */}
+              <div className="space-y-3">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider">Schnellanpassungen</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: 'Formeller', icon: '👔' },
+                    { label: 'Lockerer', icon: '😊' },
+                    { label: 'Mehr Details', icon: '📝' },
+                    { label: 'Kurzer fassen', icon: '✂️' },
+                    { label: 'Mehr CTAs', icon: '🎯' },
+                    { label: 'Einfacher', icon: '💡' },
+                  ].map((quick) => (
+                    <Button
+                      key={quick.label}
+                      variant="outline"
+                      size="sm"
+                      className="text-xs h-9 justify-start"
+                      onClick={() => setRefinePrompt(quick.label + ' machen')}
+                    >
+                      <span className="mr-2">{quick.icon}</span>
+                      {quick.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </TabsContent>
+          </div>
         </ScrollArea>
       </Tabs>
     </Card>

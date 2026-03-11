@@ -1,8 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Separator } from "@/components/ui/separator";
 import {
   CheckCircle2,
   XCircle,
@@ -14,7 +17,16 @@ import {
   Type,
   MessageSquare,
   TrendingUp,
-  Zap
+  Zap,
+  ChevronDown,
+  ChevronUp,
+  Search,
+  Award,
+  ListChecks,
+  Sparkles,
+  ArrowUp,
+  ArrowDown,
+  Minus
 } from "lucide-react";
 import type { ContentConfig } from "@/pages/ContentCreator";
 
@@ -42,6 +54,8 @@ export const ContentScorePanel = ({
   config,
   serpResult,
 }: ContentScorePanelProps) => {
+  const [serpTermsExpanded, setSerpTermsExpanded] = useState(true);
+
   // Calculate metrics
   const metrics = useMemo(() => {
     const text = content.toLowerCase();
@@ -189,167 +203,321 @@ export const ContentScorePanel = ({
   ];
 
   const passCount = checks.filter(c => c.status === 'pass').length;
+  const warnCount = checks.filter(c => c.status === 'warn').length;
+
+  // Score quality label
+  const getScoreLabel = (s: number) => {
+    if (s >= 90) return { label: 'Exzellent', emoji: '🏆' };
+    if (s >= 80) return { label: 'Sehr gut', emoji: '🌟' };
+    if (s >= 70) return { label: 'Gut', emoji: '👍' };
+    if (s >= 60) return { label: 'Akzeptabel', emoji: '📈' };
+    if (s >= 40) return { label: 'Verbesserungswurdig', emoji: '⚠️' };
+    return { label: 'Uberarbeiten', emoji: '🔧' };
+  };
+
+  const scoreInfo = getScoreLabel(score);
 
   return (
-    <Card className="w-72 flex-shrink-0 flex flex-col h-full overflow-hidden">
-      <CardHeader className="pb-3 border-b">
+    <Card className="w-72 flex-shrink-0 flex flex-col h-full overflow-hidden border-l-0 rounded-l-none">
+      {/* Header - Enhanced */}
+      <CardHeader className="pb-2 border-b bg-muted/30">
         <CardTitle className="text-sm flex items-center justify-between">
           <span className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4 text-primary" />
+            <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+              <BarChart3 className="h-4 w-4 text-primary" />
+            </div>
             Content Score
           </span>
-          <span className="text-xs text-muted-foreground">
-            {passCount}/{checks.length} Checks
-          </span>
+          <Badge
+            variant={passCount >= 6 ? "default" : passCount >= 4 ? "secondary" : "outline"}
+            className="text-[10px]"
+          >
+            {passCount}/{checks.length}
+          </Badge>
         </CardTitle>
       </CardHeader>
 
       <ScrollArea className="flex-1">
-        <CardContent className="p-4 space-y-6">
-          {/* Score Circle */}
-          <div className="flex justify-center">
-            <div className="relative w-28 h-28">
-              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+        <CardContent className="p-4 space-y-4">
+          {/* Score Circle - Surfer SEO Style */}
+          <div className="flex flex-col items-center">
+            <div className="relative w-32 h-32">
+              {/* Background glow */}
+              <div className={`absolute inset-0 rounded-full blur-xl opacity-30 ${getScoreBg(score)}`} />
+
+              {/* SVG Circle */}
+              <svg className="w-full h-full transform -rotate-90 relative z-10" viewBox="0 0 100 100">
+                {/* Track */}
                 <circle
                   cx="50"
                   cy="50"
-                  r="45"
+                  r="42"
                   stroke="currentColor"
-                  strokeWidth="8"
+                  strokeWidth="6"
                   fill="none"
-                  className="text-muted"
+                  className="text-muted/50"
                 />
+                {/* Progress */}
                 <circle
                   cx="50"
                   cy="50"
-                  r="45"
+                  r="42"
                   stroke="currentColor"
-                  strokeWidth="8"
+                  strokeWidth="6"
                   fill="none"
                   className={getScoreColor(score)}
                   strokeLinecap="round"
-                  strokeDasharray={`${score * 2.83} 283`}
+                  strokeDasharray={`${score * 2.64} 264`}
+                  style={{ transition: 'stroke-dasharray 0.5s ease-out' }}
                 />
               </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className={`text-3xl font-bold ${getScoreColor(score)}`}>{score}</span>
-                <span className="text-xs text-muted-foreground">/ 100</span>
+
+              {/* Center Content */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
+                <span className={`text-4xl font-bold ${getScoreColor(score)}`}>{score}</span>
+                <span className="text-[10px] text-muted-foreground font-medium">{scoreInfo.emoji} {scoreInfo.label}</span>
               </div>
             </div>
           </div>
 
-          {/* Quick Stats */}
-          <div className="grid grid-cols-2 gap-2">
+          {/* Quick Stats - Enhanced Grid */}
+          <div className="grid grid-cols-3 gap-2">
             <div className="bg-muted/50 rounded-lg p-2 text-center">
-              <div className="text-lg font-bold">{metrics.wordCount}</div>
-              <div className="text-xs text-muted-foreground">Wörter</div>
+              <div className="text-base font-bold">{metrics.wordCount}</div>
+              <div className="text-[9px] text-muted-foreground uppercase tracking-wider">Worter</div>
             </div>
             <div className="bg-muted/50 rounded-lg p-2 text-center">
-              <div className="text-lg font-bold">{metrics.keywordCount}x</div>
-              <div className="text-xs text-muted-foreground">Keyword</div>
+              <div className="text-base font-bold">{metrics.h2Count}</div>
+              <div className="text-[9px] text-muted-foreground uppercase tracking-wider">H2</div>
+            </div>
+            <div className="bg-muted/50 rounded-lg p-2 text-center">
+              <div className="text-base font-bold">{metrics.keywordDensity}%</div>
+              <div className="text-[9px] text-muted-foreground uppercase tracking-wider">Dichte</div>
             </div>
           </div>
-
-          {/* Checks List */}
-          <div className="space-y-1">
-            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-              SEO Checks
-            </h4>
-            {checks.map((check, idx) => (
-              <div
-                key={idx}
-                className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0"
-              >
-                <div className="flex items-center gap-2">
-                  <StatusIcon status={check.status} />
-                  <span className="text-sm">{check.label}</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-sm font-medium">{check.value}</span>
-                  {check.target && (
-                    <span className="text-xs text-muted-foreground ml-1">/ {check.target}</span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* SERP Terms Tracking */}
-          {metrics.serpTermsFound.length > 0 && (
-            <div className="space-y-2">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                <TrendingUp className="h-3 w-3" />
-                SERP Begriffe
-              </h4>
-              <div className="space-y-1">
-                {metrics.serpTermsFound.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between text-sm py-1 px-2 rounded bg-muted/30"
-                  >
-                    <div className="flex items-center gap-2">
-                      {item.count > 0 ? (
-                        <CheckCircle2 className="h-3 w-3 text-green-500" />
-                      ) : (
-                        <XCircle className="h-3 w-3 text-red-400" />
-                      )}
-                      <span className={item.count > 0 ? '' : 'text-muted-foreground'}>
-                        {item.term}
-                      </span>
-                    </div>
-                    <Badge
-                      variant={item.count > 0 ? 'default' : 'secondary'}
-                      className="text-xs px-1.5 py-0"
-                    >
-                      {item.count}x
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-              <div className="text-xs text-muted-foreground text-center pt-1">
-                {metrics.serpTermsFound.filter(t => t.count > 0).length} / {metrics.serpTermsFound.length} Begriffe verwendet
-              </div>
-            </div>
-          )}
 
           {/* Word Count Progress */}
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <div className="flex justify-between text-xs">
               <span className="text-muted-foreground">Wortanzahl</span>
-              <span className="font-medium">
+              <span className={`font-medium ${
+                metrics.wordCount >= metrics.targetWords * 0.8 ? 'text-green-500' :
+                metrics.wordCount >= metrics.targetWords * 0.5 ? 'text-amber-500' : 'text-red-500'
+              }`}>
                 {metrics.wordCount} / {metrics.targetWords}
               </span>
             </div>
-            <Progress
-              value={Math.min((metrics.wordCount / metrics.targetWords) * 100, 100)}
-              className="h-2"
-            />
+            <div className="relative h-2 bg-muted rounded-full overflow-hidden">
+              <div
+                className={`absolute inset-y-0 left-0 rounded-full transition-all duration-500 ${
+                  metrics.wordCount >= metrics.targetWords * 0.8 ? 'bg-green-500' :
+                  metrics.wordCount >= metrics.targetWords * 0.5 ? 'bg-amber-500' : 'bg-red-500'
+                }`}
+                style={{ width: `${Math.min((metrics.wordCount / metrics.targetWords) * 100, 100)}%` }}
+              />
+              {/* Target marker */}
+              <div
+                className="absolute top-0 bottom-0 w-0.5 bg-foreground/30"
+                style={{ left: '80%' }}
+              />
+            </div>
+            <div className="flex justify-between text-[9px] text-muted-foreground">
+              <span>0</span>
+              <span>80%</span>
+              <span>100%</span>
+            </div>
           </div>
 
-          {/* Tips */}
-          {score < 80 && (
-            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
-              <h4 className="text-xs font-semibold text-yellow-700 dark:text-yellow-400 mb-1">
-                Verbesserungsvorschläge
+          <Separator />
+
+          {/* SEO Checks - Compact List */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-semibold flex items-center gap-1.5">
+                <ListChecks className="h-3.5 w-3.5 text-muted-foreground" />
+                SEO Checks
               </h4>
-              <ul className="text-xs text-muted-foreground space-y-1">
-                {metrics.wordCount < metrics.targetWords * 0.8 && (
-                  <li>+ {metrics.targetWords - metrics.wordCount} Wörter hinzufügen</li>
+              <div className="flex gap-1">
+                <Badge variant="default" className="text-[9px] h-4 px-1.5 bg-green-500">
+                  {passCount}
+                </Badge>
+                {warnCount > 0 && (
+                  <Badge variant="secondary" className="text-[9px] h-4 px-1.5 bg-amber-500 text-white">
+                    {warnCount}
+                  </Badge>
                 )}
-                {metrics.keywordCount < 5 && (
-                  <li>Fokus-Keyword öfter verwenden</li>
-                )}
-                {!metrics.keywordInH1 && (
-                  <li>Keyword in H1 einbauen</li>
-                )}
-                {metrics.h2Count < 3 && (
-                  <li>Mehr H2-Überschriften hinzufügen</li>
-                )}
-              </ul>
+              </div>
             </div>
+
+            <div className="space-y-0.5">
+              {checks.map((check, idx) => (
+                <div
+                  key={idx}
+                  className={`flex items-center justify-between py-1.5 px-2 rounded-md transition-colors ${
+                    check.status === 'pass' ? 'bg-green-500/5' :
+                    check.status === 'warn' ? 'bg-amber-500/5' : 'bg-red-500/5'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <StatusIcon status={check.status} />
+                    <span className="text-xs">{check.label}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className={`text-xs font-mono ${
+                      check.status === 'pass' ? 'text-green-600 dark:text-green-400' :
+                      check.status === 'warn' ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'
+                    }`}>{check.value}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* SERP Terms Tracking - Surfer Style */}
+          {metrics.serpTermsFound.length > 0 && (
+            <>
+              <Separator />
+
+              <Collapsible open={serpTermsExpanded} onOpenChange={setSerpTermsExpanded}>
+                <CollapsibleTrigger className="flex items-center justify-between w-full py-1 hover:text-primary transition-colors">
+                  <h4 className="text-xs font-semibold flex items-center gap-1.5">
+                    <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
+                    SERP Begriffe
+                  </h4>
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant="outline"
+                      className={`text-[9px] h-4 px-1.5 ${
+                        metrics.serpTermsFound.filter(t => t.count > 0).length === metrics.serpTermsFound.length
+                          ? 'border-green-500 text-green-500'
+                          : 'border-amber-500 text-amber-500'
+                      }`}
+                    >
+                      {metrics.serpTermsFound.filter(t => t.count > 0).length}/{metrics.serpTermsFound.length}
+                    </Badge>
+                    {serpTermsExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                  </div>
+                </CollapsibleTrigger>
+
+                <CollapsibleContent className="pt-2 space-y-1">
+                  {/* Must Have */}
+                  {metrics.serpTermsFound.filter(t => t.type === 'must').length > 0 && (
+                    <div className="space-y-1">
+                      <span className="text-[9px] uppercase tracking-wider font-semibold text-red-600 dark:text-red-400 flex items-center gap-1">
+                        <div className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                        Pflicht
+                      </span>
+                      {metrics.serpTermsFound.filter(t => t.type === 'must').map((item, idx) => (
+                        <TermItem key={idx} term={item.term} count={item.count} />
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Should Have */}
+                  {metrics.serpTermsFound.filter(t => t.type === 'should').length > 0 && (
+                    <div className="space-y-1 pt-1">
+                      <span className="text-[9px] uppercase tracking-wider font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                        <div className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                        Empfohlen
+                      </span>
+                      {metrics.serpTermsFound.filter(t => t.type === 'should').map((item, idx) => (
+                        <TermItem key={idx} term={item.term} count={item.count} />
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Nice to Have */}
+                  {metrics.serpTermsFound.filter(t => t.type === 'nice').length > 0 && (
+                    <div className="space-y-1 pt-1">
+                      <span className="text-[9px] uppercase tracking-wider font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                        <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                        Optional
+                      </span>
+                      {metrics.serpTermsFound.filter(t => t.type === 'nice').map((item, idx) => (
+                        <TermItem key={idx} term={item.term} count={item.count} />
+                      ))}
+                    </div>
+                  )}
+                </CollapsibleContent>
+              </Collapsible>
+            </>
+          )}
+
+          {/* Tips - Enhanced */}
+          {score < 80 && content && (
+            <>
+              <Separator />
+              <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/5 border border-amber-500/20 rounded-lg p-3">
+                <h4 className="text-xs font-semibold text-amber-700 dark:text-amber-400 mb-2 flex items-center gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Optimierungstipps
+                </h4>
+                <ul className="text-[11px] text-muted-foreground space-y-1.5">
+                  {metrics.wordCount < metrics.targetWords * 0.8 && (
+                    <li className="flex items-start gap-1.5">
+                      <ArrowUp className="h-3 w-3 text-amber-500 mt-0.5 flex-shrink-0" />
+                      <span>+{Math.round(metrics.targetWords * 0.8 - metrics.wordCount)} Worter fur optimale Lange</span>
+                    </li>
+                  )}
+                  {metrics.keywordCount < 5 && (
+                    <li className="flex items-start gap-1.5">
+                      <Target className="h-3 w-3 text-amber-500 mt-0.5 flex-shrink-0" />
+                      <span>Fokus-Keyword haufiger einbauen (min. 5x)</span>
+                    </li>
+                  )}
+                  {!metrics.keywordInH1 && (
+                    <li className="flex items-start gap-1.5">
+                      <Type className="h-3 w-3 text-amber-500 mt-0.5 flex-shrink-0" />
+                      <span>Keyword in H1-Uberschrift integrieren</span>
+                    </li>
+                  )}
+                  {metrics.h2Count < 3 && (
+                    <li className="flex items-start gap-1.5">
+                      <Hash className="h-3 w-3 text-amber-500 mt-0.5 flex-shrink-0" />
+                      <span>Mehr H2-Uberschriften fur bessere Struktur</span>
+                    </li>
+                  )}
+                </ul>
+              </div>
+            </>
+          )}
+
+          {/* Success State */}
+          {score >= 80 && content && (
+            <>
+              <Separator />
+              <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/5 border border-green-500/20 rounded-lg p-3 text-center">
+                <div className="text-2xl mb-1">🎉</div>
+                <h4 className="text-xs font-semibold text-green-700 dark:text-green-400">
+                  Hervorragend optimiert!
+                </h4>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Dein Content erfullt die wichtigsten SEO-Kriterien.
+                </p>
+              </div>
+            </>
           )}
         </CardContent>
       </ScrollArea>
     </Card>
   );
 };
+
+// Term Item Component
+const TermItem = ({ term, count }: { term: string; count: number }) => (
+  <div className={`flex items-center justify-between py-1 px-2 rounded text-[11px] ${
+    count > 0 ? 'bg-green-500/5' : 'bg-muted/30'
+  }`}>
+    <div className="flex items-center gap-1.5">
+      {count > 0 ? (
+        <CheckCircle2 className="h-3 w-3 text-green-500" />
+      ) : (
+        <XCircle className="h-3 w-3 text-muted-foreground" />
+      )}
+      <span className={count > 0 ? '' : 'text-muted-foreground'}>{term}</span>
+    </div>
+    <span className={`font-mono text-[10px] ${
+      count > 0 ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'
+    }`}>{count}x</span>
+  </div>
+);
