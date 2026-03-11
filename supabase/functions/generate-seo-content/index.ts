@@ -366,7 +366,7 @@ WICHTIG: Antworte AUSSCHLIESSLICH mit diesem JSON-Format, KEIN anderer Text:
 
 // Input validation schema
 const formDataSchema = z.object({
-  mode: z.enum(['generate', 'analyze-keyword']).optional().default('generate'),
+  mode: z.enum(['generate', 'analyze-keyword', 'generate-outline']).optional().default('generate'),
   focusKeyword: z.string().min(1, 'Fokus-Keyword ist erforderlich').max(200, 'Fokus-Keyword zu lang'),
   language: z.string().optional().default('de'),
   pageType: z.string().max(100).optional(),
@@ -407,6 +407,11 @@ const formDataSchema = z.object({
     studies: z.boolean().optional(),
   }).optional(),
   serpContext: z.string().max(10000).optional(),
+  serpTermsStructured: z.object({
+    mustHave: z.array(z.string()).optional(),
+    shouldHave: z.array(z.string()).optional(),
+    niceToHave: z.array(z.string()).optional(),
+  }).optional(),
 }).passthrough();
 
 serve(async (req) => {
@@ -874,7 +879,7 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
         secondary_keywords: formData.secondaryKeywords || [],
         page_type: formData.pageType || null,
         target_audience: formData.targetAudience || null,
-        word_count_target: parseInt(formData.wordCount) || null,
+        word_count_target: formData.wordCount ? parseInt(formData.wordCount) : null,
         tonality: formData.tone || formData.tonality || null,
         form_of_address: formData.formOfAddress || null,
         ai_model: modelConfig.id,

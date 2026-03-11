@@ -12,7 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { FormSection } from "./FormSection";
 import { SerpAnalysisPanel } from "./SerpAnalysisPanel";
 import { WebsiteAnalysisPanel } from "./WebsiteAnalysisPanel";
-import { X, Sparkles } from "lucide-react";
+import { X, Sparkles, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export interface BasicFormData {
