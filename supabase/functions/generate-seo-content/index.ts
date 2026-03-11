@@ -1648,7 +1648,7 @@ FALSCHE STRUKTUR (VERBOTEN!):
 ═══ MULTIMEDIALE GESTALTUNG (PFLICHT!) ═══
 
 Der Text MUSS folgende Elemente enthalten:
-• Mindestens 2-3 Bullet-Listen (für Vorteile, Features, Tipps)
+• FLIEẞTEXT bevorzugen - Bullet-Liste NUR für "Vorteile auf einen Blick" am Ende
 • <strong>-Tags für wichtige Keywords und Begriffe
 • Nach maximal 3 Absätzen MUSS ein visuelles Element folgen (Liste, Fettung, Zwischenüberschrift)
 • Tabellen bei Vergleichen oder technischen Daten
@@ -1722,7 +1722,7 @@ Prüfe BEVOR du ausgibst:
 □ HEADING-HIERARCHIE: H1 → H2 → H3 (keine Sprünge)? ✓
 □ Nach JEDER Überschrift folgt Text? ✓
 □ H3 nur unter H2 (nie alleinstehend)? ✓
-□ Mindestens 2-3 Listen im Text? ✓
+□ Fließtext statt Bullet Points (außer Vorteile-Liste am Ende)? ✓
 □ Keine verbotenen Phrasen? ✓
 □ FAQ mit direkten Antworten? ✓
 □ E-E-A-T-Signale vorhanden? ✓
@@ -1998,7 +1998,7 @@ ERFUNDENE FAKTEN:
 □ Long-Tails als Variationen gezählt (nicht separat)?
 □ Keine erfundenen Preise/Modellnamen?
 □ Keine Fluff-Phrasen?
-□ Mind. 2-3 Listen im Text?
+□ Fließtext (keine Bullet Points im Haupttext)?
 □ FAQ mit direkten Antworten?
 □ Satzlängen variiert?`;
 }
@@ -2317,8 +2317,8 @@ Wenn das Produkt ein Medizinprodukt ist (TENS, EMS, Tapes etc.):
 
 • Satzlänge VARIIEREN: Kurz. Dann mittel. Dann länger.
 • Max. 4 Sätze pro Absatz (\${maxPara} Wörter)
-• Mindestens 2-3 Bullet-Listen
-• <strong> für wichtige Keywords
+• FLIEẞTEXT bevorzugen - Bullet-Liste NUR am Ende für "Vorteile auf einen Blick"
+• <strong> für wichtige Keywords im Fließtext
 
 ═══ OUTPUT-FORMAT ═══
 
@@ -2368,7 +2368,7 @@ Wenn der Text kürzer wird, füge mehr Details, Anwendungsszenarien oder FAQ hin
 □ KEINE Heilversprechen (HWG)? ✓
 □ Keine absoluten Wirkaussagen (MDR)? ✓
 □ KEINE verbotenen Fluff-Phrasen? ✓
-□ Mind. 2-3 Listen? ✓
+□ Fließtext (Bullet-Liste nur am Ende)? ✓
 □ FAQ mit direkten Antworten? ✓\`;
 }
 
@@ -2521,7 +2521,7 @@ KEYWORD-DICHTE ZIEL: ${densityLabel}
 
 CHECKLISTE:
 ✓ Keyword-Dichte einhalten
-✓ Mindestens 2-3 Listen im Text
+✓ Fließtext bevorzugt (Bullet-Liste nur am Ende für Vorteile)
 ✓ Lebendige, variierende Sprache
 ✓ E-E-A-T Signale einbauen
 ✓ Keine verbotenen Phrasen
