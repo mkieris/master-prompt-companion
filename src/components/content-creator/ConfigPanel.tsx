@@ -198,7 +198,7 @@ export const ConfigPanel = ({
   );
 
   return (
-    <Card className="w-80 flex-shrink-0 flex flex-col h-full overflow-hidden border-r-0 rounded-r-none">
+    <Card className="w-full max-w-full flex-shrink-0 flex flex-col h-full overflow-hidden border-r-0 rounded-r-none">
       {/* Header with Workflow Progress */}
       <CardHeader className="pb-2 border-b bg-muted/30">
         <CardTitle className="text-sm flex items-center justify-between">
@@ -238,8 +238,8 @@ export const ConfigPanel = ({
         <Progress value={workflowProgress.progress} className="h-1 mt-1" />
       </CardHeader>
 
-      <ScrollArea className="flex-1">
-        <CardContent className="p-4 space-y-4">
+      <ScrollArea className="flex-1 w-full">
+        <CardContent className="p-4 space-y-4 overflow-hidden">
           {/* Domain Knowledge Badge - Compact */}
           {domainKnowledge && (
             <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-lg p-2.5 flex items-center gap-2">

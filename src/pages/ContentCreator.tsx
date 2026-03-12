@@ -607,7 +607,7 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
                 defaultSize={22}
                 minSize={18}
                 maxSize={30}
-                className="min-w-[280px]"
+                className="min-w-[280px] overflow-hidden"
               >
                 <ConfigPanel
                   config={config}
