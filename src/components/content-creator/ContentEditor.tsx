@@ -253,7 +253,7 @@ export const ContentEditor = ({
   }
 
   return (
-    <Card className="flex-1 flex flex-col overflow-hidden border-x-0 rounded-none">
+    <Card className="h-full flex flex-col overflow-hidden border-x-0 rounded-none">
       {/* Enhanced Header */}
       <CardHeader className="pb-0 border-b flex-shrink-0 bg-muted/30">
         <div className="flex items-center justify-between pb-3">
@@ -329,10 +329,10 @@ export const ContentEditor = ({
         </Tabs>
       </CardHeader>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
 
-        <ScrollArea className="flex-1">
-          <div className="p-4">
+        <ScrollArea className="flex-1 h-full">
+          <div className="p-4 pb-8">
             <TabsContent value="preview" className="mt-0">
               {isEditing ? (
                 <Textarea
