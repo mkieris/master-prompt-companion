@@ -2381,14 +2381,30 @@ BEISPIEL H2-ÜBERSCHRIFT:
 ✗ "Produkteigenschaften" (langweilig, kein Benefit)
 ✗ "Über unser Tape" (generisch, austauschbar)
 
-═══ TEXTLÄNGEN-ANFORDERUNG (KRITISCH!) ═══
+╔═════════════════════════════════════════════════════════════════════════════╗
+║  TEXTLÄNGE: ABSOLUTE PFLICHT - KEINE AUSNAHMEN!                             ║
+╚═════════════════════════════════════════════════════════════════════════════╝
 
-MINDESTLÄNGE: \${Math.max(800, wordCount - 200)} Wörter
-ZIELLÄNGE: \${wordCount} Wörter
-MAXIMALLÄNGE: \${wordCount + 200} Wörter
+DER USER HAT \${wordCount} WÖRTER BESTELLT - LIEFERE SIE!
 
-Der Text MUSS mindestens 800 Wörter haben um SEO-relevant zu sein!
-Wenn der Text kürzer wird, füge mehr Details, Anwendungsszenarien oder FAQ hinzu.
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  MINDESTLÄNGE: \${Math.max(1000, wordCount - 200)} Wörter (ABSOLUTES MINIMUM)│
+│  ZIELLÄNGE:    \${wordCount} Wörter (DAS SOLLST DU ERREICHEN!)              │
+│  MAXIMALLÄNGE: \${wordCount + 300} Wörter (OK wenn nötig)                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+⚠️ WARNUNG: Texte unter \${Math.max(1000, wordCount - 300)} Wörter werden ABGELEHNT!
+
+WENN DU MERKST DASS DER TEXT ZU KURZ WIRD:
+→ Füge MEHR Anwendungsszenarien hinzu (Sport, Alltag, Therapie, Beauty)
+→ Erweitere Erklärungen mit PRAKTISCHEN BEISPIELEN
+→ Baue ZUSÄTZLICHE H2-Abschnitte ein (Tipps, Vergleiche, Hintergründe, Studien)
+→ Füge MEHR FAQ-Fragen hinzu (mindestens 5-6 Fragen!)
+→ Erkläre Fachbegriffe AUSFÜHRLICHER
+→ Beschreibe die ENTSTEHUNGSGESCHICHTE oder QUALITÄTSMERKMALE
+
+MENTAL CHECK: Bei \${wordCount} Wörtern brauchst du ca. \${Math.round(wordCount / 120)}-\${Math.round(wordCount / 100)} Absätze!
+Ein Text mit nur 3-4 kurzen Abschnitten ist DEFINITIV zu kurz!
 
 ═══ QUALITÄTS-CHECK VOR OUTPUT ═══
 
