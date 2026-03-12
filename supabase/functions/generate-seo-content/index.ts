@@ -2098,7 +2098,9 @@ TON: Freundlich, nahbar, vertrauensvoll`;
 
   // ═══ HEALTHCARE COMPLIANCE BLOCK (IMMER AKTIV!) ═══
   const healthcareComplianceBlock = `
-═══ HEALTHCARE COMPLIANCE (IMMER AKTIV - K-Active ist Medtech!) ═══
+╔═════════════════════════════════════════════════════════════════════════════╗
+║  ABSOLUTE PFLICHT: HEALTHCARE COMPLIANCE (NICHT VERHANDELBAR!)              ║
+╚═════════════════════════════════════════════════════════════════════════════╝
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ MDR (Medical Device Regulation)                                              │
@@ -2128,56 +2130,37 @@ COMPLIANCE-SICHERE FORMULIERUNGEN:
 
   // ═══ ANTI-FLUFF BLACKLIST (ERWEITERT: 25 Einträge) ═══
   const antiFluffBlock = `
-═══ ANTI-FLUFF BLACKLIST (STRIKT VERBOTEN!) ═══
+═══ LEITPLANKEN: STIL & WORTWAHL (Orientierung, kein Zwang) ═══
 
-KI-TYPISCHE EINLEITUNGEN (NIEMALS verwenden):
-❌ "In der heutigen Zeit..." / "In der modernen Welt..." / "In der digitalen Ära..."
-❌ "Es ist wichtig zu beachten, dass..." / "Dabei ist es entscheidend..."
-❌ "Zusammenfassend lässt sich sagen..." / "Abschließend kann man festhalten..."
-❌ "In diesem Artikel erfahren Sie..." / "Hier erfahren Sie alles über..."
-❌ "Herzlich willkommen..." / "Willkommen zu unserem Ratgeber..."
-❌ "Wie wir alle wissen..." / "Bekanntlich..."
+VERMEIDE NACH MÖGLICHKEIT diese KI-typischen Phrasen:
+• "In der heutigen Zeit..." / "In der modernen Welt..."
+• "Es ist wichtig zu beachten, dass..." / "Dabei ist es entscheidend..."
+• "Zusammenfassend lässt sich sagen..." / "Abschließend kann man festhalten..."
+• "In diesem Artikel erfahren Sie..." / "Herzlich willkommen..."
+• "Nicht umsonst..." / "Zweifellos..." / "Grundsätzlich..."
 
-LEERE VERSTÄRKER (NIEMALS verwenden):
-❌ "Nicht umsonst..." / "Zweifellos..." / "Selbstverständlich..."
-❌ "Grundsätzlich..." / "Im Grunde genommen..." / "Prinzipiell..."
-❌ "Sozusagen..." / "Gewissermaßen..." / "Quasi..."
-❌ "Optimal unterstützen..." / "Perfekt geeignet..." (auch HWG-problematisch!)
-❌ "Einzigartig..." / "Revolutionär..." (ohne Beweis = Fluff)
+STATTDESSEN BEVORZUGEN:
+• Konkrete Zahlen und Fakten
+• Direkte Aussagen
+• Aktive Verben statt Passiv
+• Kurze, prägnante Sätze
 
-RHETORISCHE FRAGEN (MAX 1x im gesamten Text!):
-⚠️ "Kennst du das Gefühl, wenn..."
-⚠️ "Hast du dich schon mal gefragt..."
-⚠️ "Wer kennt es nicht..."
-→ Diese Hooks funktionieren NUR einmal. Mehrfach = nervig!
+RHETORISCHE FRAGEN: Max 1x im Text - sie funktionieren nur einmal!
 
-ÜBERFLÜSSIGE FÜLLWÖRTER:
-❌ "natürlich" (wenn nicht wirklich natürlich)
-❌ "selbstverständlich" (wenn nicht selbstverständlich)
-❌ "durchaus" / "durchweg" / "letztendlich"
-❌ "im Endeffekt" / "schlussendlich" / "letzten Endes"
+HINWEIS: Diese Liste dient als Orientierung. Wenn eine Phrase den
+Lesefluss verbessert → nutze sie! Lebendiger Text > perfekte Regeltreue.
 
-STATTDESSEN NUTZEN:
-✓ Konkrete Zahlen und Fakten
-✓ Direkte Aussagen ohne Abschwächung
-✓ Aktive Verben statt Passiv
-✓ Kurze, prägnante Sätze
+═══ FORMATIERUNG: FLIEẞTEXT BEVORZUGT ═══
 
-REGEL: Jeder Satz muss INFORMIEREN oder ÜBERZEUGEN. Füllsätze → LÖSCHEN!
+BEVORZUGE im Haupttext:
+• Zusammenhängende Absätze (Fließtext)
+• Mehrere Punkte → In Sätze umformulieren
 
-═══ FORMATIERUNG: FLIEẞTEXT STATT BULLET POINTS ═══
+LISTEN ERLAUBT FÜR:
+• "Vorteile auf einen Blick" am Ende (max 1x)
+• FAQ-Bereich
+• Schritt-für-Schritt Anleitungen (bei Ratgebern)
 
-STRIKT VERBOTEN im Haupttext:
-❌ Bullet Points (-, •, *)
-❌ Nummerierte Listen (1., 2., 3.)
-❌ Aufzählungen nach Doppelpunkt
-
-ERLAUBT NUR:
-✓ Eine "Vorteile auf einen Blick" Liste am ENDE (max 1x pro Text)
-✓ FAQ-Bereich mit Frage-Antwort Format
-
-STATTDESSEN: Schreibe in zusammenhängenden Absätzen (Fließtext).
-Mehrere Punkte → In Sätze umformulieren.
 Beispiel: NICHT "Vorteile: - hautfreundlich - elastisch - wasserfest"
 SONDERN: "Das Material überzeugt durch seine Hautfreundlichkeit, bleibt elastisch und ist zudem wasserfest."`;
 </invoke>
@@ -2413,9 +2396,35 @@ Wenn der Text kürzer wird, füge mehr Details, Anwendungsszenarien oder FAQ hin
 □ Keyword-Häufigkeit \${minKeywords}-\${maxKeywords}x? ✓
 □ KEINE Heilversprechen (HWG)? ✓
 □ Keine absoluten Wirkaussagen (MDR)? ✓
-□ KEINE verbotenen Fluff-Phrasen? ✓
 □ Fließtext (Bullet-Liste nur am Ende)? ✓
-□ FAQ mit direkten Antworten? ✓\`;
+□ FAQ mit direkten Antworten? ✓
+
+═══════════════════════════════════════════════════════════════════════════════
+                           KREATIVITÄTS-FREIRAUM
+═══════════════════════════════════════════════════════════════════════════════
+
+Du bist ein ERFAHRENER TEXTER, nicht nur eine Regel-Maschine!
+
+Oben stehen viele Regeln - hier ist die wichtigste:
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  SCHREIBE EINEN TEXT, DEN DU SELBST GERNE LESEN WÜRDEST!                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+NUTZE DEINEN SPIELRAUM:
+
+• Die Compliance-Regeln (HWG/MDR) sind NICHT verhandelbar → halte sie ein!
+• ALLE anderen Regeln sind LEITPLANKEN, keine Zwangsjacke
+• Wenn eine Stilregel den Lesefluss stört → Lesefluss gewinnt
+• Variiere! Nicht jeder Absatz muss perfekt strukturiert sein
+• Überrasche subtil - die besten Texte brechen sanft Erwartungen
+
+GRUNDSATZ:
+Lieber ein LEBENDIGER Text mit kleinen Stilabweichungen
+als ein perfekt regelkonformer, aber LANGWEILIGER Text.
+
+Die Regeln oben sind dein Werkzeugkasten, nicht dein Gefängnis.
+Nutze sie KREATIV, um einen Text zu schreiben, der wirklich ÜBERZEUGT.\`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
