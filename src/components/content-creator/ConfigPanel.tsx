@@ -260,7 +260,7 @@ export const ConfigPanel = ({
 
           {/* Research URLs - NEW */}
           {onAddResearchUrl && (
-            <div className="space-y-2">
+            <div className="space-y-2 overflow-hidden">
               <Label className="text-xs flex items-center gap-2">
                 <Globe className="h-3.5 w-3.5 text-blue-500" />
                 Research URLs (max. 3)
@@ -281,13 +281,13 @@ export const ConfigPanel = ({
 
               {/* URL Input */}
               {researchUrls.length < 3 && (
-                <div className="flex gap-1.5">
+                <div className="flex gap-1.5 min-w-0">
                   <Input
                     value={researchUrlInput}
                     onChange={(e) => setResearchUrlInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddResearchUrl())}
                     placeholder="https://example.com/page"
-                    className="flex-1 h-8 text-xs"
+                    className="flex-1 h-8 text-xs min-w-0"
                   />
                   <Button
                     type="button"
@@ -304,11 +304,11 @@ export const ConfigPanel = ({
 
               {/* URL List */}
               {researchUrls.length > 0 && (
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 overflow-hidden">
                   {researchUrls.map((researchUrl, index) => (
                     <div
                       key={index}
-                      className={`flex items-center gap-2 text-[11px] rounded-lg p-2 border ${
+                      className={`flex items-center gap-2 text-[11px] rounded-lg p-2 border min-w-0 overflow-hidden ${
                         researchUrl.status === 'completed'
                           ? 'bg-green-500/10 border-green-500/30'
                           : researchUrl.status === 'error'
