@@ -416,17 +416,42 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
 
       if (error) throw error;
 
-      // Handle response - use first variant if variants exist, otherwise use direct data
-      const content = data.variants?.[0] || data;
+      // Handle response - parse JSON string if needed
+      let parsedData = data;
 
-      if (content?.seoText) {
-        setEditedContent(content.seoText);
-        setEditedTitle(content.title || '');
-        setEditedMeta(content.metaDescription || '');
+      // If data is a string, try to parse it as JSON
+      if (typeof data === 'string') {
+        try {
+          parsedData = JSON.parse(data);
+        } catch (e) {
+          console.error('Failed to parse response as JSON:', e);
+        }
+      }
+
+      // Handle response - use first variant if variants exist, otherwise use direct data
+      const content = parsedData.variants?.[0] || parsedData;
+
+      // Extract seoText - handle both direct and nested structures
+      const seoText = content?.seoText || content?.content?.seoText;
+      const title = content?.title || content?.content?.title || '';
+      const metaDescription = content?.metaDescription || content?.content?.metaDescription || '';
+
+      if (seoText) {
+        setEditedContent(seoText);
+        setEditedTitle(title);
+        setEditedMeta(metaDescription);
 
         toast({
           title: "Content generiert!",
           description: "SEO-optimierter Text wurde erstellt",
+        });
+      } else {
+        // Fallback: if we got data but no seoText, log for debugging
+        console.error('No seoText found in response:', content);
+        toast({
+          title: "Warnung",
+          description: "Content generiert, aber Format unerwartet",
+          variant: "destructive",
         });
       }
     } catch (error) {
