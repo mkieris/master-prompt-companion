@@ -1024,8 +1024,8 @@ function buildSystemPrompt(formData: any): string {
   const maxPara = formData.maxParagraphLength || 300;
   
   // ═══ WORTANZAHL UND KEYWORD-DICHTE ═══
-  const wordCountMap: Record<string, number> = { 'short': 400, 'medium': 800, 'long': 1200 };
-  const wordCount = wordCountMap[formData.contentLength] || 800;
+  const wordCountMap: Record<string, number> = { 'short': 600, 'medium': 1000, 'long': 1500 };
+  const wordCount = wordCountMap[formData.contentLength] || 1000;
   
   // ═══ FIX: keywordDensity DROPDOWN VERWENDEN ═══
   const densityMap: Record<string, { min: number; max: number; label: string }> = {
@@ -2130,6 +2130,21 @@ COMPLIANCE-SICHERE FORMULIERUNGEN:
 
   // ═══ ANTI-FLUFF BLACKLIST (ERWEITERT: 25 Einträge) ═══
   const antiFluffBlock = `
+╔═════════════════════════════════════════════════════════════════════════════╗
+║  ABSOLUTE VERBOTEN: KONKURRENZ-ERWÄHNUNG                                     ║
+╚═════════════════════════════════════════════════════════════════════════════╝
+
+NIEMALS erwähnen (auch nicht negativ oder vergleichend!):
+❌ Amazon, eBay, Alibaba, AliExpress
+❌ Fitshop, Decathlon, Sport-Tiedje, MediaMarkt, Saturn
+❌ DocMorris, Shop Apotheke, Andere Online-Apotheken
+❌ Andere Tape-Marken (Kintex, RockTape, Leukotape, PhysioTape)
+❌ Andere TENS/EMS-Marken (Sanitas, Beurer, Prorelax)
+❌ Generische Verweise auf "andere Anbieter", "im Vergleich zu Konkurrenz"
+
+GRUND: Wir schenken Konkurrenten KEINE kostenlose Sichtbarkeit!
+Schreibe NUR über K-Active/Bluetens-Produkte und deren Vorteile.
+
 ═══ LEITPLANKEN: STIL & WORTWAHL (Orientierung, kein Zwang) ═══
 
 VERMEIDE NACH MÖGLICHKEIT diese KI-typischen Phrasen:
