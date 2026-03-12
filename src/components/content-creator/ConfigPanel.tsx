@@ -41,7 +41,7 @@ import {
   Brain
 } from "lucide-react";
 import type { ContentConfig } from "@/pages/ContentCreator";
-import type { SerpResult, DomainKnowledge, Outline } from "./types";
+import type { SerpResult, DomainKnowledge, Outline, ResearchUrl } from "./types";
 
 interface ConfigPanelProps {
   config: ContentConfig;
@@ -56,6 +56,11 @@ interface ConfigPanelProps {
   isGeneratingOutline?: boolean;
   outline?: Outline | null;
   onClearOutline?: () => void;
+  // Research URLs
+  researchUrls?: ResearchUrl[];
+  onAddResearchUrl?: (url: string) => void;
+  onRemoveResearchUrl?: (index: number) => void;
+  onCrawlResearchUrl?: (index: number) => void;
 }
 
 export const ConfigPanel = ({
@@ -71,11 +76,23 @@ export const ConfigPanel = ({
   isGeneratingOutline,
   outline,
   onClearOutline,
+  researchUrls = [],
+  onAddResearchUrl,
+  onRemoveResearchUrl,
+  onCrawlResearchUrl,
 }: ConfigPanelProps) => {
   const [keywordInput, setKeywordInput] = useState("");
   const [questionInput, setQuestionInput] = useState("");
+  const [researchUrlInput, setResearchUrlInput] = useState("");
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<'keyword' | 'settings' | 'advanced'>('keyword');
+
+  const handleAddResearchUrl = () => {
+    if (researchUrlInput.trim() && researchUrls.length < 3 && onAddResearchUrl) {
+      onAddResearchUrl(researchUrlInput.trim());
+      setResearchUrlInput("");
+    }
+  };
 
   // Calculate workflow progress
   const workflowProgress = useMemo(() => {
@@ -234,10 +251,131 @@ export const ConfigPanel = ({
                   {domainKnowledge.company_name}
                 </div>
                 <p className="text-[10px] text-muted-foreground">
-                  Brand Voice aktiv
+                  {domainKnowledge.managementInfo ? 'Brand Voice + Management-Info' : 'Brand Voice aktiv'}
                 </p>
               </div>
               <CheckCircle2 className="h-4 w-4 text-green-500 ml-auto flex-shrink-0" />
+            </div>
+          )}
+
+          {/* Research URLs - NEW */}
+          {onAddResearchUrl && (
+            <div className="space-y-2">
+              <Label className="text-xs flex items-center gap-2">
+                <Globe className="h-3.5 w-3.5 text-blue-500" />
+                Research URLs (max. 3)
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-xs">
+                      <p className="text-xs">
+                        Crawle bis zu 3 URLs (z.B. Produktseiten, Pressemitteilungen)
+                        um deren Inhalte in den generierten Text einzubeziehen.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </Label>
+
+              {/* URL Input */}
+              {researchUrls.length < 3 && (
+                <div className="flex gap-1.5">
+                  <Input
+                    value={researchUrlInput}
+                    onChange={(e) => setResearchUrlInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddResearchUrl())}
+                    placeholder="https://example.com/page"
+                    className="flex-1 h-8 text-xs"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={handleAddResearchUrl}
+                    className="h-8 w-8"
+                    disabled={!researchUrlInput.trim()}
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+
+              {/* URL List */}
+              {researchUrls.length > 0 && (
+                <div className="space-y-1.5">
+                  {researchUrls.map((researchUrl, index) => (
+                    <div
+                      key={index}
+                      className={`flex items-center gap-2 text-[11px] rounded-lg p-2 border ${
+                        researchUrl.status === 'completed'
+                          ? 'bg-green-500/10 border-green-500/30'
+                          : researchUrl.status === 'error'
+                          ? 'bg-red-500/10 border-red-500/30'
+                          : researchUrl.status === 'crawling'
+                          ? 'bg-blue-500/10 border-blue-500/30'
+                          : 'bg-muted/50 border-border'
+                      }`}
+                    >
+                      {/* Status Icon */}
+                      {researchUrl.status === 'crawling' ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500 flex-shrink-0" />
+                      ) : researchUrl.status === 'completed' ? (
+                        <CheckCircle2 className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
+                      ) : researchUrl.status === 'error' ? (
+                        <X className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
+                      ) : (
+                        <Globe className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                      )}
+
+                      {/* URL & Title */}
+                      <div className="flex-1 min-w-0">
+                        <div className="truncate font-medium">
+                          {researchUrl.title || new URL(researchUrl.url).hostname}
+                        </div>
+                        <div className="truncate text-[10px] text-muted-foreground">
+                          {researchUrl.url}
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {researchUrl.status === 'pending' && onCrawlResearchUrl && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => onCrawlResearchUrl(index)}
+                            className="h-6 w-6"
+                          >
+                            <Search className="h-3 w-3" />
+                          </Button>
+                        )}
+                        {onRemoveResearchUrl && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => onRemoveResearchUrl(index)}
+                            className="h-6 w-6 hover:text-destructive"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Crawled Content Summary */}
+              {researchUrls.some(r => r.status === 'completed') && (
+                <div className="text-[10px] text-green-600 dark:text-green-400 flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3" />
+                  {researchUrls.filter(r => r.status === 'completed').length} URL(s) gecrawlt - wird in Content integriert
+                </div>
+              )}
             </div>
           )}
 

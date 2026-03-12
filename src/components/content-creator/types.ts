@@ -61,6 +61,19 @@ export interface DomainKnowledge {
   targetAudiences?: string[];
   productCategories?: string[];
   complianceNotes?: string;
+  managementInfo?: string;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// RESEARCH URL TYPES
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export interface ResearchUrl {
+  url: string;
+  status: 'pending' | 'crawling' | 'completed' | 'error';
+  content?: string;
+  title?: string;
+  error?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

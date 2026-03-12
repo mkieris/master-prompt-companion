@@ -511,14 +511,19 @@ serve(async (req) => {
 
     // ═══ MODE: GENERATE OUTLINE ═══
     if (formData.mode === 'generate-outline') {
-      console.log('Mode: generate-outline for:', formData.focusKeyword);
+      console.log('=== OUTLINE GENERATION START ===');
+      console.log('Keyword:', formData.focusKeyword);
+      console.log('PageType:', formData.pageType);
+      console.log('WordCount:', formData.wordCount);
+
+      const targetWordCount = parseInt(formData.wordCount) || 1500;
 
       const outlinePrompt = `Du bist ein SEO Content Stratege. Erstelle eine detaillierte Gliederung (Outline) für einen SEO-Text.
 
 FOKUS-KEYWORD: ${formData.focusKeyword}
 SEITENTYP: ${formData.pageType || 'product'}
 ZIELGRUPPE: ${formData.targetAudience || 'b2c'}
-TEXTLÄNGE: ca. ${formData.wordCount || 1500} Wörter
+TEXTLÄNGE: ca. ${targetWordCount} Wörter
 
 ${formData.serpTermsStructured ? `
 WICHTIGE BEGRIFFE AUS SERP-ANALYSE:
@@ -544,55 +549,96 @@ AUSGABE ALS JSON:
     }
   ],
   "faqs": ["Frage 1?", "Frage 2?"],
-  "estimatedWordCount": ${formData.wordCount || 1500}
+  "estimatedWordCount": ${targetWordCount}
 }`;
 
-      const outlineResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + LOVABLE_API_KEY,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash', // Fast model for outlines
-          messages: [
-            { role: 'system', content: 'Du erstellst SEO-optimierte Content-Gliederungen. Antworte NUR mit validem JSON.' },
-            { role: 'user', content: outlinePrompt }
-          ],
-          temperature: 0.5,
-        }),
-      });
-
-      if (!outlineResponse.ok) {
-        throw new Error('Outline generation failed: ' + outlineResponse.status);
-      }
-
-      const outlineData = await outlineResponse.json();
-      const outlineContent = outlineData.choices?.[0]?.message?.content || '';
-
-      // Parse JSON from response
-      let outline;
       try {
+        console.log('Calling AI Gateway for outline...');
+        const outlineResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + LOVABLE_API_KEY,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash',
+            messages: [
+              { role: 'system', content: 'Du erstellst SEO-optimierte Content-Gliederungen. Antworte NUR mit validem JSON.' },
+              { role: 'user', content: outlinePrompt }
+            ],
+            temperature: 0.5,
+          }),
+        });
+
+        console.log('Outline API Response Status:', outlineResponse.status);
+
+        if (!outlineResponse.ok) {
+          const errorBody = await outlineResponse.text();
+          console.error('Outline API Error:', errorBody);
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Outline-Generierung fehlgeschlagen',
+            details: `Status ${outlineResponse.status}: ${errorBody.substring(0, 200)}`
+          }), {
+            status: outlineResponse.status,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const outlineData = await outlineResponse.json();
+        const outlineContent = outlineData.choices?.[0]?.message?.content || '';
+        console.log('Outline raw content length:', outlineContent.length);
+
+        // Parse JSON from response
+        let outline;
         const jsonMatch = outlineContent.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
-          outline = JSON.parse(jsonMatch[0]);
+          try {
+            outline = JSON.parse(jsonMatch[0]);
+            console.log('Outline parsed successfully');
+          } catch (parseError) {
+            console.error('JSON parse error:', parseError);
+            outline = {
+              error: 'JSON parsing failed',
+              raw: outlineContent.substring(0, 500),
+              h1: formData.focusKeyword,
+              sections: [{ h2: 'Fehler beim Parsen', description: 'Bitte erneut versuchen' }],
+              faqs: []
+            };
+          }
         } else {
-          throw new Error('No JSON found in response');
+          console.error('No JSON found in outline response');
+          outline = {
+            error: 'No JSON in response',
+            raw: outlineContent.substring(0, 500),
+            h1: formData.focusKeyword,
+            sections: [{ h2: 'Keine Struktur gefunden', description: 'Bitte erneut versuchen' }],
+            faqs: []
+          };
         }
-      } catch (e) {
-        console.error('Outline parse error:', e);
-        outline = { error: 'Could not parse outline', raw: outlineContent };
+
+        console.log('=== OUTLINE GENERATION COMPLETE ===');
+
+        return new Response(JSON.stringify({
+          success: true,
+          outline,
+          focusKeyword: formData.focusKeyword,
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+
+      } catch (outlineError) {
+        console.error('=== OUTLINE GENERATION ERROR ===');
+        console.error('Error:', outlineError);
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Outline-Generierung fehlgeschlagen',
+          details: outlineError instanceof Error ? outlineError.message : String(outlineError)
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
-
-      console.log('Outline generated:', outline);
-
-      return new Response(JSON.stringify({
-        success: true,
-        outline,
-        focusKeyword: formData.focusKeyword,
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
     }
 
     // ═══ MODE: GENERATE (default) ═══
@@ -750,13 +796,14 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
       console.log('Generating single content with tone:', formData.tone);
 
       // Map tone to writing style instruction (supports both old German keys and new English keys)
+      // WICHTIG: Fließtext bevorzugen, Bullet Points nur bei echten Aufzählungen (z.B. Vorteile-Liste am Ende)
       const toneInstructions: Record<string, string> = {
-        'sachlich': 'SCHREIBSTIL: SACHLICH & STRUKTURIERT\n- Faktenbasiert mit klarer Hierarchie\n- Nutze Listen und Aufzählungen wo sinnvoll\n- Ruhiger, vertrauensbildender Ton\n- Daten und Fakten zur Untermauerung\n- Objektiv und informativ',
-        'factual': 'SCHREIBSTIL: SACHLICH & STRUKTURIERT\n- Faktenbasiert mit klarer Hierarchie\n- Nutze Listen und Aufzählungen wo sinnvoll\n- Ruhiger, vertrauensbildender Ton\n- Daten und Fakten zur Untermauerung\n- Objektiv und informativ',
-        'beratend': 'SCHREIBSTIL: BERATEND & NUTZENORIENTIERT\n- Fokus auf praktischen Nutzen und Lösungen\n- Empathisch und hilfreich\n- "Du fragst dich..."-Einstiege\n- Konkrete Empfehlungen und Tipps\n- Vertrauensaufbauend und unterstützend',
-        'advisory': 'SCHREIBSTIL: BERATEND & NUTZENORIENTIERT\n- Fokus auf praktischen Nutzen und Lösungen\n- Empathisch und hilfreich\n- "Du fragst dich..."-Einstiege\n- Konkrete Empfehlungen und Tipps\n- Vertrauensaufbauend und unterstützend',
-        'aktivierend': 'SCHREIBSTIL: AKTIVIEREND & ÜBERZEUGEND\n- Starte mit starkem Nutzenversprechen\n- Zeige Transformation (vorher → nachher)\n- Integriere CTAs an passenden Stellen\n- Konkrete Ergebnisse hervorheben\n- Aktivierende Verben und überzeugende Sprache',
-        'sales': 'SCHREIBSTIL: AKTIVIEREND & ÜBERZEUGEND\n- Starte mit starkem Nutzenversprechen\n- Zeige Transformation (vorher → nachher)\n- Integriere CTAs an passenden Stellen\n- Konkrete Ergebnisse hervorheben\n- Aktivierende Verben und überzeugende Sprache'
+        'sachlich': 'SCHREIBSTIL: SACHLICH & STRUKTURIERT\n- Faktenbasiert mit klarer Hierarchie\n- Schreibe in FLIEẞTEXT, KEINE Bullet Points im Haupttext\n- Ruhiger, vertrauensbildender Ton\n- Daten und Fakten in Sätze einbauen\n- Objektiv und informativ',
+        'factual': 'SCHREIBSTIL: SACHLICH & STRUKTURIERT\n- Faktenbasiert mit klarer Hierarchie\n- Schreibe in FLIEẞTEXT, KEINE Bullet Points im Haupttext\n- Ruhiger, vertrauensbildender Ton\n- Daten und Fakten in Sätze einbauen\n- Objektiv und informativ',
+        'beratend': 'SCHREIBSTIL: BERATEND & NUTZENORIENTIERT\n- Fokus auf praktischen Nutzen und Lösungen\n- Schreibe in FLIEẞTEXT, KEINE Bullet Points im Haupttext\n- Empathisch und hilfreich im Erzählstil\n- Konkrete Empfehlungen als Fließtext formulieren\n- Vertrauensaufbauend und unterstützend',
+        'advisory': 'SCHREIBSTIL: BERATEND & NUTZENORIENTIERT\n- Fokus auf praktischen Nutzen und Lösungen\n- Schreibe in FLIEẞTEXT, KEINE Bullet Points im Haupttext\n- Empathisch und hilfreich im Erzählstil\n- Konkrete Empfehlungen als Fließtext formulieren\n- Vertrauensaufbauend und unterstützend',
+        'aktivierend': 'SCHREIBSTIL: AKTIVIEREND & ÜBERZEUGEND\n- Starte mit starkem Nutzenversprechen\n- Schreibe in FLIEẞTEXT, KEINE Bullet Points im Haupttext\n- Zeige Transformation (vorher → nachher) als Geschichte\n- CTAs natürlich in den Text einbauen\n- Aktivierende Verben und überzeugende Sprache',
+        'sales': 'SCHREIBSTIL: AKTIVIEREND & ÜBERZEUGEND\n- Starte mit starkem Nutzenversprechen\n- Schreibe in FLIEẞTEXT, KEINE Bullet Points im Haupttext\n- Zeige Transformation (vorher → nachher) als Geschichte\n- CTAs natürlich in den Text einbauen\n- Aktivierende Verben und überzeugende Sprache'
       };
 
       const toneInstruction = toneInstructions[formData.tone || 'advisory'] || toneInstructions['advisory'];
@@ -1085,8 +1132,54 @@ REGEL: Jeder Pflicht-Begriff sollte in einem SINNVOLLEN Kontext stehen, nicht is
     console.log('Domain Knowledge integriert: ' + (dk.companyName || 'Kein Name'));
   }
 
-  // Kombiniere SERP + Domain Block für alle Versionen
-  const contextBlock = serpBlock + domainBlock;
+  // ═══ MANAGEMENT INFO (CEO-Zitate, Philosophie) ═══
+  let managementBlock = '';
+  if (formData.managementInfo && formData.managementInfo.trim()) {
+    managementBlock = `
+
+# GESCHÄFTSFÜHRUNG / MANAGEMENT
+
+Die folgenden Informationen stammen von der Geschäftsführung des Unternehmens.
+Nutze diese Aussagen, um dem Text mehr Authentizität und Persönlichkeit zu verleihen.
+Du kannst Zitate einbauen oder die Philosophie in den Text einfließen lassen.
+
+${formData.managementInfo.trim()}
+
+HINWEIS: Integriere Management-Aussagen NATÜRLICH in den Fließtext, nicht als separate Zitat-Blöcke.
+`;
+    console.log('Management-Info integriert: ' + formData.managementInfo.length + ' Zeichen');
+  }
+
+  // ═══ RESEARCH CONTENT (Gecrawlte URLs) ═══
+  let researchBlock = '';
+  if (formData.researchContent && Array.isArray(formData.researchContent) && formData.researchContent.length > 0) {
+    researchBlock = `
+
+# RECHERCHIERTE INHALTE (aus gecrawlten URLs)
+
+Die folgenden Inhalte wurden von relevanten Webseiten extrahiert.
+Nutze diese Informationen als Faktengrundlage für deinen Text.
+Kombiniere sie intelligent mit den anderen Quellen.
+
+`;
+    formData.researchContent.forEach((research: { url: string; title: string; content: string }, idx: number) => {
+      researchBlock += `## Quelle ${idx + 1}: ${research.title || research.url}\n`;
+      researchBlock += `URL: ${research.url}\n\n`;
+      researchBlock += research.content.substring(0, 2000) + '\n\n';
+    });
+
+    researchBlock += `
+ANWEISUNG FÜR RESEARCH-INTEGRATION:
+- Nutze die recherchierten Inhalte als FAKTENGRUNDLAGE
+- Kombiniere sie mit SERP-Daten, Brand Voice und Management-Infos
+- Schreibe EIGENEN Text, kopiere NICHT wörtlich
+- Ziehe relevante Details heraus und formuliere sie neu
+`;
+    console.log('Research Content integriert: ' + formData.researchContent.length + ' URLs');
+  }
+
+  // Kombiniere SERP + Domain + Management + Research für alle Versionen
+  const contextBlock = serpBlock + domainBlock + managementBlock + researchBlock;
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // VERSION ROUTING - AKTIVE VERSIONEN: v12 (default/healthcare), v11, v10, v9, v8, v6
@@ -1601,7 +1694,7 @@ FALSCHE STRUKTUR (VERBOTEN!):
 ═══ MULTIMEDIALE GESTALTUNG (PFLICHT!) ═══
 
 Der Text MUSS folgende Elemente enthalten:
-• Mindestens 2-3 Bullet-Listen (für Vorteile, Features, Tipps)
+• FLIEẞTEXT bevorzugen - Bullet-Liste NUR für "Vorteile auf einen Blick" am Ende
 • <strong>-Tags für wichtige Keywords und Begriffe
 • Nach maximal 3 Absätzen MUSS ein visuelles Element folgen (Liste, Fettung, Zwischenüberschrift)
 • Tabellen bei Vergleichen oder technischen Daten
@@ -1675,7 +1768,7 @@ Prüfe BEVOR du ausgibst:
 □ HEADING-HIERARCHIE: H1 → H2 → H3 (keine Sprünge)? ✓
 □ Nach JEDER Überschrift folgt Text? ✓
 □ H3 nur unter H2 (nie alleinstehend)? ✓
-□ Mindestens 2-3 Listen im Text? ✓
+□ Fließtext statt Bullet Points (außer Vorteile-Liste am Ende)? ✓
 □ Keine verbotenen Phrasen? ✓
 □ FAQ mit direkten Antworten? ✓
 □ E-E-A-T-Signale vorhanden? ✓
@@ -1951,7 +2044,7 @@ ERFUNDENE FAKTEN:
 □ Long-Tails als Variationen gezählt (nicht separat)?
 □ Keine erfundenen Preise/Modellnamen?
 □ Keine Fluff-Phrasen?
-□ Mind. 2-3 Listen im Text?
+□ Fließtext (keine Bullet Points im Haupttext)?
 □ FAQ mit direkten Antworten?
 □ Satzlängen variiert?`;
 }
@@ -2005,7 +2098,9 @@ TON: Freundlich, nahbar, vertrauensvoll`;
 
   // ═══ HEALTHCARE COMPLIANCE BLOCK (IMMER AKTIV!) ═══
   const healthcareComplianceBlock = `
-═══ HEALTHCARE COMPLIANCE (IMMER AKTIV - K-Active ist Medtech!) ═══
+╔═════════════════════════════════════════════════════════════════════════════╗
+║  ABSOLUTE PFLICHT: HEALTHCARE COMPLIANCE (NICHT VERHANDELBAR!)              ║
+╚═════════════════════════════════════════════════════════════════════════════╝
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ MDR (Medical Device Regulation)                                              │
@@ -2035,42 +2130,40 @@ COMPLIANCE-SICHERE FORMULIERUNGEN:
 
   // ═══ ANTI-FLUFF BLACKLIST (ERWEITERT: 25 Einträge) ═══
   const antiFluffBlock = `
-═══ ANTI-FLUFF BLACKLIST (STRIKT VERBOTEN!) ═══
+═══ LEITPLANKEN: STIL & WORTWAHL (Orientierung, kein Zwang) ═══
 
-KI-TYPISCHE EINLEITUNGEN (NIEMALS verwenden):
-❌ "In der heutigen Zeit..." / "In der modernen Welt..." / "In der digitalen Ära..."
-❌ "Es ist wichtig zu beachten, dass..." / "Dabei ist es entscheidend..."
-❌ "Zusammenfassend lässt sich sagen..." / "Abschließend kann man festhalten..."
-❌ "In diesem Artikel erfahren Sie..." / "Hier erfahren Sie alles über..."
-❌ "Herzlich willkommen..." / "Willkommen zu unserem Ratgeber..."
-❌ "Wie wir alle wissen..." / "Bekanntlich..."
+VERMEIDE NACH MÖGLICHKEIT diese KI-typischen Phrasen:
+• "In der heutigen Zeit..." / "In der modernen Welt..."
+• "Es ist wichtig zu beachten, dass..." / "Dabei ist es entscheidend..."
+• "Zusammenfassend lässt sich sagen..." / "Abschließend kann man festhalten..."
+• "In diesem Artikel erfahren Sie..." / "Herzlich willkommen..."
+• "Nicht umsonst..." / "Zweifellos..." / "Grundsätzlich..."
 
-LEERE VERSTÄRKER (NIEMALS verwenden):
-❌ "Nicht umsonst..." / "Zweifellos..." / "Selbstverständlich..."
-❌ "Grundsätzlich..." / "Im Grunde genommen..." / "Prinzipiell..."
-❌ "Sozusagen..." / "Gewissermaßen..." / "Quasi..."
-❌ "Optimal unterstützen..." / "Perfekt geeignet..." (auch HWG-problematisch!)
-❌ "Einzigartig..." / "Revolutionär..." (ohne Beweis = Fluff)
+STATTDESSEN BEVORZUGEN:
+• Konkrete Zahlen und Fakten
+• Direkte Aussagen
+• Aktive Verben statt Passiv
+• Kurze, prägnante Sätze
 
-RHETORISCHE FRAGEN (MAX 1x im gesamten Text!):
-⚠️ "Kennst du das Gefühl, wenn..."
-⚠️ "Hast du dich schon mal gefragt..."
-⚠️ "Wer kennt es nicht..."
-→ Diese Hooks funktionieren NUR einmal. Mehrfach = nervig!
+RHETORISCHE FRAGEN: Max 1x im Text - sie funktionieren nur einmal!
 
-ÜBERFLÜSSIGE FÜLLWÖRTER:
-❌ "natürlich" (wenn nicht wirklich natürlich)
-❌ "selbstverständlich" (wenn nicht selbstverständlich)
-❌ "durchaus" / "durchweg" / "letztendlich"
-❌ "im Endeffekt" / "schlussendlich" / "letzten Endes"
+HINWEIS: Diese Liste dient als Orientierung. Wenn eine Phrase den
+Lesefluss verbessert → nutze sie! Lebendiger Text > perfekte Regeltreue.
 
-STATTDESSEN NUTZEN:
-✓ Konkrete Zahlen und Fakten
-✓ Direkte Aussagen ohne Abschwächung
-✓ Aktive Verben statt Passiv
-✓ Kurze, prägnante Sätze
+═══ FORMATIERUNG: FLIEẞTEXT BEVORZUGT ═══
 
-REGEL: Jeder Satz muss INFORMIEREN oder ÜBERZEUGEN. Füllsätze → LÖSCHEN!`;
+BEVORZUGE im Haupttext:
+• Zusammenhängende Absätze (Fließtext)
+• Mehrere Punkte → In Sätze umformulieren
+
+LISTEN ERLAUBT FÜR:
+• "Vorteile auf einen Blick" am Ende (max 1x)
+• FAQ-Bereich
+• Schritt-für-Schritt Anleitungen (bei Ratgebern)
+
+Beispiel: NICHT "Vorteile: - hautfreundlich - elastisch - wasserfest"
+SONDERN: "Das Material überzeugt durch seine Hautfreundlichkeit, bleibt elastisch und ist zudem wasserfest."`;
+</invoke>
 
   // ═══ STRUKTUR-TEMPLATE ═══
   let structureTemplate = '';
@@ -2253,8 +2346,8 @@ Wenn das Produkt ein Medizinprodukt ist (TENS, EMS, Tapes etc.):
 
 • Satzlänge VARIIEREN: Kurz. Dann mittel. Dann länger.
 • Max. 4 Sätze pro Absatz (\${maxPara} Wörter)
-• Mindestens 2-3 Bullet-Listen
-• <strong> für wichtige Keywords
+• FLIEẞTEXT bevorzugen - Bullet-Liste NUR am Ende für "Vorteile auf einen Blick"
+• <strong> für wichtige Keywords im Fließtext
 
 ═══ OUTPUT-FORMAT ═══
 
@@ -2303,9 +2396,35 @@ Wenn der Text kürzer wird, füge mehr Details, Anwendungsszenarien oder FAQ hin
 □ Keyword-Häufigkeit \${minKeywords}-\${maxKeywords}x? ✓
 □ KEINE Heilversprechen (HWG)? ✓
 □ Keine absoluten Wirkaussagen (MDR)? ✓
-□ KEINE verbotenen Fluff-Phrasen? ✓
-□ Mind. 2-3 Listen? ✓
-□ FAQ mit direkten Antworten? ✓\`;
+□ Fließtext (Bullet-Liste nur am Ende)? ✓
+□ FAQ mit direkten Antworten? ✓
+
+═══════════════════════════════════════════════════════════════════════════════
+                           KREATIVITÄTS-FREIRAUM
+═══════════════════════════════════════════════════════════════════════════════
+
+Du bist ein ERFAHRENER TEXTER, nicht nur eine Regel-Maschine!
+
+Oben stehen viele Regeln - hier ist die wichtigste:
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  SCHREIBE EINEN TEXT, DEN DU SELBST GERNE LESEN WÜRDEST!                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+NUTZE DEINEN SPIELRAUM:
+
+• Die Compliance-Regeln (HWG/MDR) sind NICHT verhandelbar → halte sie ein!
+• ALLE anderen Regeln sind LEITPLANKEN, keine Zwangsjacke
+• Wenn eine Stilregel den Lesefluss stört → Lesefluss gewinnt
+• Variiere! Nicht jeder Absatz muss perfekt strukturiert sein
+• Überrasche subtil - die besten Texte brechen sanft Erwartungen
+
+GRUNDSATZ:
+Lieber ein LEBENDIGER Text mit kleinen Stilabweichungen
+als ein perfekt regelkonformer, aber LANGWEILIGER Text.
+
+Die Regeln oben sind dein Werkzeugkasten, nicht dein Gefängnis.
+Nutze sie KREATIV, um einen Text zu schreiben, der wirklich ÜBERZEUGT.\`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -2457,7 +2576,7 @@ KEYWORD-DICHTE ZIEL: ${densityLabel}
 
 CHECKLISTE:
 ✓ Keyword-Dichte einhalten
-✓ Mindestens 2-3 Listen im Text
+✓ Fließtext bevorzugt (Bullet-Liste nur am Ende für Vorteile)
 ✓ Lebendige, variierende Sprache
 ✓ E-E-A-T Signale einbauen
 ✓ Keine verbotenen Phrasen
