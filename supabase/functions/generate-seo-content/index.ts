@@ -994,38 +994,39 @@ function buildSystemPrompt(formData: any): string {
   };
   const addressStyle = addressMap[formData.formOfAddress || 'du'] || addressMap.du;
   
+  // ═══ TONALITÄT-MAPPING (UNIFIED) ═══
+  // Unterstützt alle UI-Varianten: ConfigPanel, BasicVersion, etc.
   const tonalityMap: Record<string, string> = {
-    'expertenmix': 'Expertenmix (70% Fachwissen, 20% Lösung, 10% Story)',
+    // ConfigPanel UI values (mit Bindestrich)
+    'expert-mix': 'Expertenmix (70% Fachwissen, 20% Lösung, 10% Story)',
     'consultant-mix': 'Beratermix (40% Fachwissen, 40% Lösung, 20% Story)',
     'storytelling-mix': 'Storytelling-Mix (30% Fachwissen, 30% Lösung, 40% Story)',
     'conversion-mix': 'Conversion-Mix (20% Fachwissen, 60% Lösung, 20% Story)',
-    'balanced-mix': 'Balanced-Mix (je 33%)'
-  };
-  
-  // ═══ FIX: tone → tonality MAPPING ═══
-  // Support both English (from advanced forms) and German (from BasicVersion) tone values
-  const toneToTonality: Record<string, string> = {
-    // English values
+    'balanced-mix': 'Balanced-Mix (je 33%)',
+    // Legacy values (ohne Bindestrich)
+    'expertenmix': 'Expertenmix (70% Fachwissen, 20% Lösung, 10% Story)',
+    // BasicVersion tone values
     'factual': 'Sachlich & Informativ',
     'advisory': 'Beratend & Nutzenorientiert',
     'sales': 'Aktivierend & Überzeugend',
-    // German values (from BasicVersion)
     'sachlich': 'Sachlich & Informativ',
     'beratend': 'Beratend & Nutzenorientiert',
     'aktivierend': 'Aktivierend & Überzeugend'
   };
 
-  const tonality = formData.tone
-    ? toneToTonality[formData.tone] || tonalityMap[formData.tonality] || 'Balanced-Mix'
-    : tonalityMap[formData.tonality] || 'Balanced-Mix';
+  // Nimm tonality ODER tone, mit sinnvollem Default
+  const tonalityInput = formData.tonality || formData.tone || 'consultant-mix';
+  const tonality = tonalityMap[tonalityInput] || 'Beratermix (40% Fachwissen, 40% Lösung, 20% Story)';
 
-  console.log('Tone mapping:', formData.tone, '->', tonality);
+  console.log('Tonalität:', tonalityInput, '→', tonality);
   
   const maxPara = formData.maxParagraphLength || 300;
   
   // ═══ WORTANZAHL UND KEYWORD-DICHTE ═══
-  const wordCountMap: Record<string, number> = { 'short': 600, 'medium': 1000, 'long': 1500 };
-  const wordCount = wordCountMap[formData.contentLength] || 1000;
+  // FIX: Verwende direkt wordCount vom Frontend (UI sendet "500", "1000", "1500", etc.)
+  const wordCount = parseInt(formData.wordCount) || 1500;
+
+  console.log('Wortanzahl vom Frontend:', formData.wordCount, '→ Parsed:', wordCount);
   
   // ═══ FIX: keywordDensity DROPDOWN VERWENDEN ═══
   const densityMap: Record<string, { min: number; max: number; label: string }> = {
@@ -2096,6 +2097,68 @@ SPRACHE:
 TON: Freundlich, nahbar, vertrauensvoll`;
   }
 
+  // ═══ TONALITÄT-INSTRUKTIONEN (KONKRET!) ═══
+  const tonalityInstructionsMap: Record<string, string> = {
+    'Expertenmix (70% Fachwissen, 20% Lösung, 10% Story)': `
+SCHREIBSTIL - EXPERTENMIX:
+• 70% Fachwissen: Tiefe technische Details, Studien, Evidenz
+• 20% Lösung: Konkrete Anwendungsempfehlungen
+• 10% Story: Kurze Praxisbeispiele als Auflockerung
+• Ziel: Autorität und Kompetenz demonstrieren`,
+
+    'Beratermix (40% Fachwissen, 40% Lösung, 20% Story)': `
+SCHREIBSTIL - BERATERMIX (EMPFOHLEN):
+• 40% Fachwissen: Fundierte Informationen, aber zugänglich erklärt
+• 40% Lösung: "Das bedeutet für Sie...", konkrete Tipps und Empfehlungen
+• 20% Story: Alltagsszenarien, "Kennen Sie das..."
+• Ziel: Vertrauen aufbauen durch kompetente Beratung`,
+
+    'Storytelling-Mix (30% Fachwissen, 30% Lösung, 40% Story)': `
+SCHREIBSTIL - STORYTELLING-MIX:
+• 30% Fachwissen: Nur das Wichtigste, leicht verständlich
+• 30% Lösung: Praktische Tipps eingebettet in Geschichten
+• 40% Story: Szenarien, Erfahrungsberichte, emotionale Anker
+• Ziel: Emotional berühren und Identifikation schaffen`,
+
+    'Conversion-Mix (20% Fachwissen, 60% Lösung, 20% Story)': `
+SCHREIBSTIL - CONVERSION-MIX:
+• 20% Fachwissen: Nur zur Untermauerung der Vorteile
+• 60% Lösung: Benefits, Vorteile, "Was Sie davon haben"
+• 20% Story: Social Proof, Erfolgsgeschichten
+• Ziel: Zum Handeln motivieren, Kaufentscheidung fördern
+• CTAs natürlich einbauen`,
+
+    'Balanced-Mix (je 33%)': `
+SCHREIBSTIL - BALANCED-MIX:
+• 33% Fachwissen: Solide Informationsbasis
+• 33% Lösung: Praktische Anwendung
+• 33% Story: Emotionale Elemente
+• Ziel: Ausgewogener Text für verschiedene Lesertypen`,
+
+    'Sachlich & Informativ': `
+SCHREIBSTIL - SACHLICH:
+• Neutral, faktenbasiert, keine Verkaufsfloskeln
+• Objektive Darstellung mit Quellen wo möglich
+• Wissenschaftlicher, informativer Stil
+• Keine emotionalen Appelle`,
+
+    'Beratend & Nutzenorientiert': `
+SCHREIBSTIL - BERATEND:
+• Hilfreicher, lösungsorientierter Ton
+• "Das bedeutet für Sie...", konkrete Empfehlungen
+• Probleme ansprechen und Lösungen aufzeigen
+• Vertrauensaufbau durch Kompetenz`,
+
+    'Aktivierend & Überzeugend': `
+SCHREIBSTIL - AKTIVIEREND:
+• Emotionale Ansprache, Benefits betonen
+• Vorteile klar herausstellen
+• Call-to-Actions einbauen
+• Dringlichkeit erzeugen wo passend`
+  };
+
+  const tonalityInstructions = tonalityInstructionsMap[tonality] || tonalityInstructionsMap['Beratermix (40% Fachwissen, 40% Lösung, 20% Story)'];
+
   // ═══ HEALTHCARE COMPLIANCE BLOCK (IMMER AKTIV!) ═══
   const healthcareComplianceBlock = `
 ╔═════════════════════════════════════════════════════════════════════════════╗
@@ -2309,9 +2372,9 @@ Der Text soll DIREKT verwendbar sein – wie vom Marketing-Chef persönlich gesc
 
 MARKE: \${brandName}
 SEITENTYP: \${pageTypeLabels[pageType] || 'Produktseite'}
-TONALITÄT: \${tonality}
 ANREDE: \${addressStyle}
 TEXTLÄNGE: ca. \${wordCount} Wörter
+\${tonalityInstructions}
 \${audienceBlock}
 \${healthcareComplianceBlock}
 \${antiFluffBlock}

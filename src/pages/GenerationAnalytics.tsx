@@ -77,30 +77,41 @@ const GenerationAnalytics = ({ session }: GenerationAnalyticsProps) => {
   const loadAnalytics = async () => {
     setLoading(true);
     try {
-      // Load prompt version analytics
-      const { data: promptData } = await supabase
-        .from('content_projects' as any)
+      // Load prompt version analytics from view
+      const { data: promptData, error: promptError } = await supabase
+        .from('prompt_version_analytics' as any)
         .select('*');
 
-      // These views/tables may not exist yet - use empty arrays as fallback
-      if (promptData) setPromptStats(promptData as any);
+      if (promptError) {
+        console.error('Error loading prompt analytics:', promptError);
+      } else if (promptData) {
+        setPromptStats(promptData as any);
+      }
 
-      // Load daily stats
-      const { data: dailyData } = await supabase
-        .from('content_projects' as any)
+      // Load daily stats from view
+      const { data: dailyData, error: dailyError } = await supabase
+        .from('daily_generation_stats' as any)
         .select('*')
         .limit(14);
 
-      if (dailyData) setDailyStats(dailyData as any);
+      if (dailyError) {
+        console.error('Error loading daily stats:', dailyError);
+      } else if (dailyData) {
+        setDailyStats(dailyData as any);
+      }
 
-      // Load recent generations
-      const { data: recentData } = await supabase
-        .from('content_projects' as any)
-        .select('*')
+      // Load recent generations from content_generations table
+      const { data: recentData, error: recentError } = await supabase
+        .from('content_generations' as any)
+        .select('id, focus_keyword, prompt_version, ai_model, success, generation_time_ms, output_word_count, content_score, created_at, serp_used, domain_knowledge_used')
         .order('created_at', { ascending: false })
         .limit(20);
 
-      if (recentData) setRecentGenerations(recentData as any);
+      if (recentError) {
+        console.error('Error loading recent generations:', recentError);
+      } else if (recentData) {
+        setRecentGenerations(recentData as any);
+      }
 
     } catch (error) {
       console.error('Analytics load error:', error);
