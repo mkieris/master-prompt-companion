@@ -67,7 +67,6 @@ export interface ContentConfig {
   // Basic Info
   pageType: 'product' | 'category' | 'guide';
   brandName: string;
-  mainTopic: string;
 
   // Keywords
   focusKeyword: string;
@@ -80,7 +79,6 @@ export interface ContentConfig {
 
   // Structure
   wordCount: string;
-  includeIntro: boolean;
   includeFAQ: boolean;
   wQuestions: string[];
 
@@ -126,14 +124,12 @@ export interface GeneratedContent {
 const defaultConfig: ContentConfig = {
   pageType: 'product',
   brandName: '',
-  mainTopic: '',
   focusKeyword: '',
   secondaryKeywords: [],
   targetAudience: 'b2c',
   formOfAddress: 'du',
-  tonality: 'balanced-mix',
+  tonality: 'consultant-mix',  // Default: Beratend
   wordCount: '1500',
-  includeIntro: true,
   includeFAQ: true,
   wQuestions: [],
   searchIntent: ['know', 'buy'],
@@ -164,6 +160,7 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
   const [editedTitle, setEditedTitle] = useState<string>('');
   const [editedMeta, setEditedMeta] = useState<string>('');
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [domainKnowledge, setDomainKnowledge] = useState<any>(null);
   const [researchUrls, setResearchUrls] = useState<ResearchUrl[]>([]);
 
@@ -508,6 +505,62 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
     }
   };
 
+  // Save project to database
+  const handleSave = async () => {
+    if (!editedContent || !session?.user?.id || !currentOrg) {
+      toast({
+        title: "Speichern nicht möglich",
+        description: "Kein Content vorhanden oder nicht eingeloggt",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const projectData = {
+        created_by: session.user.id,
+        organization_id: currentOrg.id,
+        title: editedTitle || config.focusKeyword || 'Unbenanntes Projekt',
+        focus_keyword: config.focusKeyword,
+        page_type: config.pageType,
+        form_data: {
+          ...config,
+          serpContext: config.serpContext,
+          serpTerms: config.serpTerms,
+        },
+        generated_content: {
+          seoText: editedContent,
+          title: editedTitle,
+          metaDescription: editedMeta,
+        },
+        seo_score: contentScore,
+        status: 'draft',
+      };
+
+      const { error } = await supabase
+        .from('content_projects')
+        .insert(projectData as any);
+
+      if (error) throw error;
+
+      toast({
+        title: "Gespeichert",
+        description: "Projekt wurde erfolgreich gespeichert",
+      });
+    } catch (error) {
+      console.error("Save error:", error);
+      toast({
+        title: "Fehler beim Speichern",
+        description: "Projekt konnte nicht gespeichert werden",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   // Calculate content score
   const contentScore = useMemo(() => {
     if (!editedContent) return 0;
@@ -600,6 +653,31 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
                 <TrendingUp className="h-3 w-3 mr-1" />
                 SERP aktiv
               </Badge>
+            )}
+
+            {/* Save Button */}
+            {editedContent && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleSave}
+                    disabled={isSaving || !editedContent}
+                    className="h-8 px-3 gap-1.5"
+                  >
+                    {isSaving ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Save className="h-3.5 w-3.5" />
+                    )}
+                    <span className="text-xs">Speichern</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Projekt speichern
+                </TooltipContent>
+              </Tooltip>
             )}
 
             {/* Toggle Config Panel */}

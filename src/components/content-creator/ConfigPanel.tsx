@@ -855,17 +855,7 @@ export const ConfigPanel = ({
               {/* Content Structure Options */}
               <div className="space-y-2">
                 <Label className="text-xs">Struktur-Elemente</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <label className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all ${
-                    config.includeIntro ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
-                  }`}>
-                    <Checkbox
-                      id="includeIntro"
-                      checked={config.includeIntro}
-                      onCheckedChange={(checked) => onConfigChange({ includeIntro: checked as boolean })}
-                    />
-                    <span className="text-xs">Einleitung</span>
-                  </label>
+                <div className="flex gap-2">
                   <label className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all ${
                     config.includeFAQ ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
                   }`}>
