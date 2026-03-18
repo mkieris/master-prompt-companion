@@ -1018,6 +1018,12 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
     // We must complete within that time, so use shorter API timeout and fewer retries
     const maxRetries = 2;
     const TIMEOUT_MS = 55000; // 55 seconds per attempt (2 attempts + processing = ~115s max)
+
+    // FIX: max_tokens berechnen basierend auf Wortanzahl
+    // 1 deutsches Wort ≈ 1.8 Token (inkl. HTML) + JSON-Overhead + 20% Puffer
+    const requestedWordCount = parseInt(formData.wordCount) || 1500;
+    const calculatedMaxTokens = Math.ceil(requestedWordCount * 1.8) + 500 + Math.ceil(requestedWordCount * 0.4);
+    console.log(`Calculated max_tokens: ${calculatedMaxTokens} for ${requestedWordCount} words`);
     let response: Response | null = null;
 
     const startTime = Date.now();
@@ -1040,7 +1046,7 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
           response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + LOVABLE_API_KEY, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: modelConfig.modelName, messages: messages, temperature: modelConfig.temperature }),
+            body: JSON.stringify({ model: modelConfig.modelName, messages: messages, temperature: modelConfig.temperature, max_tokens: calculatedMaxTokens }),
             signal: controller.signal,
           });
         } finally {
