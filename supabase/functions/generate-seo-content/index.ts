@@ -719,6 +719,204 @@ AUSGABE ALS JSON:
       }
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // V14 TWO-STAGE HANDLER (Brand Voice + Compliance Audit)
+    // ═══════════════════════════════════════════════════════════════════════════════
+    if (promptVersion === 'v14-two-stage') {
+      console.log('=== V14 TWO-STAGE GENERATION START ===');
+
+      const wordCount = parseInt(formData.wordCount) || 1500;
+      const brandName = formData.brandName || formData.manufacturerName || 'K-Active';
+      const pageType = formData.pageType || 'product';
+
+      // Density config
+      const densityMap: Record<string, {min: number; max: number; label: string}> = {
+        minimal:  { min: 0.3, max: 0.8, label: 'minimal (0.3–0.8%)' },
+        normal:   { min: 0.5, max: 1.5, label: 'normal (0.5–1.5%)' },
+        high:     { min: 1.5, max: 2.5, label: 'hoch (1.5–2.5%)' },
+      };
+      const density = densityMap[formData.keywordDensity] || densityMap.normal;
+      const minKeywords = Math.ceil((wordCount / 100) * density.min);
+      const maxKeywords = Math.ceil((wordCount / 100) * density.max);
+
+      // Build context block (reuse existing logic)
+      const contextBlock = buildContextBlock(formData);
+      const dynamicStructure = buildDynamicStructure(wordCount, pageType);
+
+      // ═══ STAGE 1: CREATIVE WRITER ═══
+      console.log('[V14] Stage 1: Creative Writer starting...');
+      const stage1System = buildV14Stage1SystemPrompt({
+        brandName,
+        audience: formData.targetAudience || 'b2c',
+        dynamicStructure,
+        minKeywords,
+        maxKeywords,
+        contextBlock,
+      });
+
+      const stage1User = buildV14Stage1UserPrompt({
+        brandName,
+        mainTopic: formData.mainTopic || formData.productName || formData.focusKeyword,
+        focusKeyword: formData.focusKeyword,
+        secondaryKeywords: formData.secondaryKeywords,
+        searchIntent: formData.searchIntent,
+        manufacturerInfo: formData.manufacturerInfo,
+        additionalInfo: formData.additionalInfo,
+        internalLinks: formData.internalLinks,
+        faqInputs: formData.faqInputs,
+        wQuestions: formData.wQuestions?.join?.('\n') || formData.wQuestions,
+        briefingContent,
+        densityLabel: density.label,
+      });
+
+      const stage1MaxTokens = calculateV14MaxTokens(wordCount);
+      const TIMEOUT_MS = 50000; // 50s per stage
+
+      // Stage 1 API call
+      let stage1Response: Response;
+      try {
+        const controller1 = new AbortController();
+        const timeout1 = setTimeout(() => controller1.abort(), TIMEOUT_MS);
+
+        stage1Response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + LOVABLE_API_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: modelConfig.modelName,
+            messages: [
+              { role: 'system', content: stage1System },
+              { role: 'user', content: stage1User }
+            ],
+            temperature: 0.8,
+            max_tokens: stage1MaxTokens,
+          }),
+          signal: controller1.signal,
+        });
+        clearTimeout(timeout1);
+      } catch (err) {
+        console.error('[V14] Stage 1 failed:', err);
+        return new Response(JSON.stringify({
+          error: 'V14 Stage 1 fehlgeschlagen',
+          details: String(err)
+        }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      if (!stage1Response.ok) {
+        const errText = await stage1Response.text();
+        console.error('[V14] Stage 1 API error:', errText);
+        return new Response(JSON.stringify({
+          error: 'V14 Stage 1 API Fehler',
+          status: stage1Response.status
+        }), { status: stage1Response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      const stage1Data = await stage1Response.json();
+      const stage1Content = stage1Data.choices?.[0]?.message?.content || '';
+      const stage1Result = extractJsonFromText(stage1Content);
+
+      if (!stage1Result || !stage1Result.seoText) {
+        console.error('[V14] Stage 1 JSON parse failed');
+        return new Response(JSON.stringify({
+          error: 'V14 Stage 1 JSON ungültig',
+          rawContent: stage1Content.substring(0, 500)
+        }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      console.log(`[V14] Stage 1 done. Words: ${stage1Result.qualityReport?.wordCount || 'unknown'}`);
+
+      // ═══ STAGE 2: COMPLIANCE AUDITOR ═══
+      console.log('[V14] Stage 2: Compliance Auditor starting...');
+      const stage2System = buildV14Stage2SystemPrompt(brandName);
+      const stage2User = buildV14Stage2UserPrompt({
+        brandName,
+        pageType,
+        mainTopic: formData.mainTopic || formData.focusKeyword,
+        seoText: stage1Result.seoText,
+        faq: stage1Result.faq || [],
+      });
+
+      const stage2MaxTokens = calculateV14Stage2MaxTokens(stage1MaxTokens);
+
+      let stage2Response: Response;
+      try {
+        const controller2 = new AbortController();
+        const timeout2 = setTimeout(() => controller2.abort(), TIMEOUT_MS);
+
+        stage2Response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + LOVABLE_API_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: modelConfig.modelName,
+            messages: [
+              { role: 'system', content: stage2System },
+              { role: 'user', content: stage2User }
+            ],
+            temperature: 0.2,
+            max_tokens: stage2MaxTokens,
+          }),
+          signal: controller2.signal,
+        });
+        clearTimeout(timeout2);
+      } catch (err) {
+        console.error('[V14] Stage 2 failed:', err);
+        // Fallback: Return Stage 1 result without compliance check
+        return new Response(JSON.stringify({
+          success: true,
+          title: stage1Result.title,
+          metaDescription: stage1Result.metaDescription,
+          seoText: stage1Result.seoText,
+          faq: stage1Result.faq || [],
+          internalLinks: stage1Result.internalLinks || [],
+          technicalHints: stage1Result.technicalHints || [],
+          qualityReport: stage1Result.qualityReport,
+          auditReport: { totalIssues: -1, issues: [], complianceScore: -1, error: 'Stage 2 timeout - using unchecked content' },
+          _meta: { version: 'v14-two-stage', stage2Error: true },
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      if (!stage2Response.ok) {
+        // Fallback: Return Stage 1 result
+        console.warn('[V14] Stage 2 API error, returning Stage 1 result');
+        return new Response(JSON.stringify({
+          success: true,
+          title: stage1Result.title,
+          metaDescription: stage1Result.metaDescription,
+          seoText: stage1Result.seoText,
+          faq: stage1Result.faq || [],
+          internalLinks: stage1Result.internalLinks || [],
+          technicalHints: stage1Result.technicalHints || [],
+          qualityReport: stage1Result.qualityReport,
+          auditReport: { totalIssues: -1, issues: [], complianceScore: -1, error: 'Stage 2 failed' },
+          _meta: { version: 'v14-two-stage', stage2Error: true },
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      const stage2Data = await stage2Response.json();
+      const stage2Content = stage2Data.choices?.[0]?.message?.content || '';
+      const stage2Result = extractJsonFromText(stage2Content);
+
+      console.log(`[V14] Stage 2 done. Issues: ${stage2Result?.auditReport?.totalIssues || 0}`);
+      console.log('=== V14 TWO-STAGE GENERATION COMPLETE ===');
+
+      // Final response
+      return new Response(JSON.stringify({
+        success: true,
+        title: stage1Result.title,
+        metaDescription: stage1Result.metaDescription,
+        seoText: stage2Result?.seoText || stage1Result.seoText,
+        faq: stage1Result.faq || [],
+        internalLinks: stage1Result.internalLinks || [],
+        technicalHints: stage1Result.technicalHints || [],
+        qualityReport: {
+          ...stage1Result.qualityReport,
+          wordCountAfterCompliance: stage2Result?.auditReport?.wordCountAfter,
+        },
+        auditReport: stage2Result?.auditReport || { totalIssues: 0, issues: [], complianceScore: 100 },
+        _meta: { version: 'v14-two-stage' },
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    // ═══════════════════════════════════════════════════════════════════════════════
+
     const systemPrompt = buildSystemPrompt(formData);
     const userPrompt = buildUserPrompt(formData, briefingContent);
 
@@ -978,6 +1176,93 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unbekannter Fehler' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CONTEXT BLOCK BUILDER (für V14 und andere Versionen)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function buildContextBlock(formData: any): string {
+  // ═══ SERP-ANALYSE KONTEXT ═══
+  let serpBlock = '';
+  if (formData.serpContext && formData.serpContext.trim().length > 0) {
+    serpBlock = '\n\n# SERP-ANALYSE (Google Top-10)\n\n' + formData.serpContext.trim();
+  }
+
+  // ═══ STRUKTURIERTE SERP-TERMS (Gewichtet) ═══
+  if (formData.serpTermsStructured) {
+    const { mustHave, shouldHave, niceToHave } = formData.serpTermsStructured;
+
+    if (mustHave?.length > 0 || shouldHave?.length > 0) {
+      serpBlock += '\n\n# KEYWORD-INTEGRATION (PFLICHT)\n\n';
+
+      if (mustHave?.length > 0) {
+        serpBlock += '## PFLICHT-BEGRIFFE (MÜSSEN im Text vorkommen):\n';
+        serpBlock += mustHave.map((term: string) => `- "${term}"`).join('\n');
+        serpBlock += '\n\n';
+      }
+
+      if (shouldHave?.length > 0) {
+        serpBlock += '## EMPFOHLENE BEGRIFFE (SOLLTEN vorkommen):\n';
+        serpBlock += shouldHave.slice(0, 10).map((term: string) => `- "${term}"`).join('\n');
+        serpBlock += '\n\n';
+      }
+
+      if (niceToHave?.length > 0) {
+        serpBlock += '## OPTIONALE BEGRIFFE (können vorkommen):\n';
+        serpBlock += niceToHave.slice(0, 5).map((term: string) => `- "${term}"`).join('\n');
+        serpBlock += '\n\n';
+      }
+
+      serpBlock += `ANWEISUNG FÜR TERM-INTEGRATION:
+
+1. ALLE Pflicht-Begriffe MÜSSEN im Text vorkommen (natürlich eingebaut)
+2. Mindestens 70% der empfohlenen Begriffe sollten vorkommen
+3. Diese Terms erscheinen in den Top-10 Google-Ergebnissen!
+`;
+    }
+  }
+
+  // ═══ DOMAIN KNOWLEDGE INTEGRATION ═══
+  let domainBlock = '';
+  if (formData.domainKnowledge) {
+    const dk = formData.domainKnowledge;
+    domainBlock = '\n\n# MARKEN-WISSEN\n\n';
+
+    if (dk.companyName) {
+      domainBlock += `Unternehmen: ${dk.companyName}\n`;
+    }
+    if (dk.brandVoice) {
+      domainBlock += `\n## BRAND VOICE:\n${dk.brandVoice}\n`;
+    }
+    if (dk.uniqueSellingPoints?.length > 0) {
+      domainBlock += `\n## USPs:\n`;
+      dk.uniqueSellingPoints.forEach((usp: string) => {
+        domainBlock += `- ${usp}\n`;
+      });
+    }
+    if (dk.aiSummary) {
+      domainBlock += `\n## UNTERNEHMENSPROFIL:\n${dk.aiSummary}\n`;
+    }
+  }
+
+  // ═══ MANAGEMENT INFO ═══
+  let managementBlock = '';
+  if (formData.managementInfo && formData.managementInfo.trim()) {
+    managementBlock = `\n\n# GESCHÄFTSFÜHRUNG\n\n${formData.managementInfo.trim()}\n`;
+  }
+
+  // ═══ RESEARCH CONTENT ═══
+  let researchBlock = '';
+  if (formData.researchContent && Array.isArray(formData.researchContent) && formData.researchContent.length > 0) {
+    researchBlock = '\n\n# RECHERCHIERTE INHALTE\n\n';
+    formData.researchContent.forEach((research: { url: string; title: string; content: string }, idx: number) => {
+      researchBlock += `## Quelle ${idx + 1}: ${research.title || research.url}\n`;
+      researchBlock += research.content.substring(0, 2000) + '\n\n';
+    });
+  }
+
+  return serpBlock + domainBlock + managementBlock + researchBlock;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SYSTEM PROMPT BUILDER MIT VERSION-ROUTING
@@ -2079,7 +2364,9 @@ function buildV13PriorityPrompt(
 
   const pageType = formData.pageType || 'product';
   const brandName = formData.brandName || formData.manufacturerName || 'K-Active';
-  const minWordCount = Math.max(1000, wordCount - 200);
+  // FIX: minWordCount = wordCount - 200, aber mindestens 80% der Zielwortanzahl
+  const minWordCount = Math.max(Math.round(wordCount * 0.8), wordCount - 200);
+  const absatzCount = Math.round(wordCount / 100); // ca. 100 Wörter pro Absatz
 
   // ═══ ZIELGRUPPEN-BLOCK ═══
   let audienceBlock = '';
@@ -2163,7 +2450,21 @@ ${audienceBlock}
 ### P1 – NICHT VERHANDELBAR
 Diese Regeln gelten immer. Kein Text darf sie verletzen.
 
-**Textlänge:** Liefere ${wordCount} Wörter (±200). Zähle mit. Wenn du unter ${minWordCount} Wörter landest, schreibe weiter.
+**TEXTLÄNGE – ABSOLUTE PFLICHT:**
+┌────────────────────────────────────────────────┐
+│  ZIEL: ${wordCount} Wörter                     │
+│  MINIMUM: ${minWordCount} Wörter               │
+│  MAXIMUM: ${wordCount + 300} Wörter            │
+└────────────────────────────────────────────────┘
+
+Du brauchst ca. ${absatzCount} Absätze für ${wordCount} Wörter!
+Wenn der Text zu kurz wird:
+→ Mehr Anwendungsszenarien (Sport, Alltag, Therapie)
+→ Zusätzliche H2-Abschnitte einbauen
+→ FAQ auf 6-8 Fragen erweitern
+→ Fachbegriffe ausführlicher erklären
+
+WARNUNG: Texte unter ${minWordCount} Wörtern werden ABGELEHNT!
 
 **Healthcare Compliance (MDR/HWG):**
 - Medizinprodukte nur mit zugelassener Zweckbestimmung
@@ -2236,10 +2537,270 @@ Antworte ausschließlich mit validem JSON:
   }
 }
 
-## ERINNERUNG
-Der User hat ${wordCount} Wörter bestellt. Dein seoText MUSS mindestens ${minWordCount} Wörter lang sein. Prüfe das vor der Ausgabe.
+## FINALE CHECKLISTE VOR OUTPUT
+□ seoText hat mindestens ${minWordCount} Wörter? (PFLICHT!)
+□ Fokus-Keyword in H1, ersten 100 Wörtern, Meta-Title?
+□ Keine Heilversprechen (MDR/HWG)?
+□ Keine Konkurrenz-Markennamen?
+□ ${absatzCount}+ Absätze vorhanden?
+
+**DER USER HAT ${wordCount} WÖRTER BESTELLT – LIEFERE SIE!**
 
 ${contextBlock}`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VERSION 14: TWO-STAGE SEO CONTENT (Brand Voice + Compliance Audit)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Baut eine strukturelle Längenvorgabe statt einer Wortanzahl-Instruktion.
+ * Statt "Schreibe 1500 Wörter" (LLM kann nicht zählen) gibt es
+ * "6× H2-Sektion je 170 Wörter" (LLM kann Struktur füllen).
+ */
+function buildDynamicStructure(wordCount: number, pageType: string): string {
+  // Feste Blöcke
+  const introWords = 150;
+  const faqCount = wordCount >= 1500 ? 7 : 5;
+  const faqWords = faqCount * 50;
+  const outroWords = 80;
+
+  // Restliche Wörter auf H2-Sektionen verteilen
+  const bodyWords = wordCount - introWords - faqWords - outroWords;
+  const wordsPerSection = 170;
+  const h2Count = Math.max(3, Math.round(bodyWords / wordsPerSection));
+  const actualWordsPerSection = Math.round(bodyWords / h2Count);
+
+  return `EINLEITUNG: ca. ${introWords} Wörter (3 Absätze)
+- Hook: Problem, Alltagsszenario oder überraschender Fakt
+- Fokus-Keyword in den ersten 50 Wörtern
+- Kein Bullet-Point, nur Fließtext
+
+${h2Count}× H2-SEKTION: je ca. ${actualWordsPerSection} Wörter
+- Pro Sektion: 3–4 Absätze mit je 3–4 Sätzen
+- Nach jeder H2 kommt Fließtext, keine Liste
+- H3 nur wenn die Sektion ein Unterthema braucht
+- <strong> für wichtige Begriffe
+- Jede Sektion muss eigenständig Mehrwert liefern
+
+FAQ: ${faqCount} W-Fragen
+- Direkte Antwort, 40–60 Wörter pro Antwort
+- Echte Fragen die Nutzer stellen würden
+
+ABSCHLUSS: ca. ${outroWords} Wörter
+- "Vorteile auf einen Blick" als kurze Bullet-Liste ODER Fazit-Absatz
+
+HEADING-REGELN:
+- Exakt 1× H1 (Fokus-Keyword, max. 70 Zeichen)
+- H2 für die ${h2Count} Hauptsektionen
+- H3 nur als Unterpunkt von H2, keine Ebene überspringen
+
+GESAMT: ca. ${wordCount} Wörter verteilt auf ${h2Count} Sektionen + Intro + FAQ + Abschluss`;
+}
+
+function buildV14AudienceToggle(audience: string): string {
+  if (audience === 'b2b' || audience === 'physiotherapists') {
+    return 'Zielgruppe: Therapeuten / Fachpersonal. Schreibe wie ein Kollege zum Kollegen. Fachbegriffe nutzen, weil sie präziser sind.';
+  }
+  return 'Zielgruppe: Endkunden / Patienten. Schreibe wie ein Therapeut zum Patienten. Fachbegriffe beiläufig übersetzen, nie vermeiden.';
+}
+
+function calculateV14MaxTokens(wordCount: number): number {
+  // 1 deutsches Wort ≈ 1.8 Token (inkl. HTML-Tags) + JSON-Overhead + Puffer
+  const textTokens = Math.ceil(wordCount * 1.8);
+  const jsonOverhead = 500;
+  const buffer = Math.ceil((textTokens + jsonOverhead) * 0.2);
+  return textTokens + jsonOverhead + buffer;
+}
+
+function calculateV14Stage2MaxTokens(stage1Tokens: number): number {
+  return Math.ceil(stage1Tokens * 1.3);
+}
+
+function buildV14Stage1SystemPrompt(vars: {
+  brandName: string;
+  audience: string;
+  dynamicStructure: string;
+  minKeywords: number;
+  maxKeywords: number;
+  contextBlock: string;
+}): string {
+  const audienceToggle = buildV14AudienceToggle(vars.audience);
+
+  return `Du schreibst als ${vars.brandName} — ein erfahrener Therapeut, der sein Wissen teilt. Nicht Konzern, nicht Verkäufer, nicht Lehrbuch. Aus der Therapie, für die Therapie.
+
+Charakter: Erfahren, nicht belehrend. Ehrlich, nicht vorsichtig. Praktisch, nicht theoretisch. Sachlich-warm, nie kitschig.
+
+${audienceToggle}
+
+Ansprache: Du-Form. Erste Person Plural für das Unternehmen ("Wir empfehlen"). Denke jede Produktaussage von der Anwendung her — nicht vom Datenblatt.
+
+Dein Text wird von einem Compliance-Team geprüft. Vermeide absolute Heilversprechen ("heilt", "garantiert"), formuliere stattdessen unterstützend ("kann unterstützen bei", "wurde entwickelt für"). Den Rest übernimmt das Team.
+
+## TEXTAUFBAU
+
+Halte dich exakt an diese Struktur. Jeder Block muss die angegebene Länge erreichen.
+
+${vars.dynamicStructure}
+
+## KEYWORDS
+
+Fokus-Keyword in: H1, erste 100 Wörter, mind. 1× H2, Meta-Title, Meta-Description. Häufigkeit: ${vars.minKeywords}–${vars.maxKeywords}×. Long-Tail-Variationen zählen mit.
+
+## STIL
+
+Satzlängen variieren. Aktiv statt Passiv. Konkret statt vage. Max. 4 Sätze pro Absatz. Einordnung statt Behauptung: "In der Praxis zeigt sich..." statt "Es ist bewiesen..."
+
+Nie: "In der heutigen Zeit", "Es ist wichtig zu beachten", "Zusammenfassend lässt sich sagen", "revolutionär", "perfekt für jeden", "du musst unbedingt".
+
+## SERP-TERMS
+
+Integriere jeden mustHave-Term mindestens 1× natürlich in den Text.
+
+${vars.contextBlock}
+
+## OUTPUT
+
+Nur valides JSON:
+{
+  "title": "Max 60 Zeichen, Keyword vorne",
+  "metaDescription": "Max 155 Zeichen, mit CTA",
+  "seoText": "HTML mit <h1>, <h2>, <h3>, <p>, <ul>, <strong>",
+  "faq": [{"question": "...", "answer": "..."}],
+  "internalLinks": ["..."],
+  "qualityReport": {"wordCount": 0, "keywordCount": 0, "keywordDensity": "0%", "h2Count": 0}
+}`;
+}
+
+function buildV14Stage1UserPrompt(vars: {
+  brandName: string;
+  mainTopic: string;
+  focusKeyword: string;
+  secondaryKeywords?: string[];
+  searchIntent?: string;
+  manufacturerInfo?: string;
+  additionalInfo?: string;
+  internalLinks?: string;
+  faqInputs?: string;
+  wQuestions?: string;
+  briefingContent?: string;
+  densityLabel: string;
+}): string {
+  let prompt = `## CONTENT-BRIEF
+
+**Marke:** ${vars.brandName}
+**Thema/Produkt:** ${vars.mainTopic}
+**Fokus-Keyword:** ${vars.focusKeyword}`;
+
+  if (vars.secondaryKeywords?.length) {
+    prompt += `\n**Sekundär-Keywords:** ${vars.secondaryKeywords.join(', ')}`;
+  }
+  if (vars.searchIntent) {
+    prompt += `\n**Suchintention:** ${vars.searchIntent}`;
+  }
+  if (vars.manufacturerInfo) {
+    prompt += `\n\n### HERSTELLER-/PRODUKTDATEN\n${vars.manufacturerInfo}`;
+  }
+  if (vars.additionalInfo) {
+    prompt += `\n\n### USPs & ZUSATZINFOS\n${vars.additionalInfo}`;
+  }
+  if (vars.internalLinks) {
+    prompt += `\n\n### INTERNE VERLINKUNG\n${vars.internalLinks}`;
+  }
+  if (vars.faqInputs) {
+    prompt += `\n\n### FAQ-VORGABEN\n${vars.faqInputs}`;
+  }
+  if (vars.wQuestions) {
+    prompt += `\n\n### W-FRAGEN\n${vars.wQuestions}`;
+  }
+  if (vars.briefingContent) {
+    prompt += `\n\n${vars.briefingContent}`;
+  }
+
+  prompt += `
+
+---
+
+Schreibe den SEO-Text jetzt. Keyword-Dichte: ${vars.densityLabel}. Fülle jeden Strukturblock vollständig aus. Nur valides JSON.`;
+
+  return prompt;
+}
+
+function buildV14Stage2SystemPrompt(brandName: string): string {
+  return `Du bist Healthcare Compliance Auditor für ${brandName} (Medtech). Dein Job: Texte auf regulatorische Verstöße prüfen und minimal-invasiv korrigieren.
+
+## PRÜF-BEREICHE
+
+### 1. MDR (Medical Device Regulation)
+- Medizinprodukte nur mit zugelassener Zweckbestimmung
+- Keine Erweiterung über CE-Kennzeichnung hinaus
+
+### 2. HWG (Heilmittelwerbegesetz)
+VERBOTEN: "heilt", "beseitigt", "garantiert Schmerzfreiheit", absolut formulierte Wirkaussagen, "Klinisch getestet" ohne Quelle
+ERLAUBT: "kann unterstützen bei", "wurde entwickelt für", "Anwender berichten", "In Studien zeigte sich" (mit Quelle)
+
+Korrekturen:
+- "heilt Rückenschmerzen" → "kann bei Rückenbeschwerden unterstützend wirken"
+- "beseitigt Verspannungen" → "wurde entwickelt, um Verspannungen zu adressieren"
+- "lindert Schmerzen" → "kann zur Linderung von Beschwerden beitragen"
+
+### 3. Konkurrenz-Erwähnung
+Keine Nennung von Wettbewerbern, Händlern, Plattformen oder anderen Marken. Auch nicht vergleichend.
+
+### 4. Heading-Hierarchie
+Exakt 1× <h1>. Kein Ebenen-Sprung. Nach jeder Überschrift steht <p>.
+
+### 5. Kontraindikationen (bei Medizinprodukten)
+Falls nicht vorhanden, ergänze im FAQ: Herzschrittmacher, Schwangerschaft, offene Wunden, akute Entzündungen, Epilepsie. Bei Unsicherheit: "Rücksprache mit Arzt oder Therapeut".
+
+## KORREKTUR-REGELN
+
+- Ändere NUR problematische Stellen
+- KÜRZE DEN TEXT NICHT
+- Behalte Stil, Ton und Struktur bei
+- Wortanzahl-Differenz max. ±50 Wörter
+
+## OUTPUT
+
+Nur valides JSON:
+{
+  "seoText": "Korrigierter vollständiger HTML-Text",
+  "auditReport": {
+    "totalIssues": 0,
+    "issues": [
+      {
+        "type": "HWG|MDR|KONKURRENZ|HEADING|KONTRAINDIKATION",
+        "severity": "critical|warning",
+        "original": "...",
+        "corrected": "...",
+        "rule": "..."
+      }
+    ],
+    "complianceScore": 100,
+    "wordCountBefore": 0,
+    "wordCountAfter": 0
+  }
+}`;
+}
+
+function buildV14Stage2UserPrompt(vars: {
+  brandName: string;
+  pageType: string;
+  mainTopic: string;
+  seoText: string;
+  faq: Array<{question: string; answer: string}>;
+}): string {
+  return `Marke: ${vars.brandName}
+Seitentyp: ${vars.pageType}
+Produkt-Kategorie: ${vars.mainTopic}
+
+### SEO-TEXT:
+${vars.seoText}
+
+### FAQ:
+${JSON.stringify(vars.faq, null, 2)}
+
+Prüfe auf MDR, HWG, Konkurrenz, Headings, Kontraindikationen. Korrigiere minimal-invasiv. Kürze NICHTS. Nur valides JSON.`;
 }
 
 function buildV12HealthcareMasterPrompt(
