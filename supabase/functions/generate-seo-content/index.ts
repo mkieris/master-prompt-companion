@@ -1183,12 +1183,17 @@ ANWEISUNG FÜR RESEARCH-INTEGRATION:
   const contextBlock = serpBlock + domainBlock + managementBlock + researchBlock;
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // VERSION ROUTING - AKTIVE VERSIONEN: v12 (default/healthcare), v11, v10, v9, v8, v6
+  // VERSION ROUTING - AKTIVE VERSIONEN: v13 (default), v12, v11, v10, v9, v8, v6
   // ═══════════════════════════════════════════════════════════════════════════════
 
-  // ═══ VERSION 12: K-ACTIVE HEALTHCARE MASTER (NEU - Default für Healthcare) ═══
-  if (promptVersion === 'v12-healthcare-master' || promptVersion === 'v9-master') {
-    // v9 wird auf v12 umgeleitet für bessere Healthcare-Compliance
+  // ═══ VERSION 13: CLEAN PRIORITY PROMPT (NEU - Default) ═══
+  if (promptVersion === 'v13-priority-prompt' || promptVersion === 'v9-master') {
+    // v9 wird auf v13 umgeleitet (neuer Standard)
+    return buildV13PriorityPrompt(formData, tonality, addressStyle, wordCount, minKeywords, maxKeywords, density, compliance, contextBlock);
+  }
+
+  // ═══ VERSION 12: K-ACTIVE HEALTHCARE MASTER (Legacy) ═══
+  if (promptVersion === 'v12-healthcare-master') {
     return buildV12HealthcareMasterPrompt(formData, tonality, addressStyle, wordCount, minKeywords, maxKeywords, density, compliance, contextBlock);
   }
 
@@ -2055,6 +2060,187 @@ ERFUNDENE FAKTEN:
 // Kombiniert: v11 SERP-Integration + v9 Zielgruppen + v8 E-E-A-T + v6 Anti-Fluff
 // Speziell für Healthcare/Medtech mit MDR + HWG Compliance IMMER AKTIV
 // ═══════════════════════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VERSION 13: CLEAN PRIORITY PROMPT (NEU - Klare P1/P2/P3 Struktur)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function buildV13PriorityPrompt(
+  formData: any,
+  tonality: string,
+  addressStyle: string,
+  wordCount: number,
+  minKeywords: number,
+  maxKeywords: number,
+  density: { min: number; max: number; label: string },
+  compliance: string,
+  contextBlock: string = ''
+): string {
+
+  const pageType = formData.pageType || 'product';
+  const brandName = formData.brandName || formData.manufacturerName || 'K-Active';
+  const minWordCount = Math.max(1000, wordCount - 200);
+
+  // ═══ ZIELGRUPPEN-BLOCK ═══
+  let audienceBlock = '';
+  if (formData.targetAudience === 'b2b' || formData.targetAudience === 'physiotherapists') {
+    audienceBlock = `
+**Zielgruppe:** Therapeuten / Fachpersonal (B2B)
+- Anatomische Fachbegriffe verwenden
+- Biomechanische Konzepte, Evidenzlevel
+- Ton: Fachlich-kollegial`;
+  } else {
+    audienceBlock = `
+**Zielgruppe:** Endkunden / Patienten (B2C)
+- Fachbegriffe immer erklären
+- Alltagsszenarien und praktische Beispiele
+- Ton: Freundlich, nahbar`;
+  }
+
+  // ═══ TONALITÄT-INSTRUKTIONEN ═══
+  const tonalityInstructionsMap: Record<string, string> = {
+    'Expertenmix (70% Fachwissen, 20% Lösung, 10% Story)': '**Tonalität:** Expertenmix – 70% Fachwissen, 20% Lösung, 10% Story',
+    'Beratermix (40% Fachwissen, 40% Lösung, 20% Story)': '**Tonalität:** Beratermix – 40% Fachwissen, 40% Lösung, 20% Story',
+    'Storytelling-Mix (30% Fachwissen, 30% Lösung, 40% Story)': '**Tonalität:** Storytelling-Mix – 30% Fachwissen, 30% Lösung, 40% Story',
+    'Conversion-Mix (20% Fachwissen, 60% Lösung, 20% Story)': '**Tonalität:** Conversion-Mix – 20% Fachwissen, 60% Lösung, 20% Story',
+    'Balanced-Mix (je 33%)': '**Tonalität:** Balanced-Mix – je 33%',
+    'Sachlich & Informativ': '**Tonalität:** Sachlich & Informativ',
+    'Beratend & Nutzenorientiert': '**Tonalität:** Beratend & Nutzenorientiert',
+    'Aktivierend & Überzeugend': '**Tonalität:** Aktivierend & Überzeugend'
+  };
+  const tonalityInstructions = tonalityInstructionsMap[tonality] || '**Tonalität:** Beratermix – 40% Fachwissen, 40% Lösung, 20% Story';
+
+  // ═══ SEITENTYP-LABEL ═══
+  const pageTypeLabels: Record<string, string> = {
+    'product': 'Produktseite',
+    'category': 'Kategorieseite',
+    'guide': 'Ratgeber'
+  };
+
+  // ═══ STRUKTUR-TEMPLATE ═══
+  let structureTemplate = '';
+  if (pageType === 'product') {
+    structureTemplate = `
+### Produktseiten-Struktur
+- H1: Produkt + emotionaler Benefit
+- H2: Haupt-USP / Was macht es besonders?
+- H2: Für wen? Anwendungsszenarien
+- H2: Trust / Qualität / Wissenschaft
+- H2: Vorteile auf einen Blick (hier Liste OK)
+- H2: Häufige Fragen (FAQ)`;
+  } else if (pageType === 'category') {
+    structureTemplate = `
+### Kategorieseiten-Struktur
+- H1: Kategorie + Benefit
+- H2: Was sind [Kategorie]?
+- H2: Die verschiedenen Arten
+- H2: Kaufberatung
+- H2: Häufige Fragen`;
+  } else {
+    structureTemplate = `
+### Ratgeber-Struktur
+- H1: Thema – Der komplette Ratgeber
+- H2: Was ist [Thema]?
+- H2: Wie funktioniert es?
+- H2: Schritt-für-Schritt Anwendung
+- H2: Vorteile
+- H2: Häufige Fehler vermeiden
+- H2: FAQ`;
+  }
+
+  return `Du bist Healthcare Content Writer für ${brandName} (Medtech).
+Du schreibst SEO-Texte, die sich lesen wie vom besten Marketing-Texter der Branche – fachlich fundiert, lebendig, überzeugend.
+
+## AUFGABE
+Schreibe einen SEO-Text mit EXAKT ca. ${wordCount} Wörtern.
+Seitentyp: ${pageTypeLabels[pageType] || 'Produktseite'}
+Anrede: ${addressStyle}
+${tonalityInstructions}
+${audienceBlock}
+
+## PRIORITÄTEN (in dieser Reihenfolge!)
+
+### P1 – NICHT VERHANDELBAR
+Diese Regeln gelten immer. Kein Text darf sie verletzen.
+
+**Textlänge:** Liefere ${wordCount} Wörter (±200). Zähle mit. Wenn du unter ${minWordCount} Wörter landest, schreibe weiter.
+
+**Healthcare Compliance (MDR/HWG):**
+- Medizinprodukte nur mit zugelassener Zweckbestimmung
+- Statt "heilt/beseitigt/garantiert" → "kann unterstützen bei...", "wurde entwickelt für...", "Anwender berichten..."
+- Bei Medizinprodukten: Kontraindikationen erwähnen (Herzschrittmacher, Schwangerschaft, offene Wunden etc.)
+
+**Keine Konkurrenznennung:** Keine Markennamen von Wettbewerbern, Händlern oder Plattformen. Auch nicht vergleichend.
+
+### P2 – SEO-FUNDAMENT
+Diese Regeln sorgen für gute Rankings.
+
+**Fokus-Keyword Platzierung:**
+- In der H1-Überschrift
+- In den ersten 100 Wörtern
+- In mindestens einer H2
+- Im Meta-Title und Meta-Description
+
+**Keyword-Häufigkeit:** ${minKeywords}–${maxKeywords}× bei ${wordCount} Wörtern. Long-Tail-Variationen zählen mit.
+
+**Heading-Hierarchie:** Exakt 1× H1. Danach H2 → H3 (keine Ebene überspringen). Nach jeder Überschrift kommt Text.
+
+**SERP-Terms:** Integriere die mustHave-Terms aus dem Context-Block natürlich in den Text.
+
+### P3 – STIL-LEITPLANKEN (Orientierung)
+Diese Regeln machen den Text besser. Wenn sie dem Lesefluss widersprechen, gewinnt der Lesefluss.
+
+**Schreibhaltung:**
+- Schreibe für Menschen, optimiere für Google
+- Variiere Satzlängen: Kurz. Dann mittel. Dann ein längerer Satz, der einen Gedanken ausführt.
+- Aktive Verben bevorzugen. Konkrete Zahlen statt vager Aussagen.
+- Max. 4 Sätze pro Absatz
+- Fließtext bevorzugen. Bullet-Listen nur für "Vorteile auf einen Blick" (max. 1×) oder Schritt-für-Schritt-Anleitungen.
+
+**Vermeide diese KI-typischen Phrasen:**
+"In der heutigen Zeit", "Es ist wichtig zu beachten", "Zusammenfassend lässt sich sagen", "In diesem Artikel erfahren Sie", "Nicht umsonst", "Zweifellos"
+
+**Rhetorische Fragen:** Maximal 1× im gesamten Text.
+
+**E-E-A-T Signale einbauen:**
+- Experience: Praxisszenarien, Alltagsbeispiele
+- Expertise: Fachbegriffe (bei B2C erklärt), das "Warum" hinter Empfehlungen
+- Authority: Zertifizierungen, Normen, Studienhinweise
+- Trust: Ehrlich über Grenzen, keine Superlative ohne Beleg
+
+## STRUKTUR
+${structureTemplate}
+
+Grundregeln:
+- H1 mit Fokus-Keyword (max. 70 Zeichen)
+- Mind. 3–4 H2-Abschnitte
+- Einstieg: 80–150 Wörter, Hook + Fokus-Keyword in ersten 50 Wörtern
+- FAQ: 5–8 W-Fragen, direkte Antworten (40–60 Wörter pro Antwort)
+- <strong> für wichtige Keywords im Fließtext
+
+## OUTPUT-FORMAT
+Antworte ausschließlich mit validem JSON:
+{
+  "title": "Meta-Title, max 60 Zeichen, Fokus-Keyword vorne",
+  "metaDescription": "Meta-Description, max 155 Zeichen, mit CTA",
+  "seoText": "Vollständiger HTML-Text mit <h1>, <h2>, <h3>, <p>, <ul>, <strong>",
+  "faq": [{"question": "...", "answer": "..."}],
+  "internalLinks": ["Vorschläge für interne Verlinkung"],
+  "technicalHints": ["Technische SEO-Hinweise"],
+  "qualityReport": {
+    "wordCount": 0,
+    "keywordCount": 0,
+    "keywordDensity": "0.0%",
+    "h2Count": 0,
+    "readabilityScore": "gut/mittel/schwach"
+  }
+}
+
+## ERINNERUNG
+Der User hat ${wordCount} Wörter bestellt. Dein seoText MUSS mindestens ${minWordCount} Wörter lang sein. Prüfe das vor der Ausgabe.
+
+${contextBlock}`;
+}
 
 function buildV12HealthcareMasterPrompt(
   formData: any,

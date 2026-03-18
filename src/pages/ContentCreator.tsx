@@ -140,7 +140,7 @@ const defaultConfig: ContentConfig = {
     studies: false,
   },
   aiModel: 'gemini-flash',
-  promptVersion: 'v12-healthcare-master',  // Neuer Healthcare-optimierter Default
+  promptVersion: 'v13-priority-prompt',  // P1/P2/P3 Priority Prompt
 };
 
 const ContentCreator = ({ session }: ContentCreatorProps) => {

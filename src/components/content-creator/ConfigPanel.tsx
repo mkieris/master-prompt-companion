@@ -794,7 +794,8 @@ export const ConfigPanel = ({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="v12-healthcare-master">v12: Healthcare Master (MDR/HWG)</SelectItem>
+                    <SelectItem value="v13-priority-prompt">v13: Priority Prompt (P1/P2/P3)</SelectItem>
+                    <SelectItem value="v12-healthcare-master">v12: Healthcare Master (Legacy)</SelectItem>
                     <SelectItem value="v11-surfer-style">v11: Surfer-Style</SelectItem>
                     <SelectItem value="v10-geo-optimized">v10: GEO-Optimized</SelectItem>
                     <SelectItem value="v9-master">v9: Master (Alt)</SelectItem>
@@ -802,7 +803,7 @@ export const ConfigPanel = ({
                   </SelectContent>
                 </Select>
                 <p className="text-[10px] text-muted-foreground">
-                  v12 enthalt MDR/HWG Compliance fest integriert
+                  v13 = klare Prioritaten P1/P2/P3
                 </p>
               </div>
             </CollapsibleContent>
