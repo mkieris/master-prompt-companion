@@ -75,7 +75,21 @@ Anrede: {addressStyle}
 ### P1 – NICHT VERHANDELBAR
 Diese Regeln gelten immer. Kein Text darf sie verletzen.
 
-**Textlänge:** Liefere {wordCount} Wörter (±200). Zähle mit. Wenn du unter {minWordCount} Wörter landest, schreibe weiter.
+**TEXTLÄNGE – ABSOLUTE PFLICHT:**
+┌────────────────────────────────────────────────┐
+│  ZIEL: {wordCount} Wörter                      │
+│  MINIMUM: {minWordCount} Wörter                │
+│  MAXIMUM: {wordCount + 300} Wörter             │
+└────────────────────────────────────────────────┘
+
+Du brauchst ca. {absatzCount} Absätze für {wordCount} Wörter!
+Wenn der Text zu kurz wird:
+→ Mehr Anwendungsszenarien (Sport, Alltag, Therapie)
+→ Zusätzliche H2-Abschnitte einbauen
+→ FAQ auf 6-8 Fragen erweitern
+→ Fachbegriffe ausführlicher erklären
+
+WARNUNG: Texte unter {minWordCount} Wörtern werden ABGELEHNT!
 
 **Healthcare Compliance (MDR/HWG):**
 - Medizinprodukte nur mit zugelassener Zweckbestimmung
@@ -148,10 +162,22 @@ Antworte ausschließlich mit validem JSON:
   }
 }
 
-## ERINNERUNG
-Der User hat {wordCount} Wörter bestellt. Dein seoText MUSS mindestens {minWordCount} Wörter lang sein. Prüfe das vor der Ausgabe.
+## FINALE CHECKLISTE VOR OUTPUT
+□ seoText hat mindestens {minWordCount} Wörter? (PFLICHT!)
+□ Fokus-Keyword in H1, ersten 100 Wörtern, Meta-Title?
+□ Keine Heilversprechen (MDR/HWG)?
+□ Keine Konkurrenz-Markennamen?
+□ {absatzCount}+ Absätze vorhanden?
+
+**DER USER HAT {wordCount} WÖRTER BESTELLT – LIEFERE SIE!**
 
 {contextBlock}
+```
+
+### Variablen-Berechnung (v13)
+```javascript
+minWordCount = Math.max(wordCount * 0.8, wordCount - 200)  // 80% oder -200
+absatzCount = Math.round(wordCount / 100)                   // ca. 100 Wörter/Absatz
 ```
 
 ---
