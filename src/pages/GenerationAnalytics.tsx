@@ -80,7 +80,7 @@ const GenerationAnalytics = ({ session }: GenerationAnalyticsProps) => {
       // Load prompt version analytics from view
       const { data: promptData, error: promptError } = await supabase
         .from('prompt_version_analytics' as any)
-        .select('*');
+        .select('prompt_version, total_generations, successful, failed, avg_content_score, avg_generation_time_ms, avg_word_count');
 
       if (promptError) {
         console.error('Error loading prompt analytics:', promptError);
@@ -91,7 +91,7 @@ const GenerationAnalytics = ({ session }: GenerationAnalyticsProps) => {
       // Load daily stats from view
       const { data: dailyData, error: dailyError } = await supabase
         .from('daily_generation_stats' as any)
-        .select('*')
+        .select('generation_date, total, unique_users, successful, avg_score, avg_time_ms')
         .limit(14);
 
       if (dailyError) {

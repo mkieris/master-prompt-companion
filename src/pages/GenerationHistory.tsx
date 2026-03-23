@@ -72,7 +72,7 @@ export default function GenerationHistory() {
 
       const { data, error } = await supabase
         .from('content_projects')
-        .select('*')
+        .select('id, title, page_type, focus_keyword, created_at, form_data, generated_content, status')
         .eq('organization_id', profile.current_organization_id)
         .order('created_at', { ascending: false });
 

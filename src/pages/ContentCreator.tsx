@@ -232,7 +232,7 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
 
     const { data } = await supabase
       .from('domain_knowledge')
-      .select('*')
+      .select('organization_id, crawl_status, company_name, brand_voice, unique_selling_points, ai_summary, management_info')
       .eq('organization_id', currentOrg.id)
       .eq('crawl_status', 'completed')
       .maybeSingle();

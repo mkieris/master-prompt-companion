@@ -6,6 +6,7 @@ import { getCorsHeaders } from '../_shared/cors.ts';
 import { sanitizePromptInput, sanitizePromptArray } from '../_shared/sanitize-prompt-input.ts';
 import { runComplianceCheck } from '../_shared/compliance-check.ts';
 import type { ComplianceResult } from '../_shared/compliance-check.ts';
+import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '../_shared/rate-limit.ts';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // AI MODEL CONFIGURATION
@@ -458,6 +459,13 @@ serve(async (req) => {
 
     console.log('Authenticated user:', user.id);
     // ===== END AUTHENTICATION =====
+
+    // ===== RATE LIMITING =====
+    const rateResult = await checkRateLimit(supabase, user.id, RATE_LIMITS.generate_content);
+    if (!rateResult.allowed) {
+      return rateLimitResponse(corsHeaders, rateResult);
+    }
+    // ===== END RATE LIMITING =====
 
     // ===== INPUT VALIDATION =====
     const rawFormData = await req.json();
