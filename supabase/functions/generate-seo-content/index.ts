@@ -4,6 +4,8 @@ import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { sanitizePromptInput, sanitizePromptArray } from '../_shared/sanitize-prompt-input.ts';
+import { runComplianceCheck } from '../_shared/compliance-check.ts';
+import type { ComplianceResult } from '../_shared/compliance-check.ts';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // AI MODEL CONFIGURATION
@@ -1121,12 +1123,13 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
     console.log(`=== GENERATION COMPLETE in ${totalDuration}ms ===`);
 
     // ═══ ANALYTICS LOGGING ═══
+    let generationId: string | null = null;
     try {
       // Reuse existing supabase client from authentication (line 430)
       const wordCount = parsedContent.seoText?.split(/\s+/).filter((w: string) => w.length > 0).length || 0;
       const faqCount = parsedContent.faq?.length || 0;
 
-      await supabase.from('content_generations').insert({
+      const { data: genRow } = await supabase.from('content_generations').insert({
         user_id: user.id,
         organization_id: formData.organizationId || null,
         focus_keyword: formData.focusKeyword,
@@ -1148,14 +1151,81 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
         output_faq_count: faqCount,
         generation_time_ms: totalDuration,
         success: true,
-      });
-      console.log('Analytics logged successfully');
+      }).select('id').single();
+      generationId = genRow?.id || null;
+      console.log('Analytics logged successfully, generation_id:', generationId);
     } catch (analyticsError) {
       // Don't fail the request if analytics logging fails
       console.error('Analytics logging failed:', analyticsError);
     }
 
-    return new Response(JSON.stringify(parsedContent), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    // ═══ AUTO COMPLIANCE CHECK ═══
+    let complianceData: ComplianceResult | null = null;
+    const shouldRunCompliance = formData.complianceChecks?.mdr || formData.complianceChecks?.hwg || formData.checkMDR || formData.checkHWG;
+
+    if (shouldRunCompliance && parsedContent.seoText && LOVABLE_API_KEY) {
+      try {
+        console.log('[Compliance] Starting auto compliance check...');
+        const checkStart = Date.now();
+        complianceData = await runComplianceCheck(parsedContent.seoText, LOVABLE_API_KEY);
+        const checkDuration = Date.now() - checkStart;
+        console.log(`[Compliance] Done in ${checkDuration}ms: ${complianceData.overall_status} (score: ${complianceData.compliance_score})`);
+
+        // Save compliance check to DB
+        const { data: complianceRow } = await supabase.from('compliance_checks').insert({
+          generation_id: generationId,
+          user_id: user.id,
+          organization_id: formData.organizationId || null,
+          ai_model: 'gemini-flash',
+          prompt_version: promptVersion,
+          check_trigger: 'auto',
+          overall_status: complianceData.overall_status,
+          hwg_status: complianceData.hwg_status,
+          mdr_status: complianceData.mdr_status,
+          compliance_score: complianceData.compliance_score,
+          violations: complianceData.findings,
+          medical_claims: complianceData.medical_claims,
+          critical_count: complianceData.critical_count,
+          warning_count: complianceData.warning_count,
+          info_count: complianceData.info_count,
+          check_duration_ms: checkDuration,
+          raw_ai_response: { response: complianceData.raw_response },
+        }).select('id').single();
+
+        // Update generation with compliance reference
+        if (generationId && complianceRow?.id) {
+          await supabase.from('content_generations')
+            .update({
+              latest_compliance_check_id: complianceRow.id,
+              compliance_status: complianceData.overall_status,
+            })
+            .eq('id', generationId);
+        }
+
+        console.log('[Compliance] Audit trail saved:', complianceRow?.id);
+      } catch (complianceError) {
+        // Don't fail the request if compliance check fails
+        console.error('[Compliance] Auto check failed:', complianceError);
+      }
+    }
+
+    // ═══ RESPONSE ═══
+    const responseData = {
+      ...parsedContent,
+      compliance: complianceData ? {
+        status: complianceData.overall_status,
+        score: complianceData.compliance_score,
+        hwg_status: complianceData.hwg_status,
+        mdr_status: complianceData.mdr_status,
+        findings: complianceData.findings,
+        medical_claims: complianceData.medical_claims,
+        critical_count: complianceData.critical_count,
+        warning_count: complianceData.warning_count,
+      } : null,
+      generation_id: generationId,
+    };
+
+    return new Response(JSON.stringify(responseData), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (error) {
     console.error('=== GENERATION ERROR ===');

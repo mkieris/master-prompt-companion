@@ -58,6 +58,7 @@ import {
 import { ContentScorePanel } from "@/components/content-creator/ContentScorePanel";
 import { ConfigPanel } from "@/components/content-creator/ConfigPanel";
 import { ContentEditor } from "@/components/content-creator/ContentEditor";
+import { ComplianceBanner } from "@/components/content-creator/ComplianceBanner";
 import type { ResearchUrl } from "@/components/content-creator/types";
 
 interface ContentCreatorProps {
@@ -115,11 +116,36 @@ export interface ContentConfig {
   };
 }
 
+export interface ComplianceFinding {
+  text: string;
+  severity: 'critical' | 'warning' | 'info';
+  category: string;
+  explanation: string;
+  suggestion: string;
+}
+
+export interface ComplianceInfo {
+  status: 'passed' | 'warning' | 'failed';
+  score: number;
+  hwg_status: 'passed' | 'warning' | 'failed';
+  mdr_status: 'passed' | 'warning' | 'failed';
+  findings: ComplianceFinding[];
+  medical_claims: Array<{
+    claim_text: string;
+    claim_type: string;
+    severity: string;
+    suggestion: string;
+  }>;
+  critical_count: number;
+  warning_count: number;
+}
+
 export interface GeneratedContent {
   seoText: string;
   title: string;
   metaDescription: string;
   faq?: Array<{ question: string; answer: string }>;
+  compliance?: ComplianceInfo | null;
 }
 
 const defaultConfig: ContentConfig = {
@@ -163,6 +189,7 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [domainKnowledge, setDomainKnowledge] = useState<any>(null);
+  const [complianceInfo, setComplianceInfo] = useState<ComplianceInfo | null>(null);
   const [researchUrls, setResearchUrls] = useState<ResearchUrl[]>([]);
 
   // Debounce keyword for auto SERP
@@ -450,10 +477,27 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
         setEditedTitle(title);
         setEditedMeta(metaDescription);
 
-        toast({
-          title: "Content generiert!",
-          description: "SEO-optimierter Text wurde erstellt",
-        });
+        // Extract compliance data from response
+        const compliance = parsedData.compliance || content?.compliance || null;
+        setComplianceInfo(compliance);
+
+        if (compliance && compliance.status === 'failed') {
+          toast({
+            title: "Content generiert – Compliance-Probleme!",
+            description: `${compliance.critical_count} kritische Verstöße gefunden (Score: ${compliance.score}/100)`,
+            variant: "destructive",
+          });
+        } else if (compliance && compliance.status === 'warning') {
+          toast({
+            title: "Content generiert – Hinweise beachten",
+            description: `${compliance.warning_count} Warnungen (Compliance-Score: ${compliance.score}/100)`,
+          });
+        } else {
+          toast({
+            title: "Content generiert!",
+            description: compliance ? `Compliance-Score: ${compliance.score}/100` : "SEO-optimierter Text wurde erstellt",
+          });
+        }
       } else {
         // Fallback: if we got data but no seoText, log for debugging
         console.error('No seoText found in response:', content);
@@ -749,6 +793,9 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
 
           {/* CENTER: Content Editor */}
           <ResizablePanel defaultSize={isConfigOpen ? 56 : 78} minSize={40}>
+            {complianceInfo && (
+              <ComplianceBanner compliance={complianceInfo} />
+            )}
             <ContentEditor
               content={editedContent}
               title={editedTitle}
