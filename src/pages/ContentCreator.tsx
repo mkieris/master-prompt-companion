@@ -18,6 +18,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { validateContentConfig } from "@/lib/validation";
 import { useOrganization } from "@/hooks/useOrganization";
 import { useSerpAnalysis } from "@/hooks/useSerpAnalysis";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -362,10 +363,21 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
   };
 
   const handleGenerate = async () => {
-    if (!config.focusKeyword.trim()) {
+    // Validate inputs before sending to API
+    const validation = validateContentConfig({
+      focusKeyword: config.focusKeyword,
+      brandName: config.brandName,
+      additionalInfo: config.additionalInfo,
+      secondaryKeywords: config.secondaryKeywords,
+      mainTopic: config.mainTopic,
+      manufacturerInfo: config.manufacturerInfo,
+    });
+
+    if (!validation.success) {
+      const firstError = validation.error.issues[0];
       toast({
-        title: "Fokus-Keyword fehlt",
-        description: "Bitte geben Sie ein Fokus-Keyword ein",
+        title: "Eingabefehler",
+        description: firstError.message,
         variant: "destructive",
       });
       return;

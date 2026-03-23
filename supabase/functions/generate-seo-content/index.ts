@@ -2,10 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { getCorsHeaders } from '../_shared/cors.ts';
+import { sanitizePromptInput, sanitizePromptArray } from '../_shared/sanitize-prompt-input.ts';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // AI MODEL CONFIGURATION
@@ -415,6 +413,7 @@ const formDataSchema = z.object({
 }).passthrough();
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req.headers.get('Origin'));
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -520,15 +519,15 @@ serve(async (req) => {
 
       const outlinePrompt = `Du bist ein SEO Content Stratege. Erstelle eine detaillierte Gliederung (Outline) für einen SEO-Text.
 
-FOKUS-KEYWORD: ${formData.focusKeyword}
+FOKUS-KEYWORD: ${sanitizePromptInput(formData.focusKeyword, 200)}
 SEITENTYP: ${formData.pageType || 'product'}
 ZIELGRUPPE: ${formData.targetAudience || 'b2c'}
 TEXTLÄNGE: ca. ${targetWordCount} Wörter
 
 ${formData.serpTermsStructured ? `
 WICHTIGE BEGRIFFE AUS SERP-ANALYSE:
-- Pflicht: ${formData.serpTermsStructured.mustHave?.join(', ') || 'keine'}
-- Empfohlen: ${formData.serpTermsStructured.shouldHave?.slice(0, 5).join(', ') || 'keine'}
+- Pflicht: ${sanitizePromptArray(formData.serpTermsStructured.mustHave).join(', ') || 'keine'}
+- Empfohlen: ${sanitizePromptArray(formData.serpTermsStructured.shouldHave).slice(0, 5).join(', ') || 'keine'}
 ` : ''}
 
 ERSTELLE EINE GLIEDERUNG MIT:
@@ -704,7 +703,7 @@ AUSGABE ALS JSON:
             model: 'google/gemini-2.5-flash',
             messages: [
               { role: 'system', content: 'Du bist ein Experte fuer die Zusammenfassung von Briefing-Dokumenten.' },
-              { role: 'user', content: 'Fasse folgende Briefing-Dokumente zusammen:\n\n' + briefingContent }
+              { role: 'user', content: 'Fasse folgende Briefing-Dokumente zusammen:\n\n' + sanitizePromptInput(briefingContent, 50000) }
             ],
             temperature: 0.3,
           }),
@@ -755,17 +754,17 @@ AUSGABE ALS JSON:
       });
 
       const stage1User = buildV14Stage1UserPrompt({
-        brandName,
-        mainTopic: formData.mainTopic || formData.productName || formData.focusKeyword,
-        focusKeyword: formData.focusKeyword,
-        secondaryKeywords: formData.secondaryKeywords,
-        searchIntent: formData.searchIntent,
-        manufacturerInfo: formData.manufacturerInfo,
-        additionalInfo: formData.additionalInfo,
-        internalLinks: formData.internalLinks,
-        faqInputs: formData.faqInputs,
-        wQuestions: formData.wQuestions?.join?.('\n') || formData.wQuestions,
-        briefingContent,
+        brandName: sanitizePromptInput(brandName, 100),
+        mainTopic: sanitizePromptInput(formData.mainTopic || formData.productName || formData.focusKeyword, 200),
+        focusKeyword: sanitizePromptInput(formData.focusKeyword, 200),
+        secondaryKeywords: sanitizePromptArray(formData.secondaryKeywords),
+        searchIntent: sanitizePromptInput(formData.searchIntent || '', 500),
+        manufacturerInfo: sanitizePromptInput(formData.manufacturerInfo || '', 10000),
+        additionalInfo: sanitizePromptInput(formData.additionalInfo || '', 10000),
+        internalLinks: sanitizePromptInput(formData.internalLinks || '', 5000),
+        faqInputs: sanitizePromptInput(formData.faqInputs || '', 5000),
+        wQuestions: sanitizePromptInput(formData.wQuestions?.join?.('\n') || formData.wQuestions || '', 5000),
+        briefingContent: sanitizePromptInput(briefingContent, 50000),
         densityLabel: density.label,
       });
 
@@ -828,9 +827,9 @@ AUSGABE ALS JSON:
       console.log('[V14] Stage 2: Compliance Auditor starting...');
       const stage2System = buildV14Stage2SystemPrompt(brandName);
       const stage2User = buildV14Stage2UserPrompt({
-        brandName,
+        brandName: sanitizePromptInput(brandName, 100),
         pageType,
-        mainTopic: formData.mainTopic || formData.focusKeyword,
+        mainTopic: sanitizePromptInput(formData.mainTopic || formData.focusKeyword, 200),
         seoText: stage1Result.seoText,
         faq: stage1Result.faq || [],
       });
