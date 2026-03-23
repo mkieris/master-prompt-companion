@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { calculateContentScore } from "@/utils/content-score";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -617,49 +618,16 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
     }
   };
 
-  // Calculate content score
+  // Calculate content score using extracted utility
   const contentScore = useMemo(() => {
-    if (!editedContent) return 0;
-
-    let score = 0;
-    const text = editedContent.toLowerCase();
-    const wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
-
-    // Word count score (0-20)
-    const targetWords = parseInt(config.wordCount) || 1500;
-    const wordRatio = Math.min(wordCount / targetWords, 1.2);
-    score += Math.round(wordRatio * 20);
-
-    // Keyword presence (0-25)
-    if (config.focusKeyword) {
-      const keywordCount = (text.match(new RegExp(config.focusKeyword.toLowerCase(), 'g')) || []).length;
-      const keywordDensity = (keywordCount / wordCount) * 100;
-      if (keywordDensity >= 0.5 && keywordDensity <= 2.5) {
-        score += 25;
-      } else if (keywordDensity > 0) {
-        score += 15;
-      }
-    }
-
-    // SERP terms (0-30)
-    if (config.serpTerms) {
-      const mustHaveFound = config.serpTerms.mustHave.filter(t => text.includes(t.toLowerCase())).length;
-      const shouldHaveFound = config.serpTerms.shouldHave.filter(t => text.includes(t.toLowerCase())).length;
-      score += Math.round((mustHaveFound / Math.max(config.serpTerms.mustHave.length, 1)) * 20);
-      score += Math.round((shouldHaveFound / Math.max(config.serpTerms.shouldHave.length, 1)) * 10);
-    }
-
-    // Structure score (0-15)
-    const h1Count = (editedContent.match(/<h1/g) || []).length;
-    const h2Count = (editedContent.match(/<h2/g) || []).length;
-    if (h1Count === 1) score += 5;
-    if (h2Count >= 3) score += 10;
-
-    // Meta presence (0-10)
-    if (editedTitle && editedTitle.length >= 30 && editedTitle.length <= 60) score += 5;
-    if (editedMeta && editedMeta.length >= 120 && editedMeta.length <= 155) score += 5;
-
-    return Math.min(score, 100);
+    return calculateContentScore({
+      content: editedContent,
+      title: editedTitle,
+      metaDescription: editedMeta,
+      focusKeyword: config.focusKeyword,
+      targetWordCount: parseInt(config.wordCount) || 1500,
+      serpTerms: config.serpTerms,
+    }).total;
   }, [editedContent, editedTitle, editedMeta, config]);
 
   if (!session) return null;
