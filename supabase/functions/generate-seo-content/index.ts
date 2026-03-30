@@ -1238,6 +1238,15 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
         warning_count: complianceData.warning_count,
       } : null,
       generation_id: generationId,
+      // Include prompts for debug/transparency
+      _prompts: {
+        systemPrompt: messages[0]?.content || '',
+        userPrompt: messages[1]?.content || '',
+        model: modelConfig.modelName,
+        promptVersion: promptVersion,
+        maxTokens: calculatedMaxTokens,
+        temperature: modelConfig.temperature,
+      },
     };
 
     return new Response(JSON.stringify(responseData), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
