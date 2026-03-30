@@ -932,7 +932,7 @@ export const ConfigPanel = ({
             <div className="p-3 space-y-2">
               {/* H1 */}
               <div className="text-sm font-semibold text-foreground leading-tight">
-                {outline.h1}
+                {outline.title}
               </div>
 
               {/* Sections - Collapsible Preview */}
