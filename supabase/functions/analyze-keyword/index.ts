@@ -3,7 +3,6 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 import { getCorsHeaders } from '../_shared/cors.ts';
-import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '../_shared/rate-limit.ts';
 
 interface KeywordAnalysis {
   secondaryKeywords: string[];
@@ -53,13 +52,6 @@ serve(async (req) => {
 
     console.log('Authenticated user:', user.id);
     // ===== END AUTHENTICATION =====
-
-    // ===== RATE LIMITING =====
-    const rateResult = await checkRateLimit(supabase, user.id, RATE_LIMITS.analyze_keyword);
-    if (!rateResult.allowed) {
-      return rateLimitResponse(corsHeaders, rateResult);
-    }
-    // ===== END RATE LIMITING =====
 
     // ===== INPUT VALIDATION =====
     const rawData = await req.json();

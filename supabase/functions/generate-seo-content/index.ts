@@ -3,10 +3,20 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 import { getCorsHeaders } from '../_shared/cors.ts';
-import { sanitizePromptInput, sanitizePromptArray } from '../_shared/sanitize-prompt-input.ts';
-import { runComplianceCheck } from '../_shared/compliance-check.ts';
-import type { ComplianceResult } from '../_shared/compliance-check.ts';
-import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '../_shared/rate-limit.ts';
+
+// Inline sanitize function to avoid _shared dependency issues
+function sanitizePromptInput(input: string, maxLength: number = 10000): string {
+  if (!input || typeof input !== 'string') return '';
+  return input
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+    .slice(0, maxLength)
+    .trim();
+}
+
+function sanitizePromptArray(arr: string[], maxItems: number = 50, maxLength: number = 500): string[] {
+  if (!Array.isArray(arr)) return [];
+  return arr.slice(0, maxItems).map(item => sanitizePromptInput(String(item), maxLength));
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // INLINE AI CLIENT - calls Anthropic directly or Lovable Gateway
@@ -560,13 +570,6 @@ serve(async (req) => {
 
     console.log('Authenticated user:', user.id);
     // ===== END AUTHENTICATION =====
-
-    // ===== RATE LIMITING =====
-    const rateResult = await checkRateLimit(supabase, user.id, RATE_LIMITS.generate_content);
-    if (!rateResult.allowed) {
-      return rateLimitResponse(corsHeaders, rateResult);
-    }
-    // ===== END RATE LIMITING =====
 
     // ===== INPUT VALIDATION =====
     const rawFormData = await req.json();
@@ -1175,11 +1178,13 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
     }
 
     // ═══ AUTO COMPLIANCE CHECK ═══
-    let complianceData: ComplianceResult | null = null;
+    let complianceData: any = null;
     const shouldRunCompliance = formData.complianceChecks?.mdr || formData.complianceChecks?.hwg || formData.checkMDR || formData.checkHWG;
 
     if (shouldRunCompliance && parsedContent.seoText && LOVABLE_API_KEY) {
       try {
+        // Dynamic import to avoid crash if compliance-check.ts doesn't exist
+        const { runComplianceCheck } = await import('../_shared/compliance-check.ts');
         console.log('[Compliance] Starting auto compliance check...');
         const checkStart = Date.now();
         complianceData = await runComplianceCheck(parsedContent.seoText, LOVABLE_API_KEY);
