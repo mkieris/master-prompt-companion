@@ -51,7 +51,7 @@ export function useOrganization(session: Session | null) {
       // Get user profile - use maybeSingle to handle missing profiles gracefully
       let { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, email, full_name, avatar_url, current_organization_id')
         .eq('id', session.user.id)
         .maybeSingle();
 
@@ -103,7 +103,7 @@ export function useOrganization(session: Session | null) {
       const orgIds = memberships.map(m => m.organization_id);
       const { data: orgsData, error: orgsError } = await supabase
         .from('organizations')
-        .select('*')
+        .select('id, name, slug, logo_url, website')
         .in('id', orgIds);
 
       if (orgsError) {
@@ -158,7 +158,7 @@ export function useOrganization(session: Session | null) {
     // Query for the organization by slug to return it
     const { data: orgData } = await supabase
       .from('organizations')
-      .select('*')
+      .select('id, name, slug, logo_url, website')
       .eq('slug', slug)
       .maybeSingle();
     

@@ -545,9 +545,9 @@ export const Step5AfterCheck = ({
 
   // Convert HTML to plain text
   const htmlToPlainText = (html: string): string => {
-    const temp = document.createElement('div');
-    temp.innerHTML = html;
-    return temp.textContent || temp.innerText || '';
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    return doc.body.textContent || '';
   };
 
   // Generate copy content

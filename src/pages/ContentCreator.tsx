@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { calculateContentScore } from "@/utils/content-score";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { validateContentConfig } from "@/lib/validation";
 import { useOrganization } from "@/hooks/useOrganization";
 import { useSerpAnalysis } from "@/hooks/useSerpAnalysis";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -57,6 +59,7 @@ import {
 import { ContentScorePanel } from "@/components/content-creator/ContentScorePanel";
 import { ConfigPanel } from "@/components/content-creator/ConfigPanel";
 import { ContentEditor } from "@/components/content-creator/ContentEditor";
+import { ComplianceBanner } from "@/components/content-creator/ComplianceBanner";
 import type { ResearchUrl } from "@/components/content-creator/types";
 
 interface ContentCreatorProps {
@@ -114,11 +117,36 @@ export interface ContentConfig {
   };
 }
 
+export interface ComplianceFinding {
+  text: string;
+  severity: 'critical' | 'warning' | 'info';
+  category: string;
+  explanation: string;
+  suggestion: string;
+}
+
+export interface ComplianceInfo {
+  status: 'passed' | 'warning' | 'failed';
+  score: number;
+  hwg_status: 'passed' | 'warning' | 'failed';
+  mdr_status: 'passed' | 'warning' | 'failed';
+  findings: ComplianceFinding[];
+  medical_claims: Array<{
+    claim_text: string;
+    claim_type: string;
+    severity: string;
+    suggestion: string;
+  }>;
+  critical_count: number;
+  warning_count: number;
+}
+
 export interface GeneratedContent {
   seoText: string;
   title: string;
   metaDescription: string;
   faq?: Array<{ question: string; answer: string }>;
+  compliance?: ComplianceInfo | null;
 }
 
 const defaultConfig: ContentConfig = {
@@ -162,6 +190,7 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [domainKnowledge, setDomainKnowledge] = useState<any>(null);
+  const [complianceInfo, setComplianceInfo] = useState<ComplianceInfo | null>(null);
   const [researchUrls, setResearchUrls] = useState<ResearchUrl[]>([]);
 
   // Debounce keyword for auto SERP
@@ -204,7 +233,7 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
 
     const { data } = await supabase
       .from('domain_knowledge')
-      .select('*')
+      .select('organization_id, crawl_status, company_name, brand_voice, unique_selling_points, ai_summary, management_info')
       .eq('organization_id', currentOrg.id)
       .eq('crawl_status', 'completed')
       .maybeSingle();
@@ -362,10 +391,21 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
   };
 
   const handleGenerate = async () => {
-    if (!config.focusKeyword.trim()) {
+    // Validate inputs before sending to API
+    const validation = validateContentConfig({
+      focusKeyword: config.focusKeyword,
+      brandName: config.brandName,
+      additionalInfo: config.additionalInfo,
+      secondaryKeywords: config.secondaryKeywords,
+      mainTopic: config.mainTopic,
+      manufacturerInfo: config.manufacturerInfo,
+    });
+
+    if (!validation.success) {
+      const firstError = validation.error.issues[0];
       toast({
-        title: "Fokus-Keyword fehlt",
-        description: "Bitte geben Sie ein Fokus-Keyword ein",
+        title: "Eingabefehler",
+        description: firstError.message,
         variant: "destructive",
       });
       return;
@@ -438,10 +478,27 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
         setEditedTitle(title);
         setEditedMeta(metaDescription);
 
-        toast({
-          title: "Content generiert!",
-          description: "SEO-optimierter Text wurde erstellt",
-        });
+        // Extract compliance data from response
+        const compliance = parsedData.compliance || content?.compliance || null;
+        setComplianceInfo(compliance);
+
+        if (compliance && compliance.status === 'failed') {
+          toast({
+            title: "Content generiert – Compliance-Probleme!",
+            description: `${compliance.critical_count} kritische Verstöße gefunden (Score: ${compliance.score}/100)`,
+            variant: "destructive",
+          });
+        } else if (compliance && compliance.status === 'warning') {
+          toast({
+            title: "Content generiert – Hinweise beachten",
+            description: `${compliance.warning_count} Warnungen (Compliance-Score: ${compliance.score}/100)`,
+          });
+        } else {
+          toast({
+            title: "Content generiert!",
+            description: compliance ? `Compliance-Score: ${compliance.score}/100` : "SEO-optimierter Text wurde erstellt",
+          });
+        }
       } else {
         // Fallback: if we got data but no seoText, log for debugging
         console.error('No seoText found in response:', content);
@@ -561,49 +618,16 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
     }
   };
 
-  // Calculate content score
+  // Calculate content score using extracted utility
   const contentScore = useMemo(() => {
-    if (!editedContent) return 0;
-
-    let score = 0;
-    const text = editedContent.toLowerCase();
-    const wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
-
-    // Word count score (0-20)
-    const targetWords = parseInt(config.wordCount) || 1500;
-    const wordRatio = Math.min(wordCount / targetWords, 1.2);
-    score += Math.round(wordRatio * 20);
-
-    // Keyword presence (0-25)
-    if (config.focusKeyword) {
-      const keywordCount = (text.match(new RegExp(config.focusKeyword.toLowerCase(), 'g')) || []).length;
-      const keywordDensity = (keywordCount / wordCount) * 100;
-      if (keywordDensity >= 0.5 && keywordDensity <= 2.5) {
-        score += 25;
-      } else if (keywordDensity > 0) {
-        score += 15;
-      }
-    }
-
-    // SERP terms (0-30)
-    if (config.serpTerms) {
-      const mustHaveFound = config.serpTerms.mustHave.filter(t => text.includes(t.toLowerCase())).length;
-      const shouldHaveFound = config.serpTerms.shouldHave.filter(t => text.includes(t.toLowerCase())).length;
-      score += Math.round((mustHaveFound / Math.max(config.serpTerms.mustHave.length, 1)) * 20);
-      score += Math.round((shouldHaveFound / Math.max(config.serpTerms.shouldHave.length, 1)) * 10);
-    }
-
-    // Structure score (0-15)
-    const h1Count = (editedContent.match(/<h1/g) || []).length;
-    const h2Count = (editedContent.match(/<h2/g) || []).length;
-    if (h1Count === 1) score += 5;
-    if (h2Count >= 3) score += 10;
-
-    // Meta presence (0-10)
-    if (editedTitle && editedTitle.length >= 30 && editedTitle.length <= 60) score += 5;
-    if (editedMeta && editedMeta.length >= 120 && editedMeta.length <= 155) score += 5;
-
-    return Math.min(score, 100);
+    return calculateContentScore({
+      content: editedContent,
+      title: editedTitle,
+      metaDescription: editedMeta,
+      focusKeyword: config.focusKeyword,
+      targetWordCount: parseInt(config.wordCount) || 1500,
+      serpTerms: config.serpTerms,
+    }).total;
   }, [editedContent, editedTitle, editedMeta, config]);
 
   if (!session) return null;
@@ -737,6 +761,9 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
 
           {/* CENTER: Content Editor */}
           <ResizablePanel defaultSize={isConfigOpen ? 56 : 78} minSize={40}>
+            {complianceInfo && (
+              <ComplianceBanner compliance={complianceInfo} />
+            )}
             <ContentEditor
               content={editedContent}
               title={editedTitle}

@@ -2,10 +2,11 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { getCorsHeaders } from '../_shared/cors.ts';
+import { sanitizePromptInput, sanitizePromptArray } from '../_shared/sanitize-prompt-input.ts';
+import { runComplianceCheck } from '../_shared/compliance-check.ts';
+import type { ComplianceResult } from '../_shared/compliance-check.ts';
+import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '../_shared/rate-limit.ts';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // AI MODEL CONFIGURATION
@@ -415,6 +416,7 @@ const formDataSchema = z.object({
 }).passthrough();
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req.headers.get('Origin'));
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -457,6 +459,13 @@ serve(async (req) => {
 
     console.log('Authenticated user:', user.id);
     // ===== END AUTHENTICATION =====
+
+    // ===== RATE LIMITING =====
+    const rateResult = await checkRateLimit(supabase, user.id, RATE_LIMITS.generate_content);
+    if (!rateResult.allowed) {
+      return rateLimitResponse(corsHeaders, rateResult);
+    }
+    // ===== END RATE LIMITING =====
 
     // ===== INPUT VALIDATION =====
     const rawFormData = await req.json();
@@ -520,15 +529,15 @@ serve(async (req) => {
 
       const outlinePrompt = `Du bist ein SEO Content Stratege. Erstelle eine detaillierte Gliederung (Outline) für einen SEO-Text.
 
-FOKUS-KEYWORD: ${formData.focusKeyword}
+FOKUS-KEYWORD: ${sanitizePromptInput(formData.focusKeyword, 200)}
 SEITENTYP: ${formData.pageType || 'product'}
 ZIELGRUPPE: ${formData.targetAudience || 'b2c'}
 TEXTLÄNGE: ca. ${targetWordCount} Wörter
 
 ${formData.serpTermsStructured ? `
 WICHTIGE BEGRIFFE AUS SERP-ANALYSE:
-- Pflicht: ${formData.serpTermsStructured.mustHave?.join(', ') || 'keine'}
-- Empfohlen: ${formData.serpTermsStructured.shouldHave?.slice(0, 5).join(', ') || 'keine'}
+- Pflicht: ${sanitizePromptArray(formData.serpTermsStructured.mustHave).join(', ') || 'keine'}
+- Empfohlen: ${sanitizePromptArray(formData.serpTermsStructured.shouldHave).slice(0, 5).join(', ') || 'keine'}
 ` : ''}
 
 ERSTELLE EINE GLIEDERUNG MIT:
@@ -704,7 +713,7 @@ AUSGABE ALS JSON:
             model: 'google/gemini-2.5-flash',
             messages: [
               { role: 'system', content: 'Du bist ein Experte fuer die Zusammenfassung von Briefing-Dokumenten.' },
-              { role: 'user', content: 'Fasse folgende Briefing-Dokumente zusammen:\n\n' + briefingContent }
+              { role: 'user', content: 'Fasse folgende Briefing-Dokumente zusammen:\n\n' + sanitizePromptInput(briefingContent, 50000) }
             ],
             temperature: 0.3,
           }),
@@ -755,17 +764,17 @@ AUSGABE ALS JSON:
       });
 
       const stage1User = buildV14Stage1UserPrompt({
-        brandName,
-        mainTopic: formData.mainTopic || formData.productName || formData.focusKeyword,
-        focusKeyword: formData.focusKeyword,
-        secondaryKeywords: formData.secondaryKeywords,
-        searchIntent: formData.searchIntent,
-        manufacturerInfo: formData.manufacturerInfo,
-        additionalInfo: formData.additionalInfo,
-        internalLinks: formData.internalLinks,
-        faqInputs: formData.faqInputs,
-        wQuestions: formData.wQuestions?.join?.('\n') || formData.wQuestions,
-        briefingContent,
+        brandName: sanitizePromptInput(brandName, 100),
+        mainTopic: sanitizePromptInput(formData.mainTopic || formData.productName || formData.focusKeyword, 200),
+        focusKeyword: sanitizePromptInput(formData.focusKeyword, 200),
+        secondaryKeywords: sanitizePromptArray(formData.secondaryKeywords),
+        searchIntent: sanitizePromptInput(formData.searchIntent || '', 500),
+        manufacturerInfo: sanitizePromptInput(formData.manufacturerInfo || '', 10000),
+        additionalInfo: sanitizePromptInput(formData.additionalInfo || '', 10000),
+        internalLinks: sanitizePromptInput(formData.internalLinks || '', 5000),
+        faqInputs: sanitizePromptInput(formData.faqInputs || '', 5000),
+        wQuestions: sanitizePromptInput(formData.wQuestions?.join?.('\n') || formData.wQuestions || '', 5000),
+        briefingContent: sanitizePromptInput(briefingContent, 50000),
         densityLabel: density.label,
       });
 
@@ -828,9 +837,9 @@ AUSGABE ALS JSON:
       console.log('[V14] Stage 2: Compliance Auditor starting...');
       const stage2System = buildV14Stage2SystemPrompt(brandName);
       const stage2User = buildV14Stage2UserPrompt({
-        brandName,
+        brandName: sanitizePromptInput(brandName, 100),
         pageType,
-        mainTopic: formData.mainTopic || formData.focusKeyword,
+        mainTopic: sanitizePromptInput(formData.mainTopic || formData.focusKeyword, 200),
         seoText: stage1Result.seoText,
         faq: stage1Result.faq || [],
       });
@@ -1122,12 +1131,13 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
     console.log(`=== GENERATION COMPLETE in ${totalDuration}ms ===`);
 
     // ═══ ANALYTICS LOGGING ═══
+    let generationId: string | null = null;
     try {
       // Reuse existing supabase client from authentication (line 430)
       const wordCount = parsedContent.seoText?.split(/\s+/).filter((w: string) => w.length > 0).length || 0;
       const faqCount = parsedContent.faq?.length || 0;
 
-      await supabase.from('content_generations').insert({
+      const { data: genRow } = await supabase.from('content_generations').insert({
         user_id: user.id,
         organization_id: formData.organizationId || null,
         focus_keyword: formData.focusKeyword,
@@ -1149,14 +1159,81 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
         output_faq_count: faqCount,
         generation_time_ms: totalDuration,
         success: true,
-      });
-      console.log('Analytics logged successfully');
+      }).select('id').single();
+      generationId = genRow?.id || null;
+      console.log('Analytics logged successfully, generation_id:', generationId);
     } catch (analyticsError) {
       // Don't fail the request if analytics logging fails
       console.error('Analytics logging failed:', analyticsError);
     }
 
-    return new Response(JSON.stringify(parsedContent), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    // ═══ AUTO COMPLIANCE CHECK ═══
+    let complianceData: ComplianceResult | null = null;
+    const shouldRunCompliance = formData.complianceChecks?.mdr || formData.complianceChecks?.hwg || formData.checkMDR || formData.checkHWG;
+
+    if (shouldRunCompliance && parsedContent.seoText && LOVABLE_API_KEY) {
+      try {
+        console.log('[Compliance] Starting auto compliance check...');
+        const checkStart = Date.now();
+        complianceData = await runComplianceCheck(parsedContent.seoText, LOVABLE_API_KEY);
+        const checkDuration = Date.now() - checkStart;
+        console.log(`[Compliance] Done in ${checkDuration}ms: ${complianceData.overall_status} (score: ${complianceData.compliance_score})`);
+
+        // Save compliance check to DB
+        const { data: complianceRow } = await supabase.from('compliance_checks').insert({
+          generation_id: generationId,
+          user_id: user.id,
+          organization_id: formData.organizationId || null,
+          ai_model: 'gemini-flash',
+          prompt_version: promptVersion,
+          check_trigger: 'auto',
+          overall_status: complianceData.overall_status,
+          hwg_status: complianceData.hwg_status,
+          mdr_status: complianceData.mdr_status,
+          compliance_score: complianceData.compliance_score,
+          violations: complianceData.findings,
+          medical_claims: complianceData.medical_claims,
+          critical_count: complianceData.critical_count,
+          warning_count: complianceData.warning_count,
+          info_count: complianceData.info_count,
+          check_duration_ms: checkDuration,
+          raw_ai_response: { response: complianceData.raw_response },
+        }).select('id').single();
+
+        // Update generation with compliance reference
+        if (generationId && complianceRow?.id) {
+          await supabase.from('content_generations')
+            .update({
+              latest_compliance_check_id: complianceRow.id,
+              compliance_status: complianceData.overall_status,
+            })
+            .eq('id', generationId);
+        }
+
+        console.log('[Compliance] Audit trail saved:', complianceRow?.id);
+      } catch (complianceError) {
+        // Don't fail the request if compliance check fails
+        console.error('[Compliance] Auto check failed:', complianceError);
+      }
+    }
+
+    // ═══ RESPONSE ═══
+    const responseData = {
+      ...parsedContent,
+      compliance: complianceData ? {
+        status: complianceData.overall_status,
+        score: complianceData.compliance_score,
+        hwg_status: complianceData.hwg_status,
+        mdr_status: complianceData.mdr_status,
+        findings: complianceData.findings,
+        medical_claims: complianceData.medical_claims,
+        critical_count: complianceData.critical_count,
+        warning_count: complianceData.warning_count,
+      } : null,
+      generation_id: generationId,
+    };
+
+    return new Response(JSON.stringify(responseData), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (error) {
     console.error('=== GENERATION ERROR ===');

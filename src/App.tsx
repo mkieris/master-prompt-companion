@@ -32,6 +32,7 @@ import TextCheck from "./pages/TextCheck";
 import ContentCreator from "./pages/ContentCreator";
 import FunctionTest from "./pages/FunctionTest";
 import GenerationAnalytics from "./pages/GenerationAnalytics";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -63,16 +64,16 @@ const App = () => {
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index session={session} />} />
-              <Route path="/content" element={<ContentCreator session={session} />} />
+              <Route path="/content" element={<ProtectedRoute session={session}><ContentCreator session={session} /></ProtectedRoute>} />
               {/* Legacy routes - redirect to new unified Content Creator */}
-              <Route path="/basic" element={<ContentCreator session={session} />} />
-              <Route path="/pro" element={<ContentCreator session={session} />} />
+              <Route path="/basic" element={<ProtectedRoute session={session}><ContentCreator session={session} /></ProtectedRoute>} />
+              <Route path="/pro" element={<ProtectedRoute session={session}><ContentCreator session={session} /></ProtectedRoute>} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/seo-check" element={<SEOCheck session={session} />} />
-              <Route path="/function-test" element={<FunctionTest session={session} />} />
-              <Route path="/onboarding" element={<Onboarding session={session} />} />
-              <Route path="/dashboard" element={<Dashboard session={session} />}>
+              <Route path="/seo-check" element={<ProtectedRoute session={session}><SEOCheck session={session} /></ProtectedRoute>} />
+              <Route path="/function-test" element={<ProtectedRoute session={session}><FunctionTest session={session} /></ProtectedRoute>} />
+              <Route path="/onboarding" element={<ProtectedRoute session={session}><Onboarding session={session} /></ProtectedRoute>} />
+              <Route path="/dashboard" element={<ProtectedRoute session={session}><Dashboard session={session} /></ProtectedRoute>}>
                 <Route path="domain" element={<DomainLearning session={session} />} />
                 <Route path="projects" element={<Projects session={session} />} />
                 <Route path="planner" element={<ContentPlanner session={session} />} />
