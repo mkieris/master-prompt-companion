@@ -248,7 +248,7 @@ export const ConfigPanel = ({
               </div>
               <div className="min-w-0">
                 <div className="text-sm font-medium text-green-700 dark:text-green-400 truncate">
-                  {domainKnowledge.company_name}
+                  {domainKnowledge.companyName}
                 </div>
                 <p className="text-[10px] text-muted-foreground">
                   {domainKnowledge.managementInfo ? 'Brand Voice + Management-Info' : 'Brand Voice aktiv'}
