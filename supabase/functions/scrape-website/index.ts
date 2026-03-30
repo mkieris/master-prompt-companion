@@ -133,9 +133,9 @@ serve(async (req) => {
     console.log('Scraping website with Firecrawl:', normalizedUrl, 'Mode:', mode, 'User:', user.id);
 
     if (mode === 'multi') {
-      return await crawlMultiplePages(normalizedUrl, FIRECRAWL_API_KEY);
+      return await crawlMultiplePages(normalizedUrl, FIRECRAWL_API_KEY, corsHeaders);
     } else {
-      return await scrapeSinglePage(normalizedUrl, FIRECRAWL_API_KEY);
+      return await scrapeSinglePage(normalizedUrl, FIRECRAWL_API_KEY, corsHeaders);
     }
   } catch (error) {
     console.error('Error in scrape-website function:', error);
@@ -147,7 +147,7 @@ serve(async (req) => {
 });
 
 // Single page scrape using Firecrawl with timeout
-async function scrapeSinglePage(url: string, apiKey: string) {
+async function scrapeSinglePage(url: string, apiKey: string, corsHeaders: Record<string, string>) {
   console.log('Starting Firecrawl single-page scrape for:', url);
   
   const TIMEOUT_MS = 30000; // 30 second timeout
@@ -256,7 +256,7 @@ function extractHeadingsFromMarkdown(markdown: string): { level: number; text: s
 }
 
 // Multi-page crawl using Firecrawl
-async function crawlMultiplePages(url: string, apiKey: string) {
+async function crawlMultiplePages(url: string, apiKey: string, corsHeaders: Record<string, string>) {
   console.log('Starting Firecrawl multi-page crawl for:', url);
   
   try {

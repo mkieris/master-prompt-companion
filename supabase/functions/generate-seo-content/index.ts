@@ -624,7 +624,7 @@ serve(async (req) => {
       console.log('PageType:', formData.pageType);
       console.log('WordCount:', formData.wordCount);
 
-      const targetWordCount = parseInt(formData.wordCount) || 1500;
+      const targetWordCount = parseInt(formData.wordCount || '1500') || 1500;
 
       const outlinePrompt = `Du bist ein SEO Content Stratege. Erstelle eine detaillierte Gliederung (Outline) für einen SEO-Text.
 
@@ -635,8 +635,8 @@ TEXTLÄNGE: ca. ${targetWordCount} Wörter
 
 ${formData.serpTermsStructured ? `
 WICHTIGE BEGRIFFE AUS SERP-ANALYSE:
-- Pflicht: ${sanitizePromptArray(formData.serpTermsStructured.mustHave).join(', ') || 'keine'}
-- Empfohlen: ${sanitizePromptArray(formData.serpTermsStructured.shouldHave).slice(0, 5).join(', ') || 'keine'}
+- Pflicht: ${sanitizePromptArray(formData.serpTermsStructured?.mustHave || []).join(', ') || 'keine'}
+- Empfohlen: ${sanitizePromptArray(formData.serpTermsStructured?.shouldHave || []).slice(0, 5).join(', ') || 'keine'}
 ` : ''}
 
 ERSTELLE EINE GLIEDERUNG MIT:
@@ -802,7 +802,7 @@ AUSGABE ALS JSON:
     if (promptVersion === 'v14-two-stage') {
       console.log('=== V14 TWO-STAGE GENERATION START ===');
 
-      const wordCount = parseInt(formData.wordCount) || 1500;
+      const wordCount = parseInt(formData.wordCount || '1500') || 1500;
       const brandName = formData.brandName || formData.manufacturerName || 'K-Active';
       const pageType = formData.pageType || 'product';
 
@@ -812,7 +812,7 @@ AUSGABE ALS JSON:
         normal:   { min: 0.5, max: 1.5, label: 'normal (0.5–1.5%)' },
         high:     { min: 1.5, max: 2.5, label: 'hoch (1.5–2.5%)' },
       };
-      const density = densityMap[formData.keywordDensity] || densityMap.normal;
+      const density = densityMap[formData.keywordDensity || 'normal'] || densityMap.normal;
       const minKeywords = Math.ceil((wordCount / 100) * density.min);
       const maxKeywords = Math.ceil((wordCount / 100) * density.max);
 
@@ -833,15 +833,15 @@ AUSGABE ALS JSON:
 
       const stage1User = buildV14Stage1UserPrompt({
         brandName: sanitizePromptInput(brandName, 100),
-        mainTopic: sanitizePromptInput(formData.mainTopic || formData.productName || formData.focusKeyword, 200),
+        mainTopic: sanitizePromptInput(String(formData.mainTopic || (formData as any).productName || formData.focusKeyword || ''), 200),
         focusKeyword: sanitizePromptInput(formData.focusKeyword, 200),
-        secondaryKeywords: sanitizePromptArray(formData.secondaryKeywords),
-        searchIntent: sanitizePromptInput(formData.searchIntent || '', 500),
-        manufacturerInfo: sanitizePromptInput(formData.manufacturerInfo || '', 10000),
-        additionalInfo: sanitizePromptInput(formData.additionalInfo || '', 10000),
-        internalLinks: sanitizePromptInput(formData.internalLinks || '', 5000),
-        faqInputs: sanitizePromptInput(formData.faqInputs || '', 5000),
-        wQuestions: sanitizePromptInput(formData.wQuestions?.join?.('\n') || formData.wQuestions || '', 5000),
+        secondaryKeywords: sanitizePromptArray(formData.secondaryKeywords || []),
+        searchIntent: sanitizePromptInput(Array.isArray(formData.searchIntent) ? formData.searchIntent.join(', ') : String(formData.searchIntent || ''), 500),
+        manufacturerInfo: sanitizePromptInput(String((formData as any).manufacturerInfo || ''), 10000),
+        additionalInfo: sanitizePromptInput(String(formData.additionalInfo || ''), 10000),
+        internalLinks: sanitizePromptInput(Array.isArray(formData.internalLinks) ? formData.internalLinks.map(String).join('\n') : String(formData.internalLinks || ''), 5000),
+        faqInputs: sanitizePromptInput(Array.isArray(formData.faqInputs) ? formData.faqInputs.map(String).join('\n') : String(formData.faqInputs || ''), 5000),
+        wQuestions: sanitizePromptInput(Array.isArray(formData.wQuestions) ? formData.wQuestions.join('\n') : String(formData.wQuestions || ''), 5000),
         briefingContent: sanitizePromptInput(briefingContent, 50000),
         densityLabel: density.label,
       });
@@ -1061,7 +1061,7 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
 
     // FIX: max_tokens berechnen basierend auf Wortanzahl
     // 1 deutsches Wort ≈ 1.8 Token (inkl. HTML) + JSON-Overhead + 20% Puffer
-    const requestedWordCount = parseInt(formData.wordCount) || 1500;
+    const requestedWordCount = parseInt(formData.wordCount || '1500') || 1500;
     const calculatedMaxTokens = Math.ceil(requestedWordCount * 1.8) + 500 + Math.ceil(requestedWordCount * 0.4);
     console.log(`Calculated max_tokens: ${calculatedMaxTokens} for ${requestedWordCount} words`);
     let aiContent: string | null = null;
