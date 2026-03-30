@@ -50,7 +50,7 @@ const Projects = ({ session }: ProjectsProps) => {
     setIsLoading(true);
     const { data, error } = await supabase
       .from('content_projects')
-      .select('id, title, status, page_type, focus_keyword, seo_score, updated_at')
+      .select('id, title, status, page_type, focus_keyword, seo_score, created_at, updated_at')
       .eq('organization_id', currentOrg.id)
       .order('updated_at', { ascending: false });
 

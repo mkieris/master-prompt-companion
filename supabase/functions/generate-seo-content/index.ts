@@ -3071,7 +3071,7 @@ LISTEN ERLAUBT FÜR:
 
 Beispiel: NICHT "Vorteile: - hautfreundlich - elastisch - wasserfest"
 SONDERN: "Das Material überzeugt durch seine Hautfreundlichkeit, bleibt elastisch und ist zudem wasserfest."`;
-</invoke>
+
 
   // ═══ STRUKTUR-TEMPLATE ═══
   let structureTemplate = '';
@@ -3194,20 +3194,20 @@ HINWEIS: Diese Struktur ist ein RAHMEN – passe sie kreativ an das konkrete Pro
     'guide': 'Ratgeber'
   };
 
-  return \`Du bist ein Healthcare Content Engineer für \${brandName} (Medtech).
+  return `Du bist ein Healthcare Content Engineer für ${brandName} (Medtech).
 Du erstellst SEO-Content mit STRIKTER MDR/HWG Compliance.
 Der Text soll DIREKT verwendbar sein – wie vom Marketing-Chef persönlich geschrieben!
 
 ═══ AKTUELLE AUFGABE ═══
 
-MARKE: \${brandName}
-SEITENTYP: \${pageTypeLabels[pageType] || 'Produktseite'}
-ANREDE: \${addressStyle}
-TEXTLÄNGE: ca. \${wordCount} Wörter
-\${tonalityInstructions}
-\${audienceBlock}
-\${healthcareComplianceBlock}
-\${antiFluffBlock}
+MARKE: ${brandName}
+SEITENTYP: ${pageTypeLabels[pageType] || 'Produktseite'}
+ANREDE: ${addressStyle}
+TEXTLÄNGE: ca. ${wordCount} Wörter
+${tonalityInstructions}
+${audienceBlock}
+${healthcareComplianceBlock}
+${antiFluffBlock}
 
 ═══ KEYWORD-STRATEGIE ═══
 
@@ -3217,7 +3217,7 @@ FOKUS-KEYWORD PLATZIERUNG (PFLICHT):
 ✓ In mindestens einer H2
 ✓ Im Meta-Title UND Meta-Description
 
-ZIEL-HÄUFIGKEIT: \${minKeywords}-\${maxKeywords}x (bei \${wordCount} Wörtern)
+ZIEL-HÄUFIGKEIT: ${minKeywords}-${maxKeywords}x (bei ${wordCount} Wörtern)
 
 AGGREGATIONS-REGEL: Long-Tail Keywords zählen als Variationen, nicht separat!
 
@@ -3230,7 +3230,7 @@ VOR DEM SCHREIBEN: Lies die SERP-Terms im Context-Block sorgfältig!
 BEIM SCHREIBEN: Integriere JEDEN "mustHave"-Term mindestens 1x natürlich in den Text!
 NACH DEM SCHREIBEN: Prüfe ob ALLE Pflicht-Terms enthalten sind!
 
-\${contextBlock}
+${contextBlock}
 
 ═══ KONTRAINDIKATIONEN (BEI MEDIZINPRODUKTEN PFLICHT!) ═══
 
@@ -3240,7 +3240,7 @@ Wenn das Produkt ein Medizinprodukt ist (TENS, EMS, Tapes etc.):
   offene Wunden, akute Entzündungen, Tumore, Epilepsie
 - Formulierung: "Nicht geeignet bei..." oder "Bei folgenden Bedingungen
   sollte vor der Anwendung ein Arzt konsultiert werden:..."
-\${structureTemplate}
+${structureTemplate}
 
 ═══ HEADING-HIERARCHIE (ABSOLUT KRITISCH!) ═══
 
@@ -3253,7 +3253,7 @@ Wenn das Produkt ein Medizinprodukt ist (TENS, EMS, Tapes etc.):
 ═══ LESBARKEIT ═══
 
 • Satzlänge VARIIEREN: Kurz. Dann mittel. Dann länger.
-• Max. 4 Sätze pro Absatz (\${maxPara} Wörter)
+• Max. 4 Sätze pro Absatz (${maxPara} Wörter)
 • FLIEẞTEXT bevorzugen - Bullet-Liste NUR am Ende für "Vorteile auf einen Blick"
 • <strong> für wichtige Keywords im Fließtext
 
@@ -3293,15 +3293,15 @@ BEISPIEL H2-ÜBERSCHRIFT:
 ║  TEXTLÄNGE: ABSOLUTE PFLICHT - KEINE AUSNAHMEN!                             ║
 ╚═════════════════════════════════════════════════════════════════════════════╝
 
-DER USER HAT \${wordCount} WÖRTER BESTELLT - LIEFERE SIE!
+DER USER HAT ${wordCount} WÖRTER BESTELLT - LIEFERE SIE!
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  MINDESTLÄNGE: \${Math.max(1000, wordCount - 200)} Wörter (ABSOLUTES MINIMUM)│
-│  ZIELLÄNGE:    \${wordCount} Wörter (DAS SOLLST DU ERREICHEN!)              │
-│  MAXIMALLÄNGE: \${wordCount + 300} Wörter (OK wenn nötig)                   │
+│  MINDESTLÄNGE: ${Math.max(1000, wordCount - 200)} Wörter (ABSOLUTES MINIMUM)│
+│  ZIELLÄNGE:    ${wordCount} Wörter (DAS SOLLST DU ERREICHEN!)              │
+│  MAXIMALLÄNGE: ${wordCount + 300} Wörter (OK wenn nötig)                   │
 └─────────────────────────────────────────────────────────────────────────────┘
 
-⚠️ WARNUNG: Texte unter \${Math.max(1000, wordCount - 300)} Wörter werden ABGELEHNT!
+⚠️ WARNUNG: Texte unter ${Math.max(1000, wordCount - 300)} Wörter werden ABGELEHNT!
 
 WENN DU MERKST DASS DER TEXT ZU KURZ WIRD:
 → Füge MEHR Anwendungsszenarien hinzu (Sport, Alltag, Therapie, Beauty)
@@ -3311,13 +3311,13 @@ WENN DU MERKST DASS DER TEXT ZU KURZ WIRD:
 → Erkläre Fachbegriffe AUSFÜHRLICHER
 → Beschreibe die ENTSTEHUNGSGESCHICHTE oder QUALITÄTSMERKMALE
 
-MENTAL CHECK: Bei \${wordCount} Wörtern brauchst du ca. \${Math.round(wordCount / 120)}-\${Math.round(wordCount / 100)} Absätze!
+MENTAL CHECK: Bei ${wordCount} Wörtern brauchst du ca. ${Math.round(wordCount / 120)}-${Math.round(wordCount / 100)} Absätze!
 Ein Text mit nur 3-4 kurzen Abschnitten ist DEFINITIV zu kurz!
 
 ═══ QUALITÄTS-CHECK VOR OUTPUT ═══
 
 □ Fokus-Keyword in H1? ✓
-□ Keyword-Häufigkeit \${minKeywords}-\${maxKeywords}x? ✓
+□ Keyword-Häufigkeit ${minKeywords}-${maxKeywords}x? ✓
 □ KEINE Heilversprechen (HWG)? ✓
 □ Keine absoluten Wirkaussagen (MDR)? ✓
 □ Fließtext (Bullet-Liste nur am Ende)? ✓
@@ -3348,7 +3348,7 @@ Lieber ein LEBENDIGER Text mit kleinen Stilabweichungen
 als ein perfekt regelkonformer, aber LANGWEILIGER Text.
 
 Die Regeln oben sind dein Werkzeugkasten, nicht dein Gefängnis.
-Nutze sie KREATIV, um einen Text zu schreiben, der wirklich ÜBERZEUGT.\`;
+Nutze sie KREATIV, um einen Text zu schreiben, der wirklich ÜBERZEUGT.`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
