@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { callAI, AIError } from '../_shared/ai-client.ts';
 
 // Input validation schema
 const extractedDataSchema = z.object({
@@ -358,9 +359,11 @@ serve(async (req) => {
     const { extractedData, domainKnowledge, competitorInsights } = parseResult.data;
     // ===== END VALIDATION =====
 
+    // AI calls now route through callAI() which handles API keys per provider
+    // LOVABLE_API_KEY only needed if using Gemini models via gateway
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+    if (!LOVABLE_API_KEY && !Deno.env.get('ANTHROPIC_API_KEY')) {
+      throw new Error('Weder ANTHROPIC_API_KEY noch LOVABLE_API_KEY konfiguriert.');
     }
 
     console.log('=== GENERATE AI CONTENT ===');
@@ -374,14 +377,14 @@ serve(async (req) => {
 
     const systemPrompt = buildSystemPrompt(extractedData, domainKnowledge, competitorInsights || null);
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+    // Model selection: default to claude-sonnet, fallback to gemini-flash
+    const aiModel = extractedData.aiModel || 'anthropic/claude-sonnet-4-20250514';
+    console.log('Using AI model:', aiModel);
+
+    let contentText: string;
+    try {
+      const result = await callAI({
+        model: aiModel,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: `Generiere jetzt den SEO-Content für "${extractedData.focusKeyword || extractedData.productName || 'das Thema'}".
@@ -396,30 +399,18 @@ CHECKLISTE VOR AUSGABE:
 
 Antworte NUR mit validem JSON.` }
         ],
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('AI API error:', response.status, errorText);
-      
-      if (response.status === 429) {
+      });
+      contentText = result.content;
+    } catch (err) {
+      if (err instanceof AIError) {
+        console.error('AI API error:', err.statusCode, err.message);
         return new Response(
-          JSON.stringify({ error: 'Rate limit erreicht. Bitte versuche es in einer Minute erneut.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: err.message }),
+          { status: err.statusCode, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'AI-Credits aufgebraucht. Bitte Guthaben aufladen.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      throw new Error(`AI API error: ${response.status}`);
+      throw err;
     }
-
-    const data = await response.json();
-    const contentText = data.choices?.[0]?.message?.content || '';
     
     console.log('Raw AI response length:', contentText.length);
 

@@ -7,6 +7,8 @@ import { sanitizePromptInput, sanitizePromptArray } from '../_shared/sanitize-pr
 import { runComplianceCheck } from '../_shared/compliance-check.ts';
 import type { ComplianceResult } from '../_shared/compliance-check.ts';
 import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '../_shared/rate-limit.ts';
+import { callAI, AIError } from '../_shared/ai-client.ts';
+import type { AIMessage } from '../_shared/ai-client.ts';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // AI MODEL CONFIGURATION
@@ -42,8 +44,8 @@ const AI_MODELS: Record<AIModelId, ModelConfig> = {
   },
   'claude-sonnet': {
     id: 'claude-sonnet',
-    modelName: 'anthropic/claude-sonnet-4',
-    provider: 'lovable', // Using Lovable gateway for Claude
+    modelName: 'anthropic/claude-sonnet-4-20250514',
+    provider: 'anthropic',
     temperature: 0.6,
     costPerMillionInput: 3.00,
     costPerMillionOutput: 15.00,
@@ -218,7 +220,6 @@ async function handleKeywordAnalysis(
   focusKeyword: string,
   targetAudience: string | undefined,
   language: string,
-  apiKey: string
 ): Promise<KeywordAnalysis> {
   console.log('=== KEYWORD ANALYSIS START ===');
   console.log('Focus Keyword:', focusKeyword);
@@ -268,45 +269,19 @@ WICHTIG: Antworte AUSSCHLIESSLICH mit diesem JSON-Format, KEIN anderer Text:
     try {
       console.log(`API Attempt ${attempt}/2...`);
 
-      const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [
-            {
-              role: 'system',
-              content: 'Du bist ein SEO-Experte. Antworte NUR mit validem JSON, ohne Erklärungen oder Markdown.'
-            },
-            { role: 'user', content: analysisPrompt }
-          ],
-          temperature: attempt === 1 ? 0.3 : 0.5, // Lower temp first for more consistent JSON
-        }),
+      const aiResult = await callAI({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          {
+            role: 'system',
+            content: 'Du bist ein SEO-Experte. Antworte NUR mit validem JSON, ohne Erklärungen oder Markdown.'
+          },
+          { role: 'user', content: analysisPrompt }
+        ],
+        temperature: attempt === 1 ? 0.3 : 0.5,
       });
 
-      if (!aiResponse.ok) {
-        const errorText = await aiResponse.text();
-        console.error(`API Error (attempt ${attempt}):`, aiResponse.status, errorText);
-
-        if (aiResponse.status === 429) {
-          throw new Error('Rate limit erreicht. Bitte versuche es in 1 Minute erneut.');
-        }
-        if (aiResponse.status === 402) {
-          throw new Error('AI-Credits aufgebraucht. Bitte Lovable-Guthaben prüfen.');
-        }
-        if (aiResponse.status === 401) {
-          throw new Error('API-Authentifizierung fehlgeschlagen. Bitte Support kontaktieren.');
-        }
-
-        lastError = new Error(`AI API Fehler: ${aiResponse.status}`);
-        continue;
-      }
-
-      const aiData = await aiResponse.json();
-      const analysisText = aiData.choices?.[0]?.message?.content || '';
+      const analysisText = aiResult.content;
 
       console.log('Raw AI Response (first 500 chars):', analysisText.substring(0, 500));
 
@@ -482,14 +457,10 @@ serve(async (req) => {
     const formData = parseResult.data;
     // ===== END VALIDATION =====
 
+    // LOVABLE_API_KEY is still used for compliance checks (via Gemini)
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-
     if (!LOVABLE_API_KEY) {
-      console.error('LOVABLE_API_KEY not configured');
-      return new Response(
-        JSON.stringify({ error: 'Server-Konfigurationsfehler' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      console.warn('LOVABLE_API_KEY not configured - compliance checks will be skipped');
     }
 
     // ═══ MODE: KEYWORD ANALYSIS ═══
@@ -500,7 +471,6 @@ serve(async (req) => {
         formData.focusKeyword,
         formData.targetAudience,
         formData.language || 'de',
-        LOVABLE_API_KEY
       );
 
       console.log('Keyword analysis completed:', {
@@ -562,40 +532,17 @@ AUSGABE ALS JSON:
 }`;
 
       try {
-        console.log('Calling AI Gateway for outline...');
-        const outlineResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': 'Bearer ' + LOVABLE_API_KEY,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'google/gemini-2.5-flash',
-            messages: [
-              { role: 'system', content: 'Du erstellst SEO-optimierte Content-Gliederungen. Antworte NUR mit validem JSON.' },
-              { role: 'user', content: outlinePrompt }
-            ],
-            temperature: 0.5,
-          }),
+        console.log('Calling AI for outline...');
+        const outlineResult = await callAI({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'system', content: 'Du erstellst SEO-optimierte Content-Gliederungen. Antworte NUR mit validem JSON.' },
+            { role: 'user', content: outlinePrompt }
+          ],
+          temperature: 0.5,
         });
 
-        console.log('Outline API Response Status:', outlineResponse.status);
-
-        if (!outlineResponse.ok) {
-          const errorBody = await outlineResponse.text();
-          console.error('Outline API Error:', errorBody);
-          return new Response(JSON.stringify({
-            success: false,
-            error: 'Outline-Generierung fehlgeschlagen',
-            details: `Status ${outlineResponse.status}: ${errorBody.substring(0, 200)}`
-          }), {
-            status: outlineResponse.status,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-
-        const outlineData = await outlineResponse.json();
-        const outlineContent = outlineData.choices?.[0]?.message?.content || '';
+        const outlineContent = outlineResult.content;
         console.log('Outline raw content length:', outlineContent.length);
 
         // Parse JSON from response
@@ -703,27 +650,19 @@ AUSGABE ALS JSON:
       if (briefingContent) {
         console.log('Processed briefing files:', formData.briefingFiles.length);
         
-        const summaryResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': 'Bearer ' + LOVABLE_API_KEY,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
+        try {
+          const summaryResult = await callAI({
             model: 'google/gemini-2.5-flash',
             messages: [
               { role: 'system', content: 'Du bist ein Experte fuer die Zusammenfassung von Briefing-Dokumenten.' },
               { role: 'user', content: 'Fasse folgende Briefing-Dokumente zusammen:\n\n' + sanitizePromptInput(briefingContent, 50000) }
             ],
             temperature: 0.3,
-          }),
-        });
-
-        if (summaryResponse.ok) {
-          const summaryData = await summaryResponse.json();
-          const summary = summaryData.choices[0].message.content;
-          briefingContent = '\n\n=== ZUSAMMENFASSUNG DER BRIEFING-DOKUMENTE ===\n' + summary + '\n';
+          });
+          briefingContent = '\n\n=== ZUSAMMENFASSUNG DER BRIEFING-DOKUMENTE ===\n' + summaryResult.content + '\n';
           console.log('Briefing successfully summarized');
+        } catch (summaryErr) {
+          console.error('Briefing summary failed, using raw content:', summaryErr);
         }
       }
     }
@@ -782,45 +721,31 @@ AUSGABE ALS JSON:
       const TIMEOUT_MS = 50000; // 50s per stage
 
       // Stage 1 API call
-      let stage1Response: Response;
+      let stage1Content: string;
       try {
         const controller1 = new AbortController();
         const timeout1 = setTimeout(() => controller1.abort(), TIMEOUT_MS);
 
-        stage1Response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Authorization': 'Bearer ' + LOVABLE_API_KEY, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: modelConfig.modelName,
-            messages: [
-              { role: 'system', content: stage1System },
-              { role: 'user', content: stage1User }
-            ],
-            temperature: 0.8,
-            max_tokens: stage1MaxTokens,
-          }),
+        const stage1Result = await callAI({
+          model: modelConfig.modelName,
+          messages: [
+            { role: 'system', content: stage1System },
+            { role: 'user', content: stage1User }
+          ],
+          temperature: 0.8,
+          max_tokens: stage1MaxTokens,
           signal: controller1.signal,
         });
         clearTimeout(timeout1);
+        stage1Content = stage1Result.content;
       } catch (err) {
         console.error('[V14] Stage 1 failed:', err);
+        const statusCode = err instanceof AIError ? err.statusCode : 500;
         return new Response(JSON.stringify({
           error: 'V14 Stage 1 fehlgeschlagen',
           details: String(err)
-        }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }), { status: statusCode, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
-
-      if (!stage1Response.ok) {
-        const errText = await stage1Response.text();
-        console.error('[V14] Stage 1 API error:', errText);
-        return new Response(JSON.stringify({
-          error: 'V14 Stage 1 API Fehler',
-          status: stage1Response.status
-        }), { status: stage1Response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-      }
-
-      const stage1Data = await stage1Response.json();
-      const stage1Content = stage1Data.choices?.[0]?.message?.content || '';
       const stage1Result = extractJsonFromText(stage1Content);
 
       if (!stage1Result || !stage1Result.seoText) {
@@ -846,26 +771,23 @@ AUSGABE ALS JSON:
 
       const stage2MaxTokens = calculateV14Stage2MaxTokens(stage1MaxTokens);
 
-      let stage2Response: Response;
+      let stage2Content: string;
       try {
         const controller2 = new AbortController();
         const timeout2 = setTimeout(() => controller2.abort(), TIMEOUT_MS);
 
-        stage2Response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Authorization': 'Bearer ' + LOVABLE_API_KEY, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: modelConfig.modelName,
-            messages: [
-              { role: 'system', content: stage2System },
-              { role: 'user', content: stage2User }
-            ],
-            temperature: 0.2,
-            max_tokens: stage2MaxTokens,
-          }),
+        const stage2Result = await callAI({
+          model: modelConfig.modelName,
+          messages: [
+            { role: 'system', content: stage2System },
+            { role: 'user', content: stage2User }
+          ],
+          temperature: 0.2,
+          max_tokens: stage2MaxTokens,
           signal: controller2.signal,
         });
         clearTimeout(timeout2);
+        stage2Content = stage2Result.content;
       } catch (err) {
         console.error('[V14] Stage 2 failed:', err);
         // Fallback: Return Stage 1 result without compliance check
@@ -878,30 +800,10 @@ AUSGABE ALS JSON:
           internalLinks: stage1Result.internalLinks || [],
           technicalHints: stage1Result.technicalHints || [],
           qualityReport: stage1Result.qualityReport,
-          auditReport: { totalIssues: -1, issues: [], complianceScore: -1, error: 'Stage 2 timeout - using unchecked content' },
+          auditReport: { totalIssues: -1, issues: [], complianceScore: -1, error: 'Stage 2 failed - using unchecked content' },
           _meta: { version: 'v14-two-stage', stage2Error: true },
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
-
-      if (!stage2Response.ok) {
-        // Fallback: Return Stage 1 result
-        console.warn('[V14] Stage 2 API error, returning Stage 1 result');
-        return new Response(JSON.stringify({
-          success: true,
-          title: stage1Result.title,
-          metaDescription: stage1Result.metaDescription,
-          seoText: stage1Result.seoText,
-          faq: stage1Result.faq || [],
-          internalLinks: stage1Result.internalLinks || [],
-          technicalHints: stage1Result.technicalHints || [],
-          qualityReport: stage1Result.qualityReport,
-          auditReport: { totalIssues: -1, issues: [], complianceScore: -1, error: 'Stage 2 failed' },
-          _meta: { version: 'v14-two-stage', stage2Error: true },
-        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-      }
-
-      const stage2Data = await stage2Response.json();
-      const stage2Content = stage2Data.choices?.[0]?.message?.content || '';
       const stage2Result = extractJsonFromText(stage2Content);
 
       console.log(`[V14] Stage 2 done. Issues: ${stage2Result?.auditReport?.totalIssues || 0}`);
@@ -1033,7 +935,7 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
     const requestedWordCount = parseInt(formData.wordCount) || 1500;
     const calculatedMaxTokens = Math.ceil(requestedWordCount * 1.8) + 500 + Math.ceil(requestedWordCount * 0.4);
     console.log(`Calculated max_tokens: ${calculatedMaxTokens} for ${requestedWordCount} words`);
-    let response: Response | null = null;
+    let aiContent: string | null = null;
 
     const startTime = Date.now();
     console.log('=== STARTING CONTENT GENERATION ===');
@@ -1044,7 +946,6 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
       try {
         console.log(`API attempt ${attempt}/${maxRetries} starting at ${attemptStart - startTime}ms...`);
 
-        // Create abort controller for timeout
         const controller = new AbortController();
         const timeoutId = setTimeout(() => {
           console.log(`Timeout triggered for attempt ${attempt}`);
@@ -1052,42 +953,37 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
         }, TIMEOUT_MS);
 
         try {
-          response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + LOVABLE_API_KEY, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: modelConfig.modelName, messages: messages, temperature: modelConfig.temperature, max_tokens: calculatedMaxTokens }),
+          const result = await callAI({
+            model: modelConfig.modelName,
+            messages: messages as AIMessage[],
+            temperature: modelConfig.temperature,
+            max_tokens: calculatedMaxTokens,
             signal: controller.signal,
           });
+          aiContent = result.content;
         } finally {
           clearTimeout(timeoutId);
         }
 
         const attemptDuration = Date.now() - attemptStart;
-        console.log(`API attempt ${attempt} completed in ${attemptDuration}ms, status: ${response.status}`);
-
-        if (response.ok) {
-          console.log('=== API CALL SUCCESSFUL ===');
-          break;
-        }
-
-        if (response.status === 429) {
-          console.log('Rate limit hit');
-          return new Response(JSON.stringify({ error: 'Rate limit erreicht. Bitte warte 1 Minute.' }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-        }
-        if (response.status === 402) {
-          console.log('Payment required');
-          return new Response(JSON.stringify({ error: 'Keine AI-Credits mehr. Bitte Lovable-Guthaben aufladen.' }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-        }
-
-        if (response.status >= 500 && attempt < maxRetries) {
-          console.log(`Server error ${response.status}, retrying in 2 seconds...`);
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          continue;
-        }
-        throw new Error('AI Gateway Fehler: ' + response.status);
+        console.log(`API attempt ${attempt} completed in ${attemptDuration}ms`);
+        console.log('=== API CALL SUCCESSFUL ===');
+        break;
       } catch (err) {
         const attemptDuration = Date.now() - attemptStart;
-        // Check if it's an abort error (timeout)
+
+        if (err instanceof AIError) {
+          console.error(`API attempt ${attempt} failed after ${attemptDuration}ms: ${err.message} (${err.statusCode})`);
+          if (err.statusCode === 429 || err.statusCode === 401 || err.statusCode === 402) {
+            return new Response(JSON.stringify({ error: err.message }), { status: err.statusCode, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          }
+          if (err.statusCode >= 500 && attempt < maxRetries) {
+            console.log(`Server error, retrying in 2 seconds...`);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            continue;
+          }
+        }
+
         if (err instanceof Error && err.name === 'AbortError') {
           console.error(`API attempt ${attempt} TIMED OUT after ${attemptDuration}ms`);
           if (attempt === maxRetries) {
@@ -1103,26 +999,11 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
       }
     }
 
-    if (!response || !response.ok) {
+    if (!aiContent) {
       throw new Error('AI-Generierung fehlgeschlagen. Bitte erneut versuchen.');
     }
 
     console.log('=== PARSING RESPONSE ===');
-
-    const data = await response.json();
-
-    // Validate response structure
-    if (!data || !data.choices || !Array.isArray(data.choices) || data.choices.length === 0) {
-      console.error('Invalid AI response structure:', JSON.stringify(data).substring(0, 500));
-      throw new Error('Ungültige AI-Antwort erhalten. Bitte erneut versuchen.');
-    }
-
-    const aiContent = data.choices[0]?.message?.content;
-    if (!aiContent || typeof aiContent !== 'string') {
-      console.error('Missing or invalid content in AI response');
-      throw new Error('AI-Antwort war leer. Bitte erneut versuchen.');
-    }
-
     console.log('AI content received, length:', aiContent.length);
 
     const parsedContent = parseGeneratedContent(aiContent, formData);
