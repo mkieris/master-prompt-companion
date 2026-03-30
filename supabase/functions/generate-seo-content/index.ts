@@ -3071,7 +3071,7 @@ LISTEN ERLAUBT FÜR:
 
 Beispiel: NICHT "Vorteile: - hautfreundlich - elastisch - wasserfest"
 SONDERN: "Das Material überzeugt durch seine Hautfreundlichkeit, bleibt elastisch und ist zudem wasserfest."`;
-</invoke>
+
 
   // ═══ STRUKTUR-TEMPLATE ═══
   let structureTemplate = '';
