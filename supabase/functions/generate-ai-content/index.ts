@@ -474,7 +474,7 @@ serve(async (req) => {
     const systemPrompt = buildSystemPrompt(extractedData, domainKnowledge, competitorInsights || null);
 
     // Model selection: default to claude-sonnet, fallback to gemini-flash
-    const aiModel = extractedData.aiModel || 'anthropic/claude-sonnet-4-20250514';
+    const aiModel: string = (extractedData as any).aiModel || 'anthropic/claude-sonnet-4-20250514';
     console.log('Using AI model:', aiModel);
 
     let contentText: string;
