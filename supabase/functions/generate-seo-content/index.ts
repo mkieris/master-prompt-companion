@@ -7,8 +7,134 @@ import { sanitizePromptInput, sanitizePromptArray } from '../_shared/sanitize-pr
 import { runComplianceCheck } from '../_shared/compliance-check.ts';
 import type { ComplianceResult } from '../_shared/compliance-check.ts';
 import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '../_shared/rate-limit.ts';
-import { callAI, AIError } from '../_shared/ai-client.ts';
-import type { AIMessage } from '../_shared/ai-client.ts';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// INLINE AI CLIENT - calls Anthropic directly or Lovable Gateway
+// ═══════════════════════════════════════════════════════════════════════════════
+
+interface AIMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+interface AIRequestOptions {
+  model: string;
+  messages: AIMessage[];
+  temperature?: number;
+  max_tokens?: number;
+  signal?: AbortSignal;
+}
+
+interface AIResponse {
+  content: string;
+  model: string;
+  inputTokens?: number;
+  outputTokens?: number;
+}
+
+class AIError extends Error {
+  statusCode: number;
+  constructor(message: string, statusCode: number) {
+    super(message);
+    this.name = 'AIError';
+    this.statusCode = statusCode;
+  }
+}
+
+async function callAI(options: AIRequestOptions): Promise<AIResponse> {
+  const model = options.model;
+  const isAnthropic = model.startsWith('anthropic/') || model.startsWith('claude-');
+
+  if (isAnthropic) {
+    // ── ANTHROPIC DIRECT API ──
+    const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+    if (!apiKey) {
+      throw new AIError('ANTHROPIC_API_KEY nicht konfiguriert.', 500);
+    }
+
+    const systemMsg = options.messages.find(m => m.role === 'system');
+    const otherMsgs = options.messages.filter(m => m.role !== 'system');
+
+    const body: Record<string, unknown> = {
+      model: model.replace('anthropic/', ''),
+      messages: otherMsgs.map(m => ({ role: m.role, content: m.content })),
+      max_tokens: options.max_tokens || 4096,
+      temperature: options.temperature ?? 0.6,
+    };
+    if (systemMsg) {
+      body.system = systemMsg.content;
+    }
+
+    console.log('[AI] Calling Anthropic API for model:', model);
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+      signal: options.signal,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[Anthropic] API error:', response.status, errorText);
+      throw new AIError('Anthropic API Fehler: ' + response.status + ' - ' + errorText.substring(0, 200), response.status);
+    }
+
+    const data = await response.json();
+    const content = (data.content || [])
+      .filter((b: any) => b.type === 'text')
+      .map((b: any) => b.text)
+      .join('');
+
+    return {
+      content,
+      model: data.model || model,
+      inputTokens: data.usage?.input_tokens,
+      outputTokens: data.usage?.output_tokens,
+    };
+  } else {
+    // ── LOVABLE GATEWAY (OpenAI-compatible) ──
+    const apiKey = Deno.env.get('LOVABLE_API_KEY');
+    if (!apiKey) {
+      throw new AIError('LOVABLE_API_KEY nicht konfiguriert.', 500);
+    }
+
+    console.log('[AI] Calling Lovable Gateway for model:', model);
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: options.messages.map(m => ({ role: m.role, content: m.content })),
+        temperature: options.temperature,
+        max_tokens: options.max_tokens,
+      }),
+      signal: options.signal,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[LovableGateway] API error:', response.status, errorText);
+      throw new AIError('AI Gateway Fehler: ' + response.status, response.status);
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '';
+
+    return {
+      content,
+      model: data.model || model,
+      inputTokens: data.usage?.prompt_tokens,
+      outputTokens: data.usage?.completion_tokens,
+    };
+  }
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // AI MODEL CONFIGURATION
@@ -21,8 +147,8 @@ interface ModelConfig {
   modelName: string;
   provider: 'lovable' | 'anthropic';
   temperature: number;
-  costPerMillionInput: number;  // in USD
-  costPerMillionOutput: number; // in USD
+  costPerMillionInput: number;
+  costPerMillionOutput: number;
 }
 
 const AI_MODELS: Record<AIModelId, ModelConfig> = {
@@ -56,7 +182,7 @@ function getModelConfig(modelId?: string): ModelConfig {
   if (modelId && modelId in AI_MODELS) {
     return AI_MODELS[modelId as AIModelId];
   }
-  return AI_MODELS['gemini-flash']; // Default
+  return AI_MODELS['gemini-flash'];
 }
 
 function estimateTokens(text: string): number {

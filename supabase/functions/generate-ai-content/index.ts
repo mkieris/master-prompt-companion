@@ -3,7 +3,103 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 import { getCorsHeaders } from '../_shared/cors.ts';
-import { callAI, AIError } from '../_shared/ai-client.ts';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// INLINE AI CLIENT - calls Anthropic directly or Lovable Gateway
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class AIError extends Error {
+  statusCode: number;
+  constructor(message: string, statusCode: number) {
+    super(message);
+    this.name = 'AIError';
+    this.statusCode = statusCode;
+  }
+}
+
+async function callAI(options: {
+  model: string;
+  messages: { role: string; content: string }[];
+  temperature?: number;
+  max_tokens?: number;
+}): Promise<{ content: string }> {
+  const model = options.model;
+  const isAnthropic = model.startsWith('anthropic/') || model.startsWith('claude-');
+
+  if (isAnthropic) {
+    const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+    if (!apiKey) {
+      throw new AIError('ANTHROPIC_API_KEY nicht konfiguriert.', 500);
+    }
+
+    const systemMsg = options.messages.find(m => m.role === 'system');
+    const otherMsgs = options.messages.filter(m => m.role !== 'system');
+
+    const body: Record<string, unknown> = {
+      model: model.replace('anthropic/', ''),
+      messages: otherMsgs.map(m => ({ role: m.role, content: m.content })),
+      max_tokens: options.max_tokens || 4096,
+      temperature: options.temperature ?? 0.6,
+    };
+    if (systemMsg) {
+      body.system = systemMsg.content;
+    }
+
+    console.log('[AI] Calling Anthropic API for model:', model);
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[Anthropic] API error:', response.status, errorText);
+      throw new AIError('Anthropic API Fehler: ' + response.status, response.status);
+    }
+
+    const data = await response.json();
+    const content = (data.content || [])
+      .filter((b: any) => b.type === 'text')
+      .map((b: any) => b.text)
+      .join('');
+
+    return { content };
+  } else {
+    const apiKey = Deno.env.get('LOVABLE_API_KEY');
+    if (!apiKey) {
+      throw new AIError('LOVABLE_API_KEY nicht konfiguriert.', 500);
+    }
+
+    console.log('[AI] Calling Lovable Gateway for model:', model);
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: options.messages.map(m => ({ role: m.role, content: m.content })),
+        temperature: options.temperature,
+        max_tokens: options.max_tokens,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[LovableGateway] API error:', response.status, errorText);
+      throw new AIError('AI Gateway Fehler: ' + response.status, response.status);
+    }
+
+    const data = await response.json();
+    return { content: data.choices?.[0]?.message?.content || '' };
+  }
+}
 
 // Input validation schema
 const extractedDataSchema = z.object({
