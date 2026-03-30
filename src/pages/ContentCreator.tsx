@@ -191,6 +191,7 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
   const [isSaving, setIsSaving] = useState(false);
   const [domainKnowledge, setDomainKnowledge] = useState<any>(null);
   const [complianceInfo, setComplianceInfo] = useState<ComplianceInfo | null>(null);
+  const [promptInfo, setPromptInfo] = useState<import("@/components/content-creator/ContentEditor").PromptInfo | null>(null);
   const [researchUrls, setResearchUrls] = useState<ResearchUrl[]>([]);
 
   // Debounce keyword for auto SERP
@@ -474,6 +475,11 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
         setEditedContent(seoText);
         setEditedTitle(title);
         setEditedMeta(metaDescription);
+
+        // Extract prompt debug info from response
+        if (parsedData._prompts) {
+          setPromptInfo(parsedData._prompts);
+        }
 
         // Extract compliance data from response
         const compliance = parsedData.compliance || content?.compliance || null;
@@ -775,6 +781,7 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
               isGenerating={isGenerating}
               onGenerate={handleGenerate}
               hasContent={!!editedContent}
+              promptInfo={promptInfo}
             />
           </ResizablePanel>
 

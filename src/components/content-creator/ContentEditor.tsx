@@ -36,6 +36,15 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { sanitizeHtml } from "@/lib/sanitize";
 
+export interface PromptInfo {
+  systemPrompt: string;
+  userPrompt: string;
+  model: string;
+  promptVersion: string;
+  maxTokens: number;
+  temperature: number;
+}
+
 interface ContentEditorProps {
   content: string;
   title: string;
@@ -50,6 +59,7 @@ interface ContentEditorProps {
   isGenerating: boolean;
   onGenerate: () => void;
   hasContent: boolean;
+  promptInfo?: PromptInfo | null;
 }
 
 export const ContentEditor = ({
@@ -66,6 +76,7 @@ export const ContentEditor = ({
   isGenerating,
   onGenerate,
   hasContent,
+  promptInfo,
 }: ContentEditorProps) => {
   const { toast } = useToast();
   const [refinePrompt, setRefinePrompt] = useState("");
@@ -325,6 +336,10 @@ export const ContentEditor = ({
               <Wand2 className="h-3.5 w-3.5 mr-1.5" />
               KI-Anpassung
             </TabsTrigger>
+            <TabsTrigger value="prompt" className="flex-1 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <MessageSquare className="h-3.5 w-3.5 mr-1.5" />
+              Prompt
+            </TabsTrigger>
           </TabsList>
         </Tabs>
       </CardHeader>
@@ -532,6 +547,81 @@ export const ContentEditor = ({
                   ))}
                 </div>
               </div>
+            </TabsContent>
+
+            {/* Prompt Debug Tab */}
+            <TabsContent value="prompt" className="mt-0 space-y-4">
+              {promptInfo ? (
+                <>
+                  {/* Meta Info */}
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="secondary" className="text-xs">
+                      Model: {promptInfo.model}
+                    </Badge>
+                    <Badge variant="secondary" className="text-xs">
+                      Version: {promptInfo.promptVersion}
+                    </Badge>
+                    <Badge variant="secondary" className="text-xs">
+                      Max Tokens: {promptInfo.maxTokens}
+                    </Badge>
+                    <Badge variant="secondary" className="text-xs">
+                      Temp: {promptInfo.temperature}
+                    </Badge>
+                  </div>
+
+                  {/* System Prompt */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-semibold flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full bg-blue-500" />
+                        System Prompt
+                      </Label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => copyToClipboard(promptInfo.systemPrompt, 'System Prompt')}
+                      >
+                        {copiedSection === 'System Prompt' ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                      </Button>
+                    </div>
+                    <div className="bg-muted/50 rounded-lg border p-3 max-h-[300px] overflow-y-auto">
+                      <pre className="text-xs whitespace-pre-wrap font-mono leading-relaxed">
+                        {promptInfo.systemPrompt}
+                      </pre>
+                    </div>
+                  </div>
+
+                  {/* User Prompt */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-semibold flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full bg-green-500" />
+                        User Prompt
+                      </Label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => copyToClipboard(promptInfo.userPrompt, 'User Prompt')}
+                      >
+                        {copiedSection === 'User Prompt' ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                      </Button>
+                    </div>
+                    <div className="bg-muted/50 rounded-lg border p-3 max-h-[300px] overflow-y-auto">
+                      <pre className="text-xs whitespace-pre-wrap font-mono leading-relaxed">
+                        {promptInfo.userPrompt}
+                      </pre>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                  <MessageSquare className="h-10 w-10 mb-3 opacity-30" />
+                  <p className="text-sm">Noch kein Prompt vorhanden</p>
+                  <p className="text-xs mt-1">Generiere einen Text, um den Prompt zu sehen</p>
+                </div>
+              )}
             </TabsContent>
           </div>
         </ScrollArea>
