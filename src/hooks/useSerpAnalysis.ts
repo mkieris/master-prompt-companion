@@ -69,6 +69,7 @@ export function useSerpAnalysis() {
     setError(null);
 
     try {
+      console.log('[SERP] Calling analyze-serp edge function...');
       const { data, error: invokeError } = await supabase.functions.invoke('analyze-serp', {
         body: {
           keyword: keyword.trim(),
@@ -78,7 +79,10 @@ export function useSerpAnalysis() {
         },
       });
 
+      console.log('[SERP] Response:', { data: data ? Object.keys(data) : null, error: invokeError });
+
       if (invokeError) {
+        console.error('[SERP] Invoke error:', invokeError);
         throw new Error(invokeError.message || 'SERP-Analyse fehlgeschlagen');
       }
 

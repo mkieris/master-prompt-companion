@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { calculateContentScore } from "@/utils/content-score";
+import { useDebug } from "@/contexts/DebugContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -176,6 +177,7 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
   const { toast } = useToast();
   const { currentOrg } = useOrganization(session);
   const { analyze: analyzeSERP, isLoading: serpLoading, result: serpResult } = useSerpAnalysis();
+  const { log } = useDebug();
 
   // State
   const [config, setConfig] = useState<ContentConfig>(defaultConfig);
@@ -257,12 +259,28 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
   const handleSerpAnalysis = async () => {
     if (!config.focusKeyword.trim()) return;
 
-    const result = await analyzeSERP(config.focusKeyword);
-    if (result) {
-      toast({
-        title: "SERP-Analyse abgeschlossen",
-        description: `${result.serpTerms.all.length} relevante Begriffe gefunden`,
+    log('api', 'SERP Analysis gestartet', { keyword: config.focusKeyword });
+    try {
+      const result = await analyzeSERP(config.focusKeyword);
+      if (result) {
+        log('response', 'SERP Analysis erfolgreich', {
+          termCount: result.serpTerms.all.length,
+          mustHave: result.serpTerms.mustHave?.length,
+          competitors: result.competitors?.length,
+        });
+        toast({
+          title: "SERP-Analyse abgeschlossen",
+          description: `${result.serpTerms.all.length} relevante Begriffe gefunden`,
+        });
+      } else {
+        log('error', 'SERP Analysis: Kein Ergebnis', { keyword: config.focusKeyword });
+      }
+    } catch (err) {
+      log('error', 'SERP Analysis fehlgeschlagen', {
+        error: err instanceof Error ? err.message : String(err),
+        keyword: config.focusKeyword,
       });
+      throw err;
     }
   };
 
@@ -392,6 +410,13 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
   };
 
   const handleGenerate = async () => {
+    log('api', 'Content Generation gestartet', {
+      model: config.aiModel,
+      keyword: config.focusKeyword,
+      promptVersion: config.promptVersion,
+      wordCount: config.wordCount,
+    });
+
     // Validate inputs before sending to API
     const validation = validateContentConfig({
       focusKeyword: config.focusKeyword,
@@ -449,7 +474,29 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        log('error', 'Edge Function Fehler', {
+          message: error.message,
+          name: error.name,
+          context: error.context,
+          status: error.status,
+        });
+        throw error;
+      }
+
+      log('response', 'Edge Function Antwort erhalten', {
+        dataType: typeof data,
+        hasData: !!data,
+        keys: data ? Object.keys(data) : [],
+        hasSeoText: !!data?.seoText,
+        hasVariants: !!data?.variants,
+        hasError: !!data?.error,
+        rawError: data?.error,
+        promptInfo: data?._prompts ? {
+          model: data._prompts.model,
+          promptVersion: data._prompts.promptVersion,
+        } : 'nicht vorhanden',
+      });
 
       // Handle response - parse JSON string if needed
       let parsedData = data;
@@ -513,6 +560,11 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
       }
     } catch (error) {
       console.error("Generation error:", error);
+      log('error', 'Content Generation fehlgeschlagen', {
+        message: error instanceof Error ? error.message : String(error),
+        name: error instanceof Error ? error.name : 'Unknown',
+        stack: error instanceof Error ? error.stack?.substring(0, 500) : undefined,
+      });
       toast({
         title: "Fehler",
         description: error instanceof Error ? error.message : "Generierung fehlgeschlagen",
