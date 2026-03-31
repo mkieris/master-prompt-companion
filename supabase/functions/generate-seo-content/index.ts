@@ -523,7 +523,7 @@ const formDataSchema = z.object({
     mustHave: z.array(z.string()).optional(),
     shouldHave: z.array(z.string()).optional(),
     niceToHave: z.array(z.string()).optional(),
-  }).optional(),
+  }).nullable().optional(),
 }).passthrough();
 
 serve(async (req) => {
@@ -847,7 +847,7 @@ AUSGABE ALS JSON:
       });
 
       const stage1MaxTokens = calculateV14MaxTokens(wordCount);
-      const TIMEOUT_MS = 50000; // 50s per stage
+      const TIMEOUT_MS = 90000; // 90s per stage - Claude Sonnet needs more time
 
       // Stage 1 API call
       let stage1Content: string;
@@ -1056,8 +1056,8 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
     // Single generation (for new content and refinement/quick change)
     // IMPORTANT: Supabase Edge Functions have ~120s timeout
     // We must complete within that time, so use shorter API timeout and fewer retries
-    const maxRetries = 2;
-    const TIMEOUT_MS = 55000; // 55 seconds per attempt (2 attempts + processing = ~115s max)
+    const maxRetries = 1;
+    const TIMEOUT_MS = 90000; // 90 seconds - Claude Sonnet needs more time for long content
 
     // FIX: max_tokens berechnen basierend auf Wortanzahl
     // 1 deutsches Wort ≈ 1.8 Token (inkl. HTML) + JSON-Overhead + 20% Puffer
