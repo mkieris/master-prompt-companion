@@ -50,7 +50,7 @@ const ContentCreatorV2 = ({ session }: ContentV2Props) => {
   const [focusKeyword, setFocusKeyword] = useState("");
   const [audience, setAudience] = useState<"b2c" | "b2b">("b2c");
   const [wordCount, setWordCount] = useState("1500");
-  const [pageType, setPageType] = useState<"produktseite" | "kategorieseite" | "ratgeber">("produktseite");
+  const [pageType, setPageType] = useState<"produktseite" | "kategorieseite" | "markenseite" | "ratgeber">("produktseite");
   const [additionalInfo, setAdditionalInfo] = useState("");
 
   // Generation state
@@ -302,7 +302,8 @@ const ContentCreatorV2 = ({ session }: ContentV2Props) => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="produktseite">Produktseite</SelectItem>
-                  <SelectItem value="kategorieseite">Kategorieseite</SelectItem>
+                  <SelectItem value="kategorieseite">Kategorieseite (Thema)</SelectItem>
+                  <SelectItem value="markenseite">Markenseite (Brand)</SelectItem>
                   <SelectItem value="ratgeber">Ratgeber</SelectItem>
                 </SelectContent>
               </Select>
