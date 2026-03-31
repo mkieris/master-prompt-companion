@@ -419,30 +419,34 @@ serve(async (req) => {
     // ===== PARSE JSON RESPONSE =====
     let parsed;
     try {
-      const cleaned = rawContent
-        .replace(/```json\s*/g, '')
+      // Strip markdown code blocks
+      let cleaned = rawContent
+        .replace(/```json\s*/gi, '')
         .replace(/```\s*/g, '')
         .trim();
+
+      // Find JSON boundaries
+      const jsonStart = cleaned.indexOf('{');
+      const jsonEnd = cleaned.lastIndexOf('}');
+      if (jsonStart !== -1 && jsonEnd > jsonStart) {
+        cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+      }
+
+      // Fix common issues
+      cleaned = cleaned
+        .replace(/,\s*}/g, '}')
+        .replace(/,\s*]/g, ']');
+
       parsed = JSON.parse(cleaned);
     } catch (e) {
-      // Try to find JSON object in response
-      const match = rawContent.match(/\{[\s\S]*\}/);
-      if (match) {
-        try {
-          parsed = JSON.parse(match[0]);
-        } catch (e2) {
-          console.error('Failed to parse AI response as JSON');
-          return new Response(JSON.stringify({
-            error: 'AI-Antwort konnte nicht als JSON geparsed werden',
-            rawContent: rawContent.substring(0, 500),
-          }), {
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-      } else {
+      console.log('Standard JSON parse failed, trying field extraction...');
+      // Fallback: extract fields manually from truncated JSON
+      try {
+        parsed = extractFieldsManually(rawContent);
+      } catch (e2) {
+        console.error('All parsing attempts failed');
         return new Response(JSON.stringify({
-          error: 'Kein JSON in AI-Antwort gefunden',
+          error: 'AI-Antwort konnte nicht als JSON geparsed werden',
           rawContent: rawContent.substring(0, 500),
         }), {
           status: 500,
