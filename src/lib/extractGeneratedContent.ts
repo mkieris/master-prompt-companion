@@ -254,6 +254,15 @@ export function extractGeneratedContentFields(input: unknown): ExtractedGenerate
   return extract(input);
 }
 
+function unescapeLiterals(text: string): string {
+  return text
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '\r')
+    .replace(/\\t/g, '\t')
+    .replace(/\\"/g, '"');
+}
+
 export function getRenderableGeneratedContent(rawContent: string): string {
-  return extractGeneratedContentFields(rawContent).seoText || rawContent;
+  const extracted = extractGeneratedContentFields(rawContent).seoText || rawContent;
+  return unescapeLiterals(extracted);
 }
