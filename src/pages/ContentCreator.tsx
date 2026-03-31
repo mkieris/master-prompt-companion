@@ -504,59 +504,48 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
       // Step 1: If data is a string, parse it
       if (typeof parsedData === 'string') {
         try {
-          parsedData = JSON.parse(parsedData);
+          const cleaned = parsedData.replace(/^```json\s*/, '').replace(/```\s*$/, '');
+          parsedData = JSON.parse(cleaned);
         } catch (e) {
-          // Try extracting JSON from markdown code block
-          const jsonMatch = parsedData.match(/```(?:json)?\s*([\s\S]*?)```/);
-          if (jsonMatch) {
-            try {
-              parsedData = JSON.parse(jsonMatch[1]);
-            } catch (e2) {
-              console.error('Failed to parse JSON from markdown block:', e2);
-            }
-          }
+          console.error('Parse error:', e);
         }
       }
 
-      // Step 2: If parsedData.seoText is itself a JSON string, extract it
-      if (parsedData?.seoText && typeof parsedData.seoText === 'string' && parsedData.seoText.trim().startsWith('{')) {
-        try {
-          const inner = JSON.parse(parsedData.seoText);
-          if (inner.seoText) parsedData = inner;
-        } catch (e) { /* keep original */ }
-      }
-
-      // Step 3: Handle variants format or direct data
+      // Step 2: Handle variants format or direct data
       const content = parsedData?.variants?.[0] || parsedData;
 
-      // Step 4: Extract fields from multiple possible structures
-      let seoText = content?.seoText || content?.content?.seoText;
+      // Step 3: Extract fields from multiple possible structures
+      let seoText = content?.seoText || content?.content?.seoText || '';
       let title = content?.title || content?.content?.title || '';
       let metaDescription = content?.metaDescription || content?.content?.metaDescription || '';
 
-      // Step 5: If content itself is a string (AI returned raw text), try parsing
+      // Step 4: Handle case where seoText contains the full JSON response
+      if (seoText && typeof seoText === 'string' && seoText.trim().startsWith('{')) {
+        try {
+          const inner = JSON.parse(seoText.replace(/^```json\s*/, '').replace(/```\s*$/, ''));
+          seoText = inner.seoText || seoText;
+          title = inner.title || title;
+          metaDescription = inner.metaDescription || metaDescription;
+        } catch (e) { /* keep original */ }
+      }
+
+      // Step 5: If seoText is still empty and content is a string, use it directly
       if (!seoText && typeof content === 'string') {
-        // Try extracting JSON from markdown code block
-        const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-        if (jsonMatch) {
-          try {
-            const extracted = JSON.parse(jsonMatch[1]);
-            seoText = extracted?.seoText;
-            title = extracted?.title || title;
-            metaDescription = extracted?.metaDescription || metaDescription;
-          } catch (e) {
-            seoText = content;
-          }
-        } else {
-          try {
-            const extracted = JSON.parse(content);
-            seoText = extracted?.seoText;
-            title = extracted?.title || title;
-            metaDescription = extracted?.metaDescription || metaDescription;
-          } catch (e) {
-            seoText = content;
-          }
+        try {
+          const cleaned = content.replace(/^```json\s*/, '').replace(/```\s*$/, '');
+          const extracted = JSON.parse(cleaned);
+          seoText = extracted?.seoText || '';
+          title = extracted?.title || title;
+          metaDescription = extracted?.metaDescription || metaDescription;
+        } catch (e) {
+          // Not JSON - use as raw HTML/text
+          seoText = content;
         }
+      }
+
+      // Step 6: Ensure seoText is always a string
+      if (typeof seoText !== 'string') {
+        seoText = String(seoText);
       }
 
       log('response', 'Content parsed', {
