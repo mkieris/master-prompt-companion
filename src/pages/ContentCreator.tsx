@@ -21,6 +21,7 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/componen
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { validateContentConfig } from "@/lib/validation";
+import { extractGeneratedContentFields } from "@/lib/extractGeneratedContent";
 import { useOrganization } from "@/hooks/useOrganization";
 import { useSerpAnalysis } from "@/hooks/useSerpAnalysis";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -498,57 +499,7 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
         } : 'nicht vorhanden',
       });
 
-      // Handle response - robust parsing for multiple response formats
-      const extractContentFields = (input: unknown) => {
-        const tryParseJson = (raw: string) => {
-          try {
-            const cleaned = raw.replace(/^```json\s*/i, '').replace(/```\s*$/i, '');
-            return JSON.parse(cleaned);
-          } catch {
-            return null;
-          }
-        };
-
-        const extract = (value: unknown): any => {
-          if (typeof value === 'string') {
-            const parsedString = tryParseJson(value.trim());
-            if (parsedString) return extract(parsedString);
-            return {
-              parsed: value,
-              seoText: value,
-              title: '',
-              metaDescription: '',
-            };
-          }
-
-          const parsed = value as any;
-          const content = parsed?.variants?.[0] || parsed?.content || parsed;
-
-          let seoText = content?.seoText || content?.content?.seoText || '';
-          let title = content?.title || content?.content?.title || '';
-          let metaDescription = content?.metaDescription || content?.content?.metaDescription || '';
-
-          if (typeof seoText === 'string' && (seoText.trim().startsWith('{') || seoText.trim().startsWith('```json'))) {
-            const nested = tryParseJson(seoText.trim());
-            if (nested) {
-              seoText = nested?.seoText || nested?.content?.seoText || seoText;
-              title = nested?.title || nested?.content?.title || title;
-              metaDescription = nested?.metaDescription || nested?.content?.metaDescription || metaDescription;
-            }
-          }
-
-          return {
-            parsed,
-            seoText: typeof seoText === 'string' ? seoText : String(seoText || ''),
-            title: typeof title === 'string' ? title : String(title || ''),
-            metaDescription: typeof metaDescription === 'string' ? metaDescription : String(metaDescription || ''),
-          };
-        };
-
-        return extract(input);
-      };
-
-      const { parsed: parsedData, seoText, title, metaDescription } = extractContentFields(data);
+      const { parsed: parsedData, seoText, title, metaDescription } = extractGeneratedContentFields(data);
 
       log('response', 'Content parsed', {
         hasSeoText: !!seoText,

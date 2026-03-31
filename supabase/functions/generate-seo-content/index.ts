@@ -3457,21 +3457,138 @@ function parseGeneratedContent(text: string, formData: any): any {
 
   console.log('Parsing content, raw length:', text.length);
 
+  const stripCodeFence = (raw: string): string => raw
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/```\s*$/i, '')
+    .trim();
+
   const tryParseJson = (raw: string): any | null => {
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return null;
+    const cleaned = stripCodeFence(raw);
+    const candidates = [cleaned];
+
+    const jsonStart = cleaned.search(/[\[{]/);
+    if (jsonStart !== -1) {
+      const opener = cleaned[jsonStart];
+      const closer = opener === '[' ? ']' : '}';
+      const jsonEnd = cleaned.lastIndexOf(closer);
+
+      if (jsonEnd > jsonStart) {
+        candidates.push(cleaned.substring(jsonStart, jsonEnd + 1));
+      }
     }
+
+    for (const candidate of candidates) {
+      const normalizedCandidates = [
+        candidate,
+        candidate
+          .replace(/,\s*([}\]])/g, '$1')
+          .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''),
+      ];
+
+      for (const normalized of normalizedCandidates) {
+        try {
+          return JSON.parse(normalized);
+        } catch {
+          // continue
+        }
+      }
+    }
+
+    return null;
+  };
+
+  const decodeJsonStringValue = (value: string): string => {
+    const normalized = value.replace(/\r/g, '\\r').replace(/\n/g, '\\n');
+
+    try {
+      return JSON.parse(`"${normalized}"`);
+    } catch {
+      return value
+        .replace(/\\n/g, '\n')
+        .replace(/\\r/g, '\r')
+        .replace(/\\t/g, '\t')
+        .replace(/\\"/g, '"')
+        .replace(/\\\\/g, '\\');
+    }
+  };
+
+  const extractJsonStringField = (raw: string, field: string): string => {
+    const match = raw.match(new RegExp(`"${field}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, 's'));
+    if (!match?.[1]) return '';
+    return decodeJsonStringValue(match[1]);
+  };
+
+  const extractJsonArrayField = (raw: string, field: string): any[] => {
+    const fieldRegex = new RegExp(`"${field}"\\s*:\\s*\\[`, 's');
+    const match = fieldRegex.exec(raw);
+    if (!match) return [];
+
+    const start = match.index + match[0].lastIndexOf('[');
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+
+    for (let index = start; index < raw.length; index += 1) {
+      const char = raw[index];
+
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+
+      if (char === '\\') {
+        escaped = true;
+        continue;
+      }
+
+      if (char === '"') {
+        inString = !inString;
+        continue;
+      }
+
+      if (inString) continue;
+
+      if (char === '[') depth += 1;
+      if (char === ']') {
+        depth -= 1;
+        if (depth === 0) {
+          try {
+            return JSON.parse(raw.slice(start, index + 1));
+          } catch {
+            return [];
+          }
+        }
+      }
+    }
+
+    return [];
+  };
+
+  const extractFieldsFromBrokenJson = (raw: string): any | null => {
+    const cleaned = stripCodeFence(raw);
+    const seoText = extractJsonStringField(cleaned, 'seoText');
+    if (!seoText) return null;
+
+    return {
+      seoText,
+      title: extractJsonStringField(cleaned, 'title'),
+      metaDescription: extractJsonStringField(cleaned, 'metaDescription'),
+      faq: extractJsonArrayField(cleaned, 'faq').filter(
+        (item: any) => item && typeof item.question === 'string' && typeof item.answer === 'string'
+      ),
+    };
   };
 
   const extractStructuredContent = (input: unknown): any | null => {
     if (!input) return null;
 
     if (typeof input === 'string') {
-      const cleaned = input.trim().replace(/^```json\s*/i, '').replace(/```\s*$/i, '');
+      const cleaned = stripCodeFence(input);
       const parsedString = tryParseJson(cleaned);
       if (parsedString) return extractStructuredContent(parsedString);
+      const recovered = extractFieldsFromBrokenJson(cleaned);
+      if (recovered?.seoText) return recovered;
       return null;
     }
 
@@ -3511,13 +3628,16 @@ function parseGeneratedContent(text: string, formData: any): any {
   }
 
   // Fallback: HTML without JSON wrapper
-  if (text.includes('<h1>') && text.includes('</h1>') && text.length > 500) {
+  const cleanedText = stripCodeFence(text);
+  const looksJsonLike = cleanedText.startsWith('{') || cleanedText.startsWith('[') || cleanedText.includes('"seoText"');
+
+  if (!looksJsonLike && cleanedText.includes('<h1>') && cleanedText.includes('</h1>') && cleanedText.length > 500) {
     console.warn('No JSON found but HTML detected, using as seoText');
     return {
-      seoText: text,
+      seoText: cleanedText,
       faq: [{ question: 'Was ist ' + mainTopic + '?', answer: 'Weitere Informationen folgen.' }],
       title: mainTopic.substring(0, 60),
-      metaDescription: text.replace(/<[^>]*>/g, '').substring(0, 155),
+      metaDescription: cleanedText.replace(/<[^>]*>/g, '').substring(0, 155),
       internalLinks: [],
       technicalHints: 'Schema.org Product/Article empfohlen',
       qualityReport: { status: 'warning', flags: ['No JSON structure returned'], evidenceTable: [] }
