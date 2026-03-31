@@ -568,7 +568,7 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
         }
 
         // Extract compliance data from response
-        const compliance = parsedData.compliance || content?.compliance || null;
+        const compliance = parsedData.compliance || parsedData?.content?.compliance || null;
         setComplianceInfo(compliance);
 
         if (compliance && compliance.status === 'failed') {
@@ -590,7 +590,7 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
         }
       } else {
         // Fallback: if we got data but no seoText, log for debugging
-        console.error('No seoText found in response:', content);
+        console.error('No seoText found in response:', parsedData);
         toast({
           title: "Warnung",
           description: "Content generiert, aber Format unerwartet",
