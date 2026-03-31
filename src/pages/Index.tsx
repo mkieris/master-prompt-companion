@@ -117,6 +117,19 @@ const Index = ({ session }: IndexProps) => {
       route: '/pro',
       badge: 'PRO',
     },
+    {
+      id: 'content-v2',
+      title: 'Content V2',
+      subtitle: 'Claude AI Engine',
+      description: 'Nächste Generation Content-Erstellung mit Claude AI, SERP-Analyse und intelligentem Scoring.',
+      icon: Sparkles,
+      color: 'from-rose-500 to-pink-500',
+      bgColor: 'bg-rose-500/10',
+      borderColor: 'border-rose-500/20 hover:border-rose-500/50',
+      features: ['Claude AI', 'SERP-Integration', 'Live Scoring', 'Marken-Texte'],
+      route: '/content-v2',
+      badge: 'V2',
+    },
   ];
 
   return (
