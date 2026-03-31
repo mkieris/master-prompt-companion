@@ -378,11 +378,10 @@ export const ContentEditor = ({
                 />
               ) : (
                 <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:font-semibold prose-h1:text-2xl prose-h2:text-xl prose-h2:mt-8 prose-h2:mb-4 prose-p:leading-relaxed prose-ul:my-4 prose-li:my-1">
-                  {/* Detect if content is HTML or Markdown */}
-                  {content?.trim().startsWith('<') ? (
-                    <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(content || '') }} />
+                  {renderableContent?.trim().startsWith('<') ? (
+                    <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderableContent) }} />
                   ) : (
-                    <ReactMarkdown>{content || ''}</ReactMarkdown>
+                    <ReactMarkdown>{renderableContent || ''}</ReactMarkdown>
                   )}
                 </div>
               )}
