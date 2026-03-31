@@ -317,19 +317,19 @@ serve(async (req) => {
     console.log('System prompt length:', systemPrompt.length);
     console.log('User prompt length:', userPrompt.length);
 
-    // ===== CALL ANTHROPIC API =====
-    const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY');
-    if (!anthropicKey) {
-      return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY nicht konfiguriert' }), {
+    // ===== CALL AI via Lovable Gateway =====
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      return new Response(JSON.stringify({ error: 'LOVABLE_API_KEY nicht konfiguriert' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     const maxTokens = calculateMaxTokens(formData.wordCount);
-    const TIMEOUT_MS = 90000;
+    const TIMEOUT_MS = 120000;
 
-    console.log('Calling Anthropic API... max_tokens:', maxTokens);
+    console.log('Calling Lovable AI Gateway... max_tokens:', maxTokens);
     const startTime = Date.now();
 
     const controller = new AbortController();
@@ -337,19 +337,20 @@ serve(async (req) => {
 
     let aiResponse;
     try {
-      aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
+      aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'x-api-key': anthropicKey,
-          'anthropic-version': '2023-06-01',
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
           max_tokens: maxTokens,
           temperature: 0.75,
-          system: systemPrompt,
-          messages: [{ role: 'user', content: userPrompt }],
         }),
         signal: controller.signal,
       });
