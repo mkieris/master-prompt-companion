@@ -207,10 +207,10 @@ Nur valides JSON.`;
 }
 
 function calculateMaxTokens(wordCount: number): number {
-  const textTokens = Math.round(wordCount * 1.3);
-  const overhead = 800;
-  const buffer = Math.round((textTokens + overhead) * 0.2);
-  return textTokens + overhead + buffer;
+  // 1 word ≈ 1.5 tokens for German HTML content, plus JSON wrapper, FAQ, metadata
+  const textTokens = Math.round(wordCount * 1.8);
+  const overhead = 1500; // JSON structure, FAQ, meta fields
+  return textTokens + overhead;
 }
 
 // ═══════════════════════════════════════════════════════════════════
