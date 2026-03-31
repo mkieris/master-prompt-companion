@@ -1141,41 +1141,10 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
     console.log(`=== GENERATION COMPLETE in ${totalDuration}ms ===`);
 
     // ═══ ANALYTICS LOGGING ═══
+    // NOTE: content_generations table doesn't exist yet - skipping DB insert
+    // TODO: Create content_generations table when analytics feature is needed
     let generationId: string | null = null;
-    try {
-      // Reuse existing supabase client from authentication (line 430)
-      const wordCount = parsedContent.seoText?.split(/\s+/).filter((w: string) => w.length > 0).length || 0;
-      const faqCount = parsedContent.faq?.length || 0;
-
-      const { data: genRow } = await supabase.from('content_generations').insert({
-        user_id: user.id,
-        organization_id: formData.organizationId || null,
-        focus_keyword: formData.focusKeyword,
-        secondary_keywords: formData.secondaryKeywords || [],
-        page_type: formData.pageType || null,
-        target_audience: formData.targetAudience || null,
-        word_count_target: formData.wordCount ? parseInt(formData.wordCount) : null,
-        tonality: formData.tone || formData.tonality || null,
-        form_of_address: formData.formOfAddress || null,
-        ai_model: modelConfig.id,
-        prompt_version: promptVersion,
-        serp_used: !!(formData.serpContext && formData.serpContext.length > 0),
-        serp_terms_count: formData.serpContext ? (formData.serpContext.match(/PFLICHT|EMPFOHLEN|OPTIONAL/g) || []).length : 0,
-        domain_knowledge_used: !!(formData.additionalInfo || formData.manufacturerInfo),
-        compliance_mdr: formData.complianceChecks?.mdr || formData.checkMDR || false,
-        compliance_hwg: formData.complianceChecks?.hwg || formData.checkHWG || false,
-        output_word_count: wordCount,
-        output_has_faq: faqCount > 0,
-        output_faq_count: faqCount,
-        generation_time_ms: totalDuration,
-        success: true,
-      }).select('id').single();
-      generationId = genRow?.id || null;
-      console.log('Analytics logged successfully, generation_id:', generationId);
-    } catch (analyticsError) {
-      // Don't fail the request if analytics logging fails
-      console.error('Analytics logging failed:', analyticsError);
-    }
+    console.log('Analytics: generation complete, duration:', totalDuration, 'ms');
 
     // ═══ AUTO COMPLIANCE CHECK ═══
     let complianceData: any = null;
