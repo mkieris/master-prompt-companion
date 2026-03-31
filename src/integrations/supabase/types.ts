@@ -644,6 +644,48 @@ export type Database = {
         }
         Relationships: []
       }
+      serp_keywords: {
+        Row: {
+          competitor_titles: string[] | null
+          created_at: string
+          difficulty: number | null
+          id: string
+          keyword: string
+          must_have_terms: string[] | null
+          optional_terms: string[] | null
+          raw_data: Json | null
+          recommended_terms: string[] | null
+          search_volume: number | null
+          updated_at: string
+        }
+        Insert: {
+          competitor_titles?: string[] | null
+          created_at?: string
+          difficulty?: number | null
+          id?: string
+          keyword: string
+          must_have_terms?: string[] | null
+          optional_terms?: string[] | null
+          raw_data?: Json | null
+          recommended_terms?: string[] | null
+          search_volume?: number | null
+          updated_at?: string
+        }
+        Update: {
+          competitor_titles?: string[] | null
+          created_at?: string
+          difficulty?: number | null
+          id?: string
+          keyword?: string
+          must_have_terms?: string[] | null
+          optional_terms?: string[] | null
+          raw_data?: Json | null
+          recommended_terms?: string[] | null
+          search_volume?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       system_prompt_versions: {
         Row: {
           average_rating: number | null
