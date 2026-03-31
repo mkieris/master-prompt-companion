@@ -30,6 +30,7 @@ import SloganCreator from "./pages/SloganCreator";
 import CodeAnalysis from "./pages/CodeAnalysis";
 import TextCheck from "./pages/TextCheck";
 import ContentCreator from "./pages/ContentCreator";
+import ContentCreatorV2 from "./pages/ContentCreatorV2";
 import FunctionTest from "./pages/FunctionTest";
 import GenerationAnalytics from "./pages/GenerationAnalytics";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
@@ -65,6 +66,7 @@ const App = () => {
             <Routes>
               <Route path="/" element={<Index session={session} />} />
               <Route path="/content" element={<ProtectedRoute session={session}><ContentCreator session={session} /></ProtectedRoute>} />
+              <Route path="/content-v2" element={<ProtectedRoute session={session}><ContentCreatorV2 session={session} /></ProtectedRoute>} />
               {/* Legacy routes - redirect to new unified Content Creator */}
               <Route path="/basic" element={<ProtectedRoute session={session}><ContentCreator session={session} /></ProtectedRoute>} />
               <Route path="/pro" element={<ProtectedRoute session={session}><ContentCreator session={session} /></ProtectedRoute>} />
