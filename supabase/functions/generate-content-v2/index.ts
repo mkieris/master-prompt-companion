@@ -433,7 +433,7 @@ serve(async (req) => {
       qualityReport: parsed.qualityReport || {},
       serpDataUsed: !!serpData,
       generationTimeMs: duration,
-      model: 'claude-sonnet-4',
+      model: 'gemini-2.5-flash',
       _prompts: {
         systemPrompt,
         userPrompt,
