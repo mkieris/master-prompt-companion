@@ -1189,20 +1189,8 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
     console.error('Error message:', error instanceof Error ? error.message : String(error));
 
     // ═══ ERROR ANALYTICS LOGGING ═══
-    try {
-      // Reuse shared supabase client (created at function start)
-      await supabase.from('content_generations').insert({
-        user_id: null, // May not have user context in error
-        focus_keyword: 'error',
-        ai_model: 'unknown',
-        prompt_version: 'unknown',
-        success: false,
-        error_message: error instanceof Error ? error.message : String(error),
-        generation_time_ms: 0,
-      });
-    } catch (analyticsError) {
-      console.error('Error analytics logging failed:', analyticsError);
-    }
+    // NOTE: content_generations table doesn't exist yet - log to console only
+    console.error('Generation failed - would log to content_generations if table existed');
 
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unbekannter Fehler' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
