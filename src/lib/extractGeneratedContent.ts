@@ -81,7 +81,7 @@ function extractJsonStringField(raw: string, field: string): string {
 function extractJsonArrayField<T = unknown>(raw: string, field: string): T[] {
   const fieldRegex = new RegExp(`"${field}"\\s*:\\s*\\[`, 's');
   const match = fieldRegex.exec(raw);
-  if (!match?.index) return [];
+  if (!match) return [];
 
   const start = match.index + match[0].lastIndexOf('[');
   let depth = 0;

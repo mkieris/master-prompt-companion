@@ -500,6 +500,7 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
       });
 
       const { parsed: parsedData, seoText, title, metaDescription } = extractGeneratedContentFields(data);
+      const parsedResponse = (parsedData && typeof parsedData === 'object' ? parsedData : {}) as Record<string, any>;
 
       log('response', 'Content parsed', {
         hasSeoText: !!seoText,
@@ -517,12 +518,12 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
         setEditedMeta(metaDescription);
 
         // Extract prompt debug info from response
-        if (parsedData._prompts) {
-          setPromptInfo(parsedData._prompts);
+        if (parsedResponse._prompts) {
+          setPromptInfo(parsedResponse._prompts);
         }
 
         // Extract compliance data from response
-        const compliance = parsedData.compliance || parsedData?.content?.compliance || null;
+        const compliance = parsedResponse.compliance || parsedResponse.content?.compliance || null;
         setComplianceInfo(compliance);
 
         if (compliance && compliance.status === 'failed') {
