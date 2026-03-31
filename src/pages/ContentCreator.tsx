@@ -168,7 +168,7 @@ const defaultConfig: ContentConfig = {
     hwg: true,  // Default ON für Healthcare
     studies: false,
   },
-  aiModel: 'claude-sonnet',
+  aiModel: 'gemini-flash',
   promptVersion: 'v13-priority-prompt',  // P1/P2/P3 Priority Prompt
 };
 
