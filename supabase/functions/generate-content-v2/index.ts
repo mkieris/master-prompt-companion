@@ -317,10 +317,10 @@ serve(async (req) => {
     console.log('System prompt length:', systemPrompt.length);
     console.log('User prompt length:', userPrompt.length);
 
-    // ===== CALL AI via Lovable Gateway =====
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: 'LOVABLE_API_KEY nicht konfiguriert' }), {
+    // ===== CALL AI via Anthropic API =====
+    const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
+    if (!ANTHROPIC_API_KEY) {
+      return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY nicht konfiguriert' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -329,7 +329,7 @@ serve(async (req) => {
     const maxTokens = calculateMaxTokens(formData.wordCount);
     const TIMEOUT_MS = 120000;
 
-    console.log('Calling Lovable AI Gateway... max_tokens:', maxTokens);
+    console.log('Calling Anthropic API (Claude Sonnet)... max_tokens:', maxTokens);
     const startTime = Date.now();
 
     const controller = new AbortController();
@@ -337,20 +337,21 @@ serve(async (req) => {
 
     let aiResponse;
     try {
-      aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'x-api-key': ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-          ],
+          model: 'claude-sonnet-4-20250514',
           max_tokens: maxTokens,
           temperature: 0.75,
+          system: systemPrompt,
+          messages: [
+            { role: 'user', content: userPrompt },
+          ],
         }),
         signal: controller.signal,
       });
@@ -369,11 +370,11 @@ serve(async (req) => {
     clearTimeout(timeout);
 
     const duration = Date.now() - startTime;
-    console.log('AI Gateway response:', aiResponse.status, 'in', duration, 'ms');
+    console.log('Anthropic response:', aiResponse.status, 'in', duration, 'ms');
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error('AI Gateway error:', aiResponse.status, errorText);
+      console.error('Anthropic error:', aiResponse.status, errorText);
       return new Response(JSON.stringify({
         error: 'AI-Fehler: ' + aiResponse.status,
         details: errorText.substring(0, 300),
@@ -384,7 +385,7 @@ serve(async (req) => {
     }
 
     const aiData = await aiResponse.json();
-    const rawContent = aiData.choices?.[0]?.message?.content || '';
+    const rawContent = aiData.content?.[0]?.text || '';
 
     console.log('Raw content length:', rawContent.length);
 
@@ -433,7 +434,7 @@ serve(async (req) => {
       qualityReport: parsed.qualityReport || {},
       serpDataUsed: !!serpData,
       generationTimeMs: duration,
-      model: 'gemini-2.5-flash',
+      model: 'claude-sonnet-4-20250514',
       _prompts: {
         systemPrompt,
         userPrompt,
