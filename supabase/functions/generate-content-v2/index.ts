@@ -241,6 +241,74 @@ function calculateMaxTokens(wordCount: number): number {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// FALLBACK PARSER for truncated AI responses
+// ═══════════════════════════════════════════════════════════════════
+
+function extractJsonStringField(raw: string, fieldName: string): string {
+  // Find "fieldName": "..." handling escaped quotes
+  const pattern = new RegExp(`"${fieldName}"\\s*:\\s*"`);
+  const match = pattern.exec(raw);
+  if (!match) return '';
+
+  const startIdx = match.index + match[0].length;
+  let i = startIdx;
+  let result = '';
+  while (i < raw.length) {
+    if (raw[i] === '\\' && i + 1 < raw.length) {
+      result += raw[i] + raw[i + 1];
+      i += 2;
+    } else if (raw[i] === '"') {
+      break;
+    } else {
+      result += raw[i];
+      i++;
+    }
+  }
+  // Unescape
+  return result
+    .replace(/\\n/g, '\n')
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, '\\');
+}
+
+function extractFieldsManually(raw: string): Record<string, any> {
+  const cleaned = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+
+  const title = extractJsonStringField(cleaned, 'title');
+  const metaDescription = extractJsonStringField(cleaned, 'metaDescription');
+  const seoText = extractJsonStringField(cleaned, 'seoText');
+
+  if (!seoText && !title) {
+    throw new Error('Could not extract any fields');
+  }
+
+  // Try to extract FAQ array
+  let faq: any[] = [];
+  const faqMatch = cleaned.match(/"faq"\s*:\s*\[/);
+  if (faqMatch) {
+    const faqStart = faqMatch.index! + faqMatch[0].length - 1;
+    // Find matching bracket, counting depth
+    let depth = 0;
+    let faqEnd = faqStart;
+    for (let i = faqStart; i < cleaned.length; i++) {
+      if (cleaned[i] === '[') depth++;
+      else if (cleaned[i] === ']') {
+        depth--;
+        if (depth === 0) { faqEnd = i; break; }
+      }
+    }
+    const faqStr = cleaned.substring(faqStart, faqEnd + 1);
+    try {
+      faq = JSON.parse(faqStr);
+    } catch { /* ignore */ }
+  }
+
+  console.log('Manual extraction: title=' + title.length + ', seoText=' + seoText.length + ', faq=' + faq.length);
+
+  return { title, metaDescription, seoText, faq };
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // MAIN HANDLER
 // ═══════════════════════════════════════════════════════════════════
 
