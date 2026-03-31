@@ -39,19 +39,21 @@ const queryClient = new QueryClient();
 
 const App = () => {
   const [session, setSession] = useState<Session | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener
+    // Check for existing session first
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setIsAuthLoading(false);
+    });
+
+    // Set up auth state listener for subsequent changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      (_event, session) => {
         setSession(session);
       }
     );
-
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
 
     return () => subscription.unsubscribe();
   }, []);
@@ -65,17 +67,17 @@ const App = () => {
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index session={session} />} />
-              <Route path="/content" element={<ProtectedRoute session={session}><ContentCreator session={session} /></ProtectedRoute>} />
-              <Route path="/content-v2" element={<ProtectedRoute session={session}><ContentCreatorV2 session={session} /></ProtectedRoute>} />
+              <Route path="/content" element={<ProtectedRoute session={session} isLoading={isAuthLoading}><ContentCreator session={session} /></ProtectedRoute>} />
+              <Route path="/content-v2" element={<ProtectedRoute session={session} isLoading={isAuthLoading}><ContentCreatorV2 session={session} /></ProtectedRoute>} />
               {/* Legacy routes - redirect to new unified Content Creator */}
-              <Route path="/basic" element={<ProtectedRoute session={session}><ContentCreator session={session} /></ProtectedRoute>} />
-              <Route path="/pro" element={<ProtectedRoute session={session}><ContentCreator session={session} /></ProtectedRoute>} />
+              <Route path="/basic" element={<ProtectedRoute session={session} isLoading={isAuthLoading}><ContentCreator session={session} /></ProtectedRoute>} />
+              <Route path="/pro" element={<ProtectedRoute session={session} isLoading={isAuthLoading}><ContentCreator session={session} /></ProtectedRoute>} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/seo-check" element={<ProtectedRoute session={session}><SEOCheck session={session} /></ProtectedRoute>} />
-              <Route path="/function-test" element={<ProtectedRoute session={session}><FunctionTest session={session} /></ProtectedRoute>} />
-              <Route path="/onboarding" element={<ProtectedRoute session={session}><Onboarding session={session} /></ProtectedRoute>} />
-              <Route path="/dashboard" element={<ProtectedRoute session={session}><Dashboard session={session} /></ProtectedRoute>}>
+              <Route path="/seo-check" element={<ProtectedRoute session={session} isLoading={isAuthLoading}><SEOCheck session={session} /></ProtectedRoute>} />
+              <Route path="/function-test" element={<ProtectedRoute session={session} isLoading={isAuthLoading}><FunctionTest session={session} /></ProtectedRoute>} />
+              <Route path="/onboarding" element={<ProtectedRoute session={session} isLoading={isAuthLoading}><Onboarding session={session} /></ProtectedRoute>} />
+              <Route path="/dashboard" element={<ProtectedRoute session={session} isLoading={isAuthLoading}><Dashboard session={session} /></ProtectedRoute>}>
                 <Route path="domain" element={<DomainLearning session={session} />} />
                 <Route path="projects" element={<Projects session={session} />} />
                 <Route path="planner" element={<ContentPlanner session={session} />} />
