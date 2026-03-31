@@ -78,6 +78,26 @@ export const ContentEditor = ({
   hasContent,
   promptInfo,
 }: ContentEditorProps) => {
+  const getRenderableContent = (rawContent: string) => {
+    if (!rawContent) return '';
+
+    const trimmed = rawContent.trim();
+    if (!trimmed.startsWith('{') && !trimmed.startsWith('```json')) {
+      return rawContent;
+    }
+
+    try {
+      const cleaned = trimmed.replace(/^```json\s*/, '').replace(/```\s*$/, '');
+      const parsed = JSON.parse(cleaned);
+      const extracted = parsed?.variants?.[0] || parsed?.content || parsed;
+      const seoText = extracted?.seoText || extracted?.content?.seoText;
+      return typeof seoText === 'string' && seoText.trim() ? seoText : rawContent;
+    } catch {
+      return rawContent;
+    }
+  };
+
+  const renderableContent = getRenderableContent(content);
   const { toast } = useToast();
   const [refinePrompt, setRefinePrompt] = useState("");
   const [activeTab, setActiveTab] = useState("preview");
