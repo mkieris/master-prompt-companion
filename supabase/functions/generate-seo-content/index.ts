@@ -1116,7 +1116,7 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
         if (err instanceof Error && err.name === 'AbortError') {
           console.error(`API attempt ${attempt} TIMED OUT after ${attemptDuration}ms`);
           if (attempt === maxRetries) {
-            throw new Error('Zeitüberschreitung bei AI-Generierung (55s). Versuche es mit kürzerem Text oder erneut.');
+            throw new Error('Zeitüberschreitung bei AI-Generierung (90s). Versuche es mit kürzerem Text oder erneut.');
           }
           console.log('Waiting 2s before retry...');
           await new Promise(resolve => setTimeout(resolve, 2000));
@@ -3454,59 +3454,60 @@ Liefere das Ergebnis als valides JSON.`;
 
 function parseGeneratedContent(text: string, formData: any): any {
   const mainTopic = formData.mainTopic || formData.productName || formData.focusKeyword;
-  
+
   console.log('Parsing content, raw length:', text.length);
-  
-  // Method 1: Direct JSON parse
-  try {
-    const parsed = JSON.parse(text);
-    if (parsed.seoText || parsed.text) {
-      console.log('Successfully parsed direct JSON');
-      return validateAndFixContent(parsed, mainTopic);
-    }
-  } catch (e) {
-    // Continue to next method
-  }
 
-  // Method 2: JSON in markdown code block
-  try {
-    const codeBlockMatch = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
-    if (codeBlockMatch) {
-      console.log('Found JSON in code block');
-      const parsed = JSON.parse(codeBlockMatch[1]);
-      return validateAndFixContent(parsed, mainTopic);
+  const tryParseJson = (raw: string): any | null => {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
     }
-  } catch (e) {
-    console.error('Code block parsing failed:', e);
-  }
+  };
 
-  // Method 3: Find largest JSON object
-  const jsonMatches = Array.from(text.matchAll(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g));
-  if (jsonMatches.length > 0) {
-    const sortedMatches = jsonMatches.sort((a, b) => b[0].length - a[0].length);
-    for (const match of sortedMatches) {
-      try {
-        const parsed = JSON.parse(match[0]);
-        if (parsed.seoText || parsed.text) {
-          console.log('Successfully parsed JSON object from text');
-          return validateAndFixContent(parsed, mainTopic);
-        }
-      } catch (e) {
-        // Try next match
+  const extractStructuredContent = (input: unknown): any | null => {
+    if (!input) return null;
+
+    if (typeof input === 'string') {
+      const cleaned = input.trim().replace(/^```json\s*/i, '').replace(/```\s*$/i, '');
+      const parsedString = tryParseJson(cleaned);
+      if (parsedString) return extractStructuredContent(parsedString);
+      return null;
+    }
+
+    if (typeof input !== 'object') return null;
+
+    const candidate = (input as any)?.variants?.[0] || (input as any)?.content || input;
+    let seoText = candidate?.seoText || candidate?.content?.seoText || candidate?.text || '';
+    let title = candidate?.title || candidate?.content?.title || '';
+    let metaDescription = candidate?.metaDescription || candidate?.content?.metaDescription || candidate?.meta_description || '';
+    let faq = candidate?.faq || candidate?.content?.faq || [];
+
+    if (typeof seoText === 'string' && (seoText.trim().startsWith('{') || seoText.trim().startsWith('```json'))) {
+      const nested = extractStructuredContent(seoText);
+      if (nested?.seoText) {
+        seoText = nested.seoText;
+        title = nested.title || title;
+        metaDescription = nested.metaDescription || metaDescription;
+        faq = nested.faq?.length ? nested.faq : faq;
       }
     }
-  }
 
-  // Method 4: Nested JSON
-  try {
-    const nestedMatch = text.match(/"(?:content|result|output)":\s*(\{[\s\S]*?\})\s*[,}]/);
-    if (nestedMatch) {
-      console.log('Found nested JSON');
-      const parsed = JSON.parse(nestedMatch[1]);
-      return validateAndFixContent(parsed, mainTopic);
-    }
-  } catch (e) {
-    console.error('Nested JSON parsing failed:', e);
+    if (!seoText || typeof seoText !== 'string') return null;
+
+    return {
+      ...candidate,
+      seoText,
+      title,
+      metaDescription,
+      faq: Array.isArray(faq) ? faq : [],
+    };
+  };
+
+  const structured = extractStructuredContent(text);
+  if (structured?.seoText) {
+    console.log('Successfully extracted structured JSON content');
+    return validateAndFixContent(structured, mainTopic);
   }
 
   // Fallback: HTML without JSON wrapper
