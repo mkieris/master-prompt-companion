@@ -514,9 +514,20 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
       const content = parsedData.variants?.[0] || parsedData;
 
       // Extract seoText - handle both direct and nested structures
-      const seoText = content?.seoText || content?.content?.seoText;
+      let seoText = content?.seoText || content?.content?.seoText;
       const title = content?.title || content?.content?.title || '';
       const metaDescription = content?.metaDescription || content?.content?.metaDescription || '';
+
+      // If seoText is still a JSON string (double-encoded), try to extract it
+      if (!seoText && typeof content === 'string') {
+        try {
+          const innerParsed = JSON.parse(content);
+          seoText = innerParsed?.seoText || innerParsed?.content?.seoText;
+        } catch (e) {
+          // Not JSON, use as raw content
+          seoText = content;
+        }
+      }
 
       if (seoText) {
         setEditedContent(seoText);
