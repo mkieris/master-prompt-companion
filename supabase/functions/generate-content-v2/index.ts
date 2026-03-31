@@ -427,42 +427,62 @@ serve(async (req) => {
     console.log('Calling Anthropic API (Claude Sonnet)... max_tokens:', maxTokens);
     const startTime = Date.now();
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    const MAX_RETRIES = 2;
+    let aiResponse!: Response;
+    let lastError = '';
 
-    let aiResponse;
-    try {
-      aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: maxTokens,
-          temperature: 0.75,
-          system: systemPrompt,
-          messages: [
-            { role: 'user', content: userPrompt },
-          ],
-        }),
-        signal: controller.signal,
-      });
-    } catch (err) {
-      clearTimeout(timeout);
-      if (err instanceof Error && err.name === 'AbortError') {
-        return new Response(JSON.stringify({
-          error: 'Zeitueberschreitung bei AI-Generierung. Versuche es mit kuerzerer Textlaenge.',
-        }), {
-          status: 504,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      if (attempt > 0) {
+        const delay = attempt * 5000; // 5s, 10s
+        console.log(`Retry ${attempt}/${MAX_RETRIES} after ${delay}ms...`);
+        await new Promise(r => setTimeout(r, delay));
       }
-      throw err;
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+      try {
+        aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'x-api-key': ANTHROPIC_API_KEY,
+            'anthropic-version': '2023-06-01',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: maxTokens,
+            temperature: 0.75,
+            system: systemPrompt,
+            messages: [
+              { role: 'user', content: userPrompt },
+            ],
+          }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+
+        // Retry on 529 (overloaded) or 503
+        if (aiResponse.status === 529 || aiResponse.status === 503) {
+          lastError = `Status ${aiResponse.status}`;
+          await aiResponse.text(); // consume body
+          console.log(`Anthropic overloaded (${aiResponse.status}), will retry...`);
+          if (attempt < MAX_RETRIES) continue;
+        }
+        break; // success or non-retryable error
+      } catch (err) {
+        clearTimeout(timeout);
+        if (err instanceof Error && err.name === 'AbortError') {
+          return new Response(JSON.stringify({
+            error: 'Zeitueberschreitung bei AI-Generierung. Versuche es mit kuerzerer Textlaenge.',
+          }), {
+            status: 504,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        throw err;
+      }
     }
-    clearTimeout(timeout);
 
     const duration = Date.now() - startTime;
     console.log('Anthropic response:', aiResponse.status, 'in', duration, 'ms');
