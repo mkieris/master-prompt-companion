@@ -34,6 +34,7 @@ import {
   Target
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { getRenderableGeneratedContent } from "@/lib/extractGeneratedContent";
 import { sanitizeHtml } from "@/lib/sanitize";
 
 export interface PromptInfo {
@@ -78,26 +79,7 @@ export const ContentEditor = ({
   hasContent,
   promptInfo,
 }: ContentEditorProps) => {
-  const getRenderableContent = (rawContent: string) => {
-    if (!rawContent) return '';
-
-    const trimmed = rawContent.trim();
-    if (!trimmed.startsWith('{') && !trimmed.startsWith('```json')) {
-      return rawContent;
-    }
-
-    try {
-      const cleaned = trimmed.replace(/^```json\s*/, '').replace(/```\s*$/, '');
-      const parsed = JSON.parse(cleaned);
-      const extracted = parsed?.variants?.[0] || parsed?.content || parsed;
-      const seoText = extracted?.seoText || extracted?.content?.seoText;
-      return typeof seoText === 'string' && seoText.trim() ? seoText : rawContent;
-    } catch {
-      return rawContent;
-    }
-  };
-
-  const renderableContent = getRenderableContent(content);
+  const renderableContent = getRenderableGeneratedContent(content);
   const { toast } = useToast();
   const [refinePrompt, setRefinePrompt] = useState("");
   const [activeTab, setActiveTab] = useState("preview");
@@ -127,7 +109,7 @@ export const ContentEditor = ({
   };
 
   const exportAsHtml = () => {
-    if (!content) return;
+    if (!renderableContent) return;
     const htmlContent = `<!DOCTYPE html>
 <html lang="de">
 <head>
@@ -136,7 +118,7 @@ export const ContentEditor = ({
   <meta name="description" content="${metaDescription}">
 </head>
 <body>
-  ${content}
+  ${renderableContent}
 </body>
 </html>`;
 
@@ -295,7 +277,7 @@ export const ContentEditor = ({
             <span>Content Editor</span>
             {content && (
               <Badge variant="secondary" className="text-[10px] ml-2">
-                {content.split(/\s+/).filter(w => w.length > 0).length} Worter
+                {renderableContent.split(/\s+/).filter(w => w.length > 0).length} Worter
               </Badge>
             )}
           </CardTitle>
@@ -322,7 +304,7 @@ export const ContentEditor = ({
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => copyToClipboard(stripHtml(content), 'Content')}
+              onClick={() => copyToClipboard(stripHtml(renderableContent), 'Content')}
               className="h-8 w-8"
             >
               {copiedSection === 'Content' ? (
