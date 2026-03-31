@@ -1181,52 +1181,10 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
     let complianceData: any = null;
     const shouldRunCompliance = formData.complianceChecks?.mdr || formData.complianceChecks?.hwg || formData.checkMDR || formData.checkHWG;
 
-    if (shouldRunCompliance && parsedContent.seoText && LOVABLE_API_KEY) {
-      try {
-        // Dynamic import to avoid crash if compliance-check.ts doesn't exist
-        const { runComplianceCheck } = await import('../_shared/compliance-check.ts');
-        console.log('[Compliance] Starting auto compliance check...');
-        const checkStart = Date.now();
-        complianceData = await runComplianceCheck(parsedContent.seoText, LOVABLE_API_KEY);
-        const checkDuration = Date.now() - checkStart;
-        console.log(`[Compliance] Done in ${checkDuration}ms: ${complianceData.overall_status} (score: ${complianceData.compliance_score})`);
-
-        // Save compliance check to DB
-        const { data: complianceRow } = await supabase.from('compliance_checks').insert({
-          generation_id: generationId,
-          user_id: user.id,
-          organization_id: formData.organizationId || null,
-          ai_model: 'gemini-flash',
-          prompt_version: promptVersion,
-          check_trigger: 'auto',
-          overall_status: complianceData.overall_status,
-          hwg_status: complianceData.hwg_status,
-          mdr_status: complianceData.mdr_status,
-          compliance_score: complianceData.compliance_score,
-          violations: complianceData.findings,
-          medical_claims: complianceData.medical_claims,
-          critical_count: complianceData.critical_count,
-          warning_count: complianceData.warning_count,
-          info_count: complianceData.info_count,
-          check_duration_ms: checkDuration,
-          raw_ai_response: { response: complianceData.raw_response },
-        }).select('id').single();
-
-        // Update generation with compliance reference
-        if (generationId && complianceRow?.id) {
-          await supabase.from('content_generations')
-            .update({
-              latest_compliance_check_id: complianceRow.id,
-              compliance_status: complianceData.overall_status,
-            })
-            .eq('id', generationId);
-        }
-
-        console.log('[Compliance] Audit trail saved:', complianceRow?.id);
-      } catch (complianceError) {
-        // Don't fail the request if compliance check fails
-        console.error('[Compliance] Auto check failed:', complianceError);
-      }
+    if (shouldRunCompliance && parsedContent.seoText) {
+      // NOTE: Compliance check disabled - _shared/compliance-check.ts was removed
+      // and compliance_checks table doesn't exist yet
+      console.log('[Compliance] Auto compliance check skipped (module removed)');
     }
 
     // ═══ RESPONSE ═══
