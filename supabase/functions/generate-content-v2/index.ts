@@ -207,10 +207,10 @@ Nur valides JSON.`;
 }
 
 function calculateMaxTokens(wordCount: number): number {
-  const textTokens = Math.round(wordCount * 1.3);
-  const overhead = 800;
-  const buffer = Math.round((textTokens + overhead) * 0.2);
-  return textTokens + overhead + buffer;
+  // 1 word ≈ 1.5 tokens for German HTML content, plus JSON wrapper, FAQ, metadata
+  const textTokens = Math.round(wordCount * 1.8);
+  const overhead = 1500; // JSON structure, FAQ, meta fields
+  return textTokens + overhead;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -317,19 +317,19 @@ serve(async (req) => {
     console.log('System prompt length:', systemPrompt.length);
     console.log('User prompt length:', userPrompt.length);
 
-    // ===== CALL ANTHROPIC API =====
-    const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY');
-    if (!anthropicKey) {
-      return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY nicht konfiguriert' }), {
+    // ===== CALL AI via Lovable Gateway =====
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      return new Response(JSON.stringify({ error: 'LOVABLE_API_KEY nicht konfiguriert' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     const maxTokens = calculateMaxTokens(formData.wordCount);
-    const TIMEOUT_MS = 90000;
+    const TIMEOUT_MS = 120000;
 
-    console.log('Calling Anthropic API... max_tokens:', maxTokens);
+    console.log('Calling Lovable AI Gateway... max_tokens:', maxTokens);
     const startTime = Date.now();
 
     const controller = new AbortController();
@@ -337,19 +337,20 @@ serve(async (req) => {
 
     let aiResponse;
     try {
-      aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
+      aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'x-api-key': anthropicKey,
-          'anthropic-version': '2023-06-01',
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
           max_tokens: maxTokens,
           temperature: 0.75,
-          system: systemPrompt,
-          messages: [{ role: 'user', content: userPrompt }],
         }),
         signal: controller.signal,
       });
@@ -368,11 +369,11 @@ serve(async (req) => {
     clearTimeout(timeout);
 
     const duration = Date.now() - startTime;
-    console.log('Anthropic response:', aiResponse.status, 'in', duration, 'ms');
+    console.log('AI Gateway response:', aiResponse.status, 'in', duration, 'ms');
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error('Anthropic API error:', aiResponse.status, errorText);
+      console.error('AI Gateway error:', aiResponse.status, errorText);
       return new Response(JSON.stringify({
         error: 'AI-Fehler: ' + aiResponse.status,
         details: errorText.substring(0, 300),
@@ -383,10 +384,7 @@ serve(async (req) => {
     }
 
     const aiData = await aiResponse.json();
-    const rawContent = aiData.content
-      ?.filter((b: any) => b.type === 'text')
-      ?.map((b: any) => b.text)
-      ?.join('') || '';
+    const rawContent = aiData.choices?.[0]?.message?.content || '';
 
     console.log('Raw content length:', rawContent.length);
 
@@ -435,7 +433,7 @@ serve(async (req) => {
       qualityReport: parsed.qualityReport || {},
       serpDataUsed: !!serpData,
       generationTimeMs: duration,
-      model: 'claude-sonnet-4',
+      model: 'gemini-2.5-flash',
       _prompts: {
         systemPrompt,
         userPrompt,
