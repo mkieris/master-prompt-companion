@@ -500,49 +500,52 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
 
       // Handle response - robust parsing for multiple response formats
       const extractContentFields = (input: unknown) => {
-        let parsed: any = input;
-
-        if (typeof parsed === 'string') {
+        const tryParseJson = (raw: string) => {
           try {
-            const cleaned = parsed.replace(/^```json\s*/, '').replace(/```\s*$/, '');
-            parsed = JSON.parse(cleaned);
+            const cleaned = raw.replace(/^```json\s*/i, '').replace(/```\s*$/i, '');
+            return JSON.parse(cleaned);
           } catch {
+            return null;
+          }
+        };
+
+        const extract = (value: unknown): any => {
+          if (typeof value === 'string') {
+            const parsedString = tryParseJson(value.trim());
+            if (parsedString) return extract(parsedString);
             return {
-              parsed,
-              seoText: parsed,
+              parsed: value,
+              seoText: value,
               title: '',
               metaDescription: '',
             };
           }
-        }
 
-        const content = parsed?.variants?.[0] || parsed?.content || parsed;
+          const parsed = value as any;
+          const content = parsed?.variants?.[0] || parsed?.content || parsed;
 
-        let seoText = content?.seoText || content?.content?.seoText || '';
-        let title = content?.title || content?.content?.title || '';
-        let metaDescription = content?.metaDescription || content?.content?.metaDescription || '';
+          let seoText = content?.seoText || content?.content?.seoText || '';
+          let title = content?.title || content?.content?.title || '';
+          let metaDescription = content?.metaDescription || content?.content?.metaDescription || '';
 
-        if (typeof seoText === 'string' && seoText.trim().startsWith('{')) {
-          try {
-            const inner = JSON.parse(seoText.replace(/^```json\s*/, '').replace(/```\s*$/, ''));
-            seoText = inner?.seoText || seoText;
-            title = inner?.title || title;
-            metaDescription = inner?.metaDescription || metaDescription;
-          } catch {
-            // keep original values
+          if (typeof seoText === 'string' && (seoText.trim().startsWith('{') || seoText.trim().startsWith('```json'))) {
+            const nested = tryParseJson(seoText.trim());
+            if (nested) {
+              seoText = nested?.seoText || nested?.content?.seoText || seoText;
+              title = nested?.title || nested?.content?.title || title;
+              metaDescription = nested?.metaDescription || nested?.content?.metaDescription || metaDescription;
+            }
           }
-        }
 
-        if (!seoText && typeof content === 'string') {
-          seoText = content;
-        }
-
-        return {
-          parsed,
-          seoText: typeof seoText === 'string' ? seoText : String(seoText || ''),
-          title: typeof title === 'string' ? title : String(title || ''),
-          metaDescription: typeof metaDescription === 'string' ? metaDescription : String(metaDescription || ''),
+          return {
+            parsed,
+            seoText: typeof seoText === 'string' ? seoText : String(seoText || ''),
+            title: typeof title === 'string' ? title : String(title || ''),
+            metaDescription: typeof metaDescription === 'string' ? metaDescription : String(metaDescription || ''),
+          };
         };
+
+        return extract(input);
       };
 
       const { parsed: parsedData, seoText, title, metaDescription } = extractContentFields(data);

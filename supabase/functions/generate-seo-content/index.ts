@@ -1116,7 +1116,7 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
         if (err instanceof Error && err.name === 'AbortError') {
           console.error(`API attempt ${attempt} TIMED OUT after ${attemptDuration}ms`);
           if (attempt === maxRetries) {
-            throw new Error('Zeitüberschreitung bei AI-Generierung (55s). Versuche es mit kürzerem Text oder erneut.');
+            throw new Error('Zeitüberschreitung bei AI-Generierung (90s). Versuche es mit kürzerem Text oder erneut.');
           }
           console.log('Waiting 2s before retry...');
           await new Promise(resolve => setTimeout(resolve, 2000));
