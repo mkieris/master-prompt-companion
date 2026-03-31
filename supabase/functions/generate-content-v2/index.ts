@@ -369,11 +369,11 @@ serve(async (req) => {
     clearTimeout(timeout);
 
     const duration = Date.now() - startTime;
-    console.log('Anthropic response:', aiResponse.status, 'in', duration, 'ms');
+    console.log('AI Gateway response:', aiResponse.status, 'in', duration, 'ms');
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error('Anthropic API error:', aiResponse.status, errorText);
+      console.error('AI Gateway error:', aiResponse.status, errorText);
       return new Response(JSON.stringify({
         error: 'AI-Fehler: ' + aiResponse.status,
         details: errorText.substring(0, 300),
@@ -384,10 +384,7 @@ serve(async (req) => {
     }
 
     const aiData = await aiResponse.json();
-    const rawContent = aiData.content
-      ?.filter((b: any) => b.type === 'text')
-      ?.map((b: any) => b.text)
-      ?.join('') || '';
+    const rawContent = aiData.choices?.[0]?.message?.content || '';
 
     console.log('Raw content length:', rawContent.length);
 
