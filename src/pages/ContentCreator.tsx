@@ -498,36 +498,76 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
         } : 'nicht vorhanden',
       });
 
-      // Handle response - parse JSON string if needed
+      // Handle response - robust parsing for multiple response formats
       let parsedData = data;
 
-      // If data is a string, try to parse it as JSON
-      if (typeof data === 'string') {
+      // Step 1: If data is a string, parse it
+      if (typeof parsedData === 'string') {
         try {
-          parsedData = JSON.parse(data);
+          parsedData = JSON.parse(parsedData);
         } catch (e) {
-          console.error('Failed to parse response as JSON:', e);
+          // Try extracting JSON from markdown code block
+          const jsonMatch = parsedData.match(/```(?:json)?\s*([\s\S]*?)```/);
+          if (jsonMatch) {
+            try {
+              parsedData = JSON.parse(jsonMatch[1]);
+            } catch (e2) {
+              console.error('Failed to parse JSON from markdown block:', e2);
+            }
+          }
         }
       }
 
-      // Handle response - use first variant if variants exist, otherwise use direct data
-      const content = parsedData.variants?.[0] || parsedData;
+      // Step 2: If parsedData.seoText is itself a JSON string, extract it
+      if (parsedData?.seoText && typeof parsedData.seoText === 'string' && parsedData.seoText.trim().startsWith('{')) {
+        try {
+          const inner = JSON.parse(parsedData.seoText);
+          if (inner.seoText) parsedData = inner;
+        } catch (e) { /* keep original */ }
+      }
 
-      // Extract seoText - handle both direct and nested structures
+      // Step 3: Handle variants format or direct data
+      const content = parsedData?.variants?.[0] || parsedData;
+
+      // Step 4: Extract fields from multiple possible structures
       let seoText = content?.seoText || content?.content?.seoText;
-      const title = content?.title || content?.content?.title || '';
-      const metaDescription = content?.metaDescription || content?.content?.metaDescription || '';
+      let title = content?.title || content?.content?.title || '';
+      let metaDescription = content?.metaDescription || content?.content?.metaDescription || '';
 
-      // If seoText is still a JSON string (double-encoded), try to extract it
+      // Step 5: If content itself is a string (AI returned raw text), try parsing
       if (!seoText && typeof content === 'string') {
-        try {
-          const innerParsed = JSON.parse(content);
-          seoText = innerParsed?.seoText || innerParsed?.content?.seoText;
-        } catch (e) {
-          // Not JSON, use as raw content
-          seoText = content;
+        // Try extracting JSON from markdown code block
+        const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (jsonMatch) {
+          try {
+            const extracted = JSON.parse(jsonMatch[1]);
+            seoText = extracted?.seoText;
+            title = extracted?.title || title;
+            metaDescription = extracted?.metaDescription || metaDescription;
+          } catch (e) {
+            seoText = content;
+          }
+        } else {
+          try {
+            const extracted = JSON.parse(content);
+            seoText = extracted?.seoText;
+            title = extracted?.title || title;
+            metaDescription = extracted?.metaDescription || metaDescription;
+          } catch (e) {
+            seoText = content;
+          }
         }
       }
+
+      log('response', 'Content parsed', {
+        hasSeoText: !!seoText,
+        seoTextLength: seoText?.length,
+        titleLength: title?.length,
+        metaLength: metaDescription?.length,
+        dataType: typeof data,
+        parsedDataType: typeof parsedData,
+        parsedDataKeys: parsedData ? Object.keys(parsedData) : [],
+      });
 
       if (seoText) {
         setEditedContent(seoText);
