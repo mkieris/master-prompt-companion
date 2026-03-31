@@ -73,9 +73,47 @@ function decodeJsonStringValue(value: string): string {
 }
 
 function extractJsonStringField(raw: string, field: string): string {
-  const match = raw.match(new RegExp(`"${field}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, 's'));
-  if (!match?.[1]) return '';
-  return decodeJsonStringValue(match[1]);
+  const cleaned = stripCodeFence(raw);
+  const fieldKey = `"${field}"`;
+  const fieldIndex = cleaned.indexOf(fieldKey);
+
+  if (fieldIndex === -1) return '';
+
+  const colonIndex = cleaned.indexOf(':', fieldIndex + fieldKey.length);
+  if (colonIndex === -1) return '';
+
+  let valueStart = colonIndex + 1;
+  while (valueStart < cleaned.length && /\s/.test(cleaned[valueStart])) {
+    valueStart += 1;
+  }
+
+  if (cleaned[valueStart] !== '"') return '';
+
+  let value = '';
+  let escaped = false;
+
+  for (let index = valueStart + 1; index < cleaned.length; index += 1) {
+    const char = cleaned[index];
+
+    if (escaped) {
+      value += `\\${char}`;
+      escaped = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      escaped = true;
+      continue;
+    }
+
+    if (char === '"') {
+      return decodeJsonStringValue(value);
+    }
+
+    value += char;
+  }
+
+  return '';
 }
 
 function extractJsonArrayField<T = unknown>(raw: string, field: string): T[] {
@@ -183,7 +221,18 @@ export function extractGeneratedContentFields(input: unknown): ExtractedGenerate
     let metaDescription = content?.metaDescription || content?.content?.metaDescription || '';
     let faq = content?.faq || content?.content?.faq || [];
 
-    if (typeof seoText === 'string' && (seoText.trim().startsWith('{') || seoText.trim().startsWith('```json'))) {
+    if (
+      typeof seoText === 'string' &&
+      (() => {
+        const trimmedSeoText = seoText.trim();
+        return (
+          trimmedSeoText.startsWith('{') ||
+          trimmedSeoText.startsWith('[') ||
+          trimmedSeoText.startsWith('```') ||
+          /"seoText"\s*:/.test(trimmedSeoText)
+        );
+      })()
+    ) {
       const nested = extract(seoText);
       if (nested.seoText && nested.seoText !== seoText) {
         seoText = nested.seoText;

@@ -80,6 +80,8 @@ export const ContentEditor = ({
   promptInfo,
 }: ContentEditorProps) => {
   const renderableContent = getRenderableGeneratedContent(content);
+  const trimmedRenderableContent = renderableContent.trim();
+  const shouldRenderAsHtml = /<\s*(h1|h2|h3|h4|h5|h6|p|ul|ol|li|div|section|article|table|thead|tbody|tr|td|th|blockquote|img|strong|em|a)\b/i.test(trimmedRenderableContent);
   const { toast } = useToast();
   const [refinePrompt, setRefinePrompt] = useState("");
   const [activeTab, setActiveTab] = useState("preview");
@@ -360,7 +362,7 @@ export const ContentEditor = ({
                 />
               ) : (
                 <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:font-semibold prose-h1:text-2xl prose-h2:text-xl prose-h2:mt-8 prose-h2:mb-4 prose-p:leading-relaxed prose-ul:my-4 prose-li:my-1">
-                  {renderableContent?.trim().startsWith('<') ? (
+                  {shouldRenderAsHtml ? (
                     <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderableContent) }} />
                   ) : (
                     <ReactMarkdown>{renderableContent || ''}</ReactMarkdown>
@@ -464,7 +466,7 @@ export const ContentEditor = ({
                     variant="ghost"
                     size="sm"
                     className="h-7 text-xs"
-                    onClick={() => copyToClipboard(content, 'HTML')}
+                    onClick={() => copyToClipboard(renderableContent, 'HTML')}
                   >
                     {copiedSection === 'HTML' ? (
                       <Check className="h-3 w-3 mr-1 text-green-500" />
@@ -475,7 +477,7 @@ export const ContentEditor = ({
                   </Button>
                 </div>
                 <Textarea
-                  value={content}
+                  value={renderableContent}
                   onChange={(e) => onContentChange(e.target.value)}
                   className="min-h-[500px] font-mono text-xs bg-zinc-950 text-zinc-100 dark:bg-zinc-900 border-zinc-800"
                   placeholder="HTML Content..."

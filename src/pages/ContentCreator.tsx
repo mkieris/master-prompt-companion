@@ -197,6 +197,24 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
   const [promptInfo, setPromptInfo] = useState<import("@/components/content-creator/ContentEditor").PromptInfo | null>(null);
   const [researchUrls, setResearchUrls] = useState<ResearchUrl[]>([]);
 
+  const applyExtractedContent = useCallback(
+    (
+      responseData: unknown,
+      fallback?: { title?: string; metaDescription?: string }
+    ) => {
+      const extracted = extractGeneratedContentFields(responseData);
+
+      if (extracted.seoText) {
+        setEditedContent(extracted.seoText);
+        setEditedTitle(extracted.title || fallback?.title || '');
+        setEditedMeta(extracted.metaDescription || fallback?.metaDescription || '');
+      }
+
+      return extracted;
+    },
+    []
+  );
+
   // Debounce keyword for auto SERP
   const debouncedKeyword = useDebounce(config.focusKeyword, 1500);
 
@@ -231,6 +249,21 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
       }));
     }
   }, [serpResult]);
+
+  useEffect(() => {
+    if (!editedContent) return;
+
+    const extracted = extractGeneratedContentFields(editedContent);
+    if (!extracted.seoText || extracted.seoText === editedContent) return;
+
+    setEditedContent(extracted.seoText);
+    if (extracted.title) {
+      setEditedTitle(prev => prev || extracted.title);
+    }
+    if (extracted.metaDescription) {
+      setEditedMeta(prev => prev || extracted.metaDescription);
+    }
+  }, [editedContent]);
 
   const loadDomainKnowledge = async () => {
     if (!currentOrg) return;
@@ -499,7 +532,7 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
         } : 'nicht vorhanden',
       });
 
-      const { parsed: parsedData, seoText, title, metaDescription } = extractGeneratedContentFields(data);
+      const { parsed: parsedData, seoText, title, metaDescription } = applyExtractedContent(data);
       const parsedResponse = (parsedData && typeof parsedData === 'object' ? parsedData : {}) as Record<string, any>;
 
       log('response', 'Content parsed', {
@@ -513,10 +546,6 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
       });
 
       if (seoText) {
-        setEditedContent(seoText);
-        setEditedTitle(title);
-        setEditedMeta(metaDescription);
-
         // Extract prompt debug info from response
         if (parsedResponse._prompts) {
           setPromptInfo(parsedResponse._prompts);
@@ -589,10 +618,12 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
 
       if (error) throw error;
 
-      if (data.seoText) {
-        setEditedContent(data.seoText);
-        setEditedTitle(data.title || editedTitle);
-        setEditedMeta(data.metaDescription || editedMeta);
+      const { seoText } = applyExtractedContent(data, {
+        title: editedTitle,
+        metaDescription: editedMeta,
+      });
+
+      if (seoText) {
 
         toast({
           title: "Text überarbeitet",
