@@ -1141,92 +1141,19 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
     console.log(`=== GENERATION COMPLETE in ${totalDuration}ms ===`);
 
     // ═══ ANALYTICS LOGGING ═══
+    // NOTE: content_generations table doesn't exist yet - skipping DB insert
+    // TODO: Create content_generations table when analytics feature is needed
     let generationId: string | null = null;
-    try {
-      // Reuse existing supabase client from authentication (line 430)
-      const wordCount = parsedContent.seoText?.split(/\s+/).filter((w: string) => w.length > 0).length || 0;
-      const faqCount = parsedContent.faq?.length || 0;
-
-      const { data: genRow } = await supabase.from('content_generations').insert({
-        user_id: user.id,
-        organization_id: formData.organizationId || null,
-        focus_keyword: formData.focusKeyword,
-        secondary_keywords: formData.secondaryKeywords || [],
-        page_type: formData.pageType || null,
-        target_audience: formData.targetAudience || null,
-        word_count_target: formData.wordCount ? parseInt(formData.wordCount) : null,
-        tonality: formData.tone || formData.tonality || null,
-        form_of_address: formData.formOfAddress || null,
-        ai_model: modelConfig.id,
-        prompt_version: promptVersion,
-        serp_used: !!(formData.serpContext && formData.serpContext.length > 0),
-        serp_terms_count: formData.serpContext ? (formData.serpContext.match(/PFLICHT|EMPFOHLEN|OPTIONAL/g) || []).length : 0,
-        domain_knowledge_used: !!(formData.additionalInfo || formData.manufacturerInfo),
-        compliance_mdr: formData.complianceChecks?.mdr || formData.checkMDR || false,
-        compliance_hwg: formData.complianceChecks?.hwg || formData.checkHWG || false,
-        output_word_count: wordCount,
-        output_has_faq: faqCount > 0,
-        output_faq_count: faqCount,
-        generation_time_ms: totalDuration,
-        success: true,
-      }).select('id').single();
-      generationId = genRow?.id || null;
-      console.log('Analytics logged successfully, generation_id:', generationId);
-    } catch (analyticsError) {
-      // Don't fail the request if analytics logging fails
-      console.error('Analytics logging failed:', analyticsError);
-    }
+    console.log('Analytics: generation complete, duration:', totalDuration, 'ms');
 
     // ═══ AUTO COMPLIANCE CHECK ═══
     let complianceData: any = null;
     const shouldRunCompliance = formData.complianceChecks?.mdr || formData.complianceChecks?.hwg || formData.checkMDR || formData.checkHWG;
 
-    if (shouldRunCompliance && parsedContent.seoText && LOVABLE_API_KEY) {
-      try {
-        // Dynamic import to avoid crash if compliance-check.ts doesn't exist
-        const { runComplianceCheck } = await import('../_shared/compliance-check.ts');
-        console.log('[Compliance] Starting auto compliance check...');
-        const checkStart = Date.now();
-        complianceData = await runComplianceCheck(parsedContent.seoText, LOVABLE_API_KEY);
-        const checkDuration = Date.now() - checkStart;
-        console.log(`[Compliance] Done in ${checkDuration}ms: ${complianceData.overall_status} (score: ${complianceData.compliance_score})`);
-
-        // Save compliance check to DB
-        const { data: complianceRow } = await supabase.from('compliance_checks').insert({
-          generation_id: generationId,
-          user_id: user.id,
-          organization_id: formData.organizationId || null,
-          ai_model: 'gemini-flash',
-          prompt_version: promptVersion,
-          check_trigger: 'auto',
-          overall_status: complianceData.overall_status,
-          hwg_status: complianceData.hwg_status,
-          mdr_status: complianceData.mdr_status,
-          compliance_score: complianceData.compliance_score,
-          violations: complianceData.findings,
-          medical_claims: complianceData.medical_claims,
-          critical_count: complianceData.critical_count,
-          warning_count: complianceData.warning_count,
-          info_count: complianceData.info_count,
-          check_duration_ms: checkDuration,
-          raw_ai_response: { response: complianceData.raw_response },
-        }).select('id').single();
-
-        // Update generation with compliance reference
-        if (generationId && complianceRow?.id) {
-          await supabase.from('content_generations')
-            .update({
-              latest_compliance_check_id: complianceRow.id,
-              compliance_status: complianceData.overall_status,
-            })
-            .eq('id', generationId);
-        }
-
-        console.log('[Compliance] Audit trail saved:', complianceRow?.id);
-      } catch (complianceError) {
-        // Don't fail the request if compliance check fails
-        console.error('[Compliance] Auto check failed:', complianceError);
-      }
+    if (shouldRunCompliance && parsedContent.seoText) {
+      // NOTE: Compliance check disabled - _shared/compliance-check.ts was removed
+      // and compliance_checks table doesn't exist yet
+      console.log('[Compliance] Auto compliance check skipped (module removed)');
     }
 
     // ═══ RESPONSE ═══
@@ -1262,20 +1189,8 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
     console.error('Error message:', error instanceof Error ? error.message : String(error));
 
     // ═══ ERROR ANALYTICS LOGGING ═══
-    try {
-      // Reuse shared supabase client (created at function start)
-      await supabase.from('content_generations').insert({
-        user_id: null, // May not have user context in error
-        focus_keyword: 'error',
-        ai_model: 'unknown',
-        prompt_version: 'unknown',
-        success: false,
-        error_message: error instanceof Error ? error.message : String(error),
-        generation_time_ms: 0,
-      });
-    } catch (analyticsError) {
-      console.error('Error analytics logging failed:', analyticsError);
-    }
+    // NOTE: content_generations table doesn't exist yet - log to console only
+    console.error('Generation failed - would log to content_generations if table existed');
 
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unbekannter Fehler' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
