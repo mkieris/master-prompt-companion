@@ -14,6 +14,7 @@ const requestSchema = z.object({
   audience: z.enum(['b2c', 'b2b']),
   wordCount: z.number().int().min(500).max(3000),
   pageType: z.enum(['produktseite', 'kategorieseite', 'markenseite', 'ratgeber']),
+  brandType: z.enum(['eigenmarke', 'handelsmarke']).default('eigenmarke'),
   additionalInfo: z.string().max(10000).optional().default(''),
   organizationId: z.string().uuid().optional(),
 });
