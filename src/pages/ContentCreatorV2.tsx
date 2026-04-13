@@ -51,6 +51,7 @@ const ContentCreatorV2 = ({ session }: ContentV2Props) => {
   const [audience, setAudience] = useState<"b2c" | "b2b">("b2c");
   const [wordCount, setWordCount] = useState("1500");
   const [pageType, setPageType] = useState<"produktseite" | "kategorieseite" | "markenseite" | "ratgeber">("produktseite");
+  const [brandType, setBrandType] = useState<"eigenmarke" | "handelsmarke">("eigenmarke");
   const [additionalInfo, setAdditionalInfo] = useState("");
 
   // Generation state
@@ -104,6 +105,7 @@ const ContentCreatorV2 = ({ session }: ContentV2Props) => {
           audience,
           wordCount: parseInt(wordCount),
           pageType,
+          brandType,
           additionalInfo: additionalInfo.trim(),
         },
       });
@@ -307,6 +309,34 @@ const ContentCreatorV2 = ({ session }: ContentV2Props) => {
                   <SelectItem value="ratgeber">Ratgeber</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* 6. Markentyp */}
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Markentyp *</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant={brandType === 'eigenmarke' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setBrandType('eigenmarke')}
+                  className="w-full"
+                >
+                  Eigenmarke
+                </Button>
+                <Button
+                  variant={brandType === 'handelsmarke' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setBrandType('handelsmarke')}
+                  className="w-full"
+                >
+                  Handelsmarke
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {brandType === 'eigenmarke'
+                  ? 'K-Active als Hersteller (z.B. K-Active Tape)'
+                  : 'K-Active als Vertriebspartner (z.B. Fremdmarken)'}
+              </p>
             </div>
 
             {/* 6. Zusatzinfos */}
