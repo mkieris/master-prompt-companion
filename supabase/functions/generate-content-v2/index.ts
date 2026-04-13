@@ -415,6 +415,7 @@ serve(async (req) => {
       minKeywords,
       maxKeywords,
       contextBlock,
+      brandType: formData.brandType,
     });
 
     const userPrompt = buildUserPrompt({
