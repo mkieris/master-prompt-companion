@@ -430,6 +430,7 @@ serve(async (req) => {
       wordCount: formData.wordCount,
       minKeywords,
       maxKeywords,
+      brandType: formData.brandType,
     });
 
     console.log('System prompt length:', systemPrompt.length);
