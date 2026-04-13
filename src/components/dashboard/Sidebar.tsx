@@ -21,7 +21,8 @@ import {
   Brain,
   Code,
   Zap,
-  BarChart3
+  BarChart3,
+  Shield
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -49,6 +50,7 @@ const navigation = [
   { name: "Content Planner", href: "/dashboard/planner", icon: Calendar },
   { name: "Domain Learning", href: "/dashboard/domain", icon: Globe },
   { name: "SEO-Schulung", href: "/dashboard/seo-training", icon: GraduationCap },
+  { name: "Compliance Check", href: "/compliance", icon: Shield },
 ];
 
 const adminNavigation = [
