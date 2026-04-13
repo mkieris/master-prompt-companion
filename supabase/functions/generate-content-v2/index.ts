@@ -234,10 +234,15 @@ function buildUserPrompt(vars: {
   wordCount: number;
   minKeywords: number;
   maxKeywords: number;
+  brandType: string;
 }): string {
+  const brandLine = vars.brandType === 'eigenmarke'
+    ? `**Marke:** K-Active (Eigenmarke / Hersteller)`
+    : `**Vertrieb:** K-Active (Handelspartner / Distributor) — NICHT der Hersteller!`;
+
   return `## CONTENT-BRIEF
 
-**Marke:** K-Active
+${brandLine}
 **Produkt:** ${vars.productName}
 **Fokus-Keyword:** ${vars.focusKeyword}
 **Suchintention:** Know + Buy
