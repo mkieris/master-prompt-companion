@@ -489,9 +489,18 @@ serve(async (req) => {
         // Retry on 529 (overloaded) or 503
         if (aiResponse.status === 529 || aiResponse.status === 503) {
           lastError = `Status ${aiResponse.status}`;
-          await aiResponse.text(); // consume body
+          const retryBody = await aiResponse.text(); // consume body
           console.log(`Anthropic overloaded (${aiResponse.status}), will retry...`);
           if (attempt < MAX_RETRIES) continue;
+          // All retries exhausted - return error directly (body already consumed)
+          console.error('All retries exhausted. Last status:', aiResponse.status);
+          return new Response(JSON.stringify({
+            error: `AI-Service überlastet (${aiResponse.status}). Bitte versuche es in einigen Minuten erneut.`,
+            details: retryBody.substring(0, 300),
+          }), {
+            status: 503,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
         }
         break; // success or non-retryable error
       } catch (err) {
