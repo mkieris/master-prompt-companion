@@ -56,6 +56,7 @@ const adminNavigation = [
   { name: "Generation Analytics", href: "/dashboard/analytics", icon: BarChart3 },
   { name: "Funktionstest", href: "/function-test", icon: Zap },
   { name: "Code-Analyse", href: "/dashboard/code-analysis", icon: Code },
+  { name: "Prompt-Verwaltung", href: "/dashboard/prompt-manager", icon: Settings },
   { name: "System Prompts", href: "/dashboard/system-prompts", icon: FileText },
   { name: "User Prompts", href: "/dashboard/user-prompts", icon: FileText },
   { name: "Team", href: "/dashboard/team", icon: Users },
