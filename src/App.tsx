@@ -33,6 +33,7 @@ import ContentCreator from "./pages/ContentCreator";
 import ContentCreatorV2 from "./pages/ContentCreatorV2";
 import FunctionTest from "./pages/FunctionTest";
 import GenerationAnalytics from "./pages/GenerationAnalytics";
+import PromptManager from "./pages/PromptManager";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -88,6 +89,7 @@ const App = () => {
                 <Route path="insights" element={<AdminInsights />} />
                 <Route path="system-prompts" element={<SystemPromptVersions />} />
                 <Route path="user-prompts" element={<UserPromptVersions />} />
+                <Route path="prompt-manager" element={<PromptManager />} />
                 <Route path="code-analysis" element={<CodeAnalysis />} />
                 <Route path="text-check" element={<TextCheck />} />
                 <Route path="analytics" element={<GenerationAnalytics session={session} />} />
