@@ -21,7 +21,8 @@ import {
   Brain,
   Code,
   Zap,
-  BarChart3
+  BarChart3,
+  Shield
 } from "lucide-react";
 import {
   DropdownMenu,
