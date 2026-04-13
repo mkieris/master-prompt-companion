@@ -1055,7 +1055,6 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
 
     // Single generation (for new content and refinement/quick change)
     // IMPORTANT: Supabase Edge Functions have ~120s timeout
-    // We must complete within that time, so use shorter API timeout and fewer retries
     const maxRetries = 1;
     const TIMEOUT_MS = 90000; // 90 seconds - Claude Sonnet needs more time for long content
 
@@ -1065,6 +1064,7 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
     const calculatedMaxTokens = Math.ceil(requestedWordCount * 1.8) + 500 + Math.ceil(requestedWordCount * 0.4);
     console.log(`Calculated max_tokens: ${calculatedMaxTokens} for ${requestedWordCount} words`);
     let aiContent: string | null = null;
+    let usedModel = modelConfig.modelName;
 
     const startTime = Date.now();
     console.log('=== STARTING CONTENT GENERATION ===');
@@ -1106,6 +1106,33 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
           if (err.statusCode === 429 || err.statusCode === 401 || err.statusCode === 402) {
             return new Response(JSON.stringify({ error: err.message }), { status: err.statusCode, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
           }
+
+          // ═══ AUTOMATIC FALLBACK: Claude 529/503 → Gemini Flash ═══
+          const isAnthropicOverload = (err.statusCode === 529 || err.statusCode === 503) && modelConfig.provider === 'anthropic';
+          if (isAnthropicOverload) {
+            console.warn('=== CLAUDE OVERLOADED - FALLING BACK TO GEMINI FLASH ===');
+            const fallbackModel = AI_MODELS['gemini-flash'];
+            usedModel = fallbackModel.modelName;
+            try {
+              const fallbackController = new AbortController();
+              const fallbackTimeout = setTimeout(() => fallbackController.abort(), TIMEOUT_MS);
+              const fallbackResult = await callAI({
+                model: fallbackModel.modelName,
+                messages: messages as AIMessage[],
+                temperature: fallbackModel.temperature,
+                max_tokens: calculatedMaxTokens,
+                signal: fallbackController.signal,
+              });
+              clearTimeout(fallbackTimeout);
+              aiContent = fallbackResult.content;
+              console.log('=== GEMINI FALLBACK SUCCESSFUL ===');
+              break;
+            } catch (fallbackErr) {
+              console.error('Gemini fallback also failed:', fallbackErr);
+              throw fallbackErr;
+            }
+          }
+
           if (err.statusCode >= 500 && attempt < maxRetries) {
             console.log(`Server error, retrying in 2 seconds...`);
             await new Promise(resolve => setTimeout(resolve, 2000));
