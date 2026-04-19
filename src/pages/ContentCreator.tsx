@@ -216,7 +216,9 @@ const ContentCreator = ({ session }: ContentCreatorProps) => {
   // Auto-trigger SERP analysis when keyword changes
   useEffect(() => {
     if (debouncedKeyword && debouncedKeyword.length > 2 && !serpResult) {
-      handleSerpAnalysis();
+      handleSerpAnalysis().catch((err) => {
+        console.error('Auto SERP analysis failed:', err);
+      });
     }
   }, [debouncedKeyword]);
 

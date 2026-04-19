@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
   Loader2, ArrowLeft, Copy, Check, Eye, Globe, Code, MessageSquare,
-  Shield, FileText, Sparkles, CheckCircle2, AlertCircle, Zap
+  FileText, Sparkles, CheckCircle2, Zap, Link as LinkIcon
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useDebug } from "@/contexts/DebugContext";
@@ -24,13 +24,20 @@ interface ContentV2Props {
   session: Session | null;
 }
 
+interface QualityReport {
+  wordCount?: number;
+  keywordCount?: number;
+  keywordDensity?: string;
+  h2Count?: number;
+}
+
 interface GeneratedContent {
   title: string;
   metaDescription: string;
   seoText: string;
   faq: Array<{ question: string; answer: string }>;
   internalLinks: string[];
-  qualityReport: any;
+  qualityReport: QualityReport;
   serpDataUsed: boolean;
   generationTimeMs: number;
   model: string;
@@ -39,6 +46,8 @@ interface GeneratedContent {
     userPrompt: string;
   };
 }
+
+type PageType = "produktseite" | "kategorieseite" | "markenseite" | "ratgeber";
 
 const ContentCreatorV2 = ({ session }: ContentV2Props) => {
   const navigate = useNavigate();
@@ -50,7 +59,7 @@ const ContentCreatorV2 = ({ session }: ContentV2Props) => {
   const [focusKeyword, setFocusKeyword] = useState("");
   const [audience, setAudience] = useState<"b2c" | "b2b">("b2c");
   const [wordCount, setWordCount] = useState("1500");
-  const [pageType, setPageType] = useState<"produktseite" | "kategorieseite" | "markenseite" | "ratgeber">("produktseite");
+  const [pageType, setPageType] = useState<PageType>("produktseite");
   const [additionalInfo, setAdditionalInfo] = useState("");
 
   // Generation state
@@ -62,23 +71,50 @@ const ContentCreatorV2 = ({ session }: ContentV2Props) => {
   // SERP lookup state
   const [serpAvailable, setSerpAvailable] = useState<boolean | null>(null);
 
-  // Check SERP data availability
-  const checkSerpData = async (keyword: string) => {
+  // Cleanup refs for timeouts (prevents memory leaks)
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const serpCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const serpQueryIdRef = useRef(0);
+
+  // Cleanup all timers on unmount
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+      if (serpCheckTimeoutRef.current) clearTimeout(serpCheckTimeoutRef.current);
+    };
+  }, []);
+
+  // Check SERP data availability - debounced + race-safe
+  const checkSerpData = useCallback((keyword: string) => {
+    if (serpCheckTimeoutRef.current) {
+      clearTimeout(serpCheckTimeoutRef.current);
+    }
+
     if (!keyword.trim()) {
       setSerpAvailable(null);
       return;
     }
-    try {
-      const { data } = await supabase
-        .from('serp_keywords' as any)
-        .select('keyword')
-        .eq('keyword', keyword.trim())
-        .maybeSingle();
-      setSerpAvailable(!!data);
-    } catch {
-      setSerpAvailable(null);
-    }
-  };
+
+    // Increment query ID to identify stale responses
+    const queryId = ++serpQueryIdRef.current;
+
+    serpCheckTimeoutRef.current = setTimeout(async () => {
+      try {
+        const { data } = await supabase
+          .from('serp_keywords' as never)
+          .select('keyword')
+          .eq('keyword', keyword.trim())
+          .maybeSingle();
+
+        // Ignore if a newer query has been fired
+        if (queryId !== serpQueryIdRef.current) return;
+        setSerpAvailable(!!data);
+      } catch {
+        if (queryId !== serpQueryIdRef.current) return;
+        setSerpAvailable(null);
+      }
+    }, 500);
+  }, []);
 
   const handleGenerate = async () => {
     if (!productName.trim() || !focusKeyword.trim()) {
@@ -150,7 +186,8 @@ const ContentCreatorV2 = ({ session }: ContentV2Props) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedField(field);
-      setTimeout(() => setCopiedField(null), 2000);
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+      copyTimeoutRef.current = setTimeout(() => setCopiedField(null), 2000);
       toast({ title: "Kopiert!" });
     } catch {
       toast({ title: "Kopieren fehlgeschlagen", variant: "destructive" });
@@ -296,7 +333,7 @@ const ContentCreatorV2 = ({ session }: ContentV2Props) => {
             {/* 5. Seitentyp */}
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">Seitentyp *</Label>
-              <Select value={pageType} onValueChange={(v) => setPageType(v as any)}>
+              <Select value={pageType} onValueChange={(v) => setPageType(v as PageType)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -368,6 +405,9 @@ const ContentCreatorV2 = ({ session }: ContentV2Props) => {
                     </TabsTrigger>
                     <TabsTrigger value="faq" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 py-2">
                       <MessageSquare className="h-4 w-4 mr-2" /> FAQ ({result.faq?.length || 0})
+                    </TabsTrigger>
+                    <TabsTrigger value="links" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 py-2">
+                      <LinkIcon className="h-4 w-4 mr-2" /> Interne Links ({result.internalLinks?.length || 0})
                     </TabsTrigger>
                     <TabsTrigger value="prompt" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 py-2">
                       <Code className="h-4 w-4 mr-2" /> Prompt
@@ -491,6 +531,43 @@ const ContentCreatorV2 = ({ session }: ContentV2Props) => {
                             </CardContent>
                           </Card>
                         ))}
+                      </div>
+                    </TabsContent>
+
+                    {/* Internal Links Tab */}
+                    <TabsContent value="links" className="mt-0">
+                      <div className="space-y-4">
+                        {result.internalLinks?.length ? (
+                          <>
+                            <div className="flex gap-2">
+                              <Button size="sm" variant="outline" onClick={() => copyToClipboard(result.internalLinks.join('\n'), 'links-list')}>
+                                {copiedField === 'links-list' ? <Check className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
+                                Alle kopieren
+                              </Button>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Vorschlaege fuer interne Verlinkung innerhalb deiner Website. Keine externen URLs.
+                            </p>
+                            {result.internalLinks.map((link, i) => (
+                              <Card key={i}>
+                                <CardContent className="pt-4 flex items-start justify-between gap-3">
+                                  <div className="flex items-start gap-2 flex-1 min-w-0">
+                                    <LinkIcon className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                                    <p className="text-sm break-words">{link}</p>
+                                  </div>
+                                  <Button size="sm" variant="ghost" onClick={() => copyToClipboard(link, `link-${i}`)}>
+                                    {copiedField === `link-${i}` ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                                  </Button>
+                                </CardContent>
+                              </Card>
+                            ))}
+                          </>
+                        ) : (
+                          <div className="text-center text-muted-foreground py-8">
+                            <LinkIcon className="h-12 w-12 mx-auto opacity-20 mb-3" />
+                            <p className="text-sm">Keine internen Link-Vorschlaege generiert.</p>
+                          </div>
+                        )}
                       </div>
                     </TabsContent>
 

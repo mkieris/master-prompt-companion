@@ -14,9 +14,39 @@ const requestSchema = z.object({
   audience: z.enum(['b2c', 'b2b']),
   wordCount: z.number().int().min(500).max(3000),
   pageType: z.enum(['produktseite', 'kategorieseite', 'markenseite', 'ratgeber']),
-  additionalInfo: z.string().max(10000).optional().default(''),
+  additionalInfo: z.string().max(5000).optional().default(''),
   organizationId: z.string().uuid().optional(),
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// PROMPT INJECTION SANITIZATION
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Sanitizes user input before inserting into AI prompts.
+ * Removes common prompt injection patterns and role-switching attempts.
+ */
+function sanitizePromptInput(input: string, maxLength: number = 5000): string {
+  if (!input || typeof input !== 'string') return '';
+
+  return input
+    // Remove prompt injection patterns
+    .replace(/ignore\s+(all\s+)?(previous|prior|above)\s+(instructions?|prompts?|rules?|directives?)/gi, '')
+    .replace(/disregard\s+(all\s+)?(previous|prior|above)/gi, '')
+    .replace(/forget\s+(all\s+)?(previous|prior|above)/gi, '')
+    .replace(/override\s+(all\s+)?(previous|prior|system)/gi, '')
+    .replace(/new\s+(instructions?|system\s+prompt|directive)s?\s*:/gi, '')
+    // Remove role-switching attempts
+    .replace(/^\s*(system|user|assistant)\s*:/gim, '')
+    // Escape markdown code blocks that could close the context
+    .replace(/```/g, '` ` `')
+    // Remove NULL bytes and control chars
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+    // Collapse excessive whitespace
+    .replace(/\n{4,}/g, '\n\n\n')
+    .slice(0, maxLength)
+    .trim();
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // PROMPT BUILDERS
@@ -333,9 +363,9 @@ serve(async (req) => {
     });
 
     const userPrompt = buildUserPrompt({
-      productName: formData.productName,
-      focusKeyword: formData.focusKeyword,
-      additionalInfo: formData.additionalInfo || '',
+      productName: sanitizePromptInput(formData.productName, 500),
+      focusKeyword: sanitizePromptInput(formData.focusKeyword, 200),
+      additionalInfo: sanitizePromptInput(formData.additionalInfo || '', 5000),
       wordCount: formData.wordCount,
       minKeywords,
       maxKeywords,

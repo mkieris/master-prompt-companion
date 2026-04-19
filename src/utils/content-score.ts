@@ -54,11 +54,14 @@ export function calculateContentScore(input: ContentScoreInput): ContentScoreBre
   const wordRatio = Math.min(wordCount / target, 1.2);
   const wordCountScore = Math.round(wordRatio * 20);
 
-  // Keyword presence (0-25)
+  // Keyword presence (0-25) - uses word boundaries to avoid substring false positives
   let keywordScore = 0;
   if (focusKeyword) {
     const keywordLower = focusKeyword.toLowerCase();
-    const keywordCount = (text.match(new RegExp(keywordLower, 'g')) || []).length;
+    const escapedKeyword = keywordLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Use Unicode word boundaries to match full words (including German umlauts)
+    const keywordRegex = new RegExp('(?:^|[^a-zA-Z0-9äöüÄÖÜß])' + escapedKeyword + '(?:[^a-zA-Z0-9äöüÄÖÜß]|$)', 'g');
+    const keywordCount = (text.match(keywordRegex) || []).length;
     const keywordDensity = wordCount > 0 ? (keywordCount / wordCount) * 100 : 0;
     if (keywordDensity >= 0.5 && keywordDensity <= 2.5) {
       keywordScore = 25;
