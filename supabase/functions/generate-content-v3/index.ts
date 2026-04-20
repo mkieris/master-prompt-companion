@@ -1,6 +1,7 @@
-// Content V3 — K-Active Content Studio Pipeline
+// Content V3 — Universal Content Studio Pipeline
 // 4-Stage: Context → Outline → Writer → Compliance
-// Strict Claude Sonnet via Anthropic Direct (no fallback per brief)
+// Brand/Domain-agnostic. Stammdaten kommen ausschließlich aus DB.
+// Ohne DB-Daten bleibt der Text fachlich-allgemein zum gewählten Subjekt.
 
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 
@@ -16,41 +17,27 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const MODEL = "claude-sonnet-4-5-20250929";
 
 // ════════════════════════════════════════════════════════════════════════
-// TONALITY & STYLE LAYER — K-Active Schreibstil (NICHT Firmen-Identität!)
-// Diese Sektion definiert NUR Ton, Sprache, Stil — NICHT Inhalt oder Subjekt.
-// Subjekt jedes Texts ist immer das vom User gewählte object_name/focus_keyword.
+// NEUTRAL DEFAULT TONALITY
+// Wird NUR genutzt, wenn keine brand_voice in der DB hinterlegt ist.
+// Definiert Stil, NICHT Inhalt oder Branche.
 // ════════════════════════════════════════════════════════════════════════
-const TONALITY_KACTIVE = {
-  style_id: "kactive-voice",
+const DEFAULT_TONALITY = {
+  style_id: "neutral-default",
   description:
-    "Fachlich-souveräner Schreibstil aus dem Healthcare-/Physiotherapie-Umfeld. Ruhig, evidenzbasiert, ohne Marketing-Hype. Therapeuten-Perspektive.",
+    "Sachlich-professioneller Schreibstil. Klar, präzise, ohne Marketing-Hype. Auf das jeweilige Subjekt fokussiert.",
   values: [
-    "Fachliche Tiefe vor Marketing-Glanz",
-    "Therapeuten-Perspektive vor Produkt-Hype",
-    "Belege vor Behauptungen",
     "Klarheit vor Verkaufsdruck",
+    "Belege vor Behauptungen",
+    "Sachlichkeit vor Pathos",
   ],
-  personality: [
-    "fachlich-kompetent",
-    "ruhig-souverän",
-    "ehrlich",
-    "lösungsorientiert",
-    "ohne Hype",
-  ],
+  personality: ["sachlich", "präzise", "verständlich", "ehrlich"],
   voice_attributes: {
     formality: "Sie-Form bei B2B, Du-Form bei B2C",
-    expertise_level: "hoch — Fachterminologie zulässig, aber erklärt",
-    emotion: "kontrolliert, sachlich-warm, niemals reißerisch",
-    pace: "ruhig, gegliedert, keine Stakkato-CTAs",
+    expertise_level: "an Zielgruppe angepasst",
+    emotion: "kontrolliert, niemals reißerisch",
+    pace: "ruhig, gegliedert",
   },
-  // Generische Stil-Phrasen (KEINE produkt- oder markenspezifischen!)
-  do_use_style: [
-    "klinisch erprobt",
-    "evidenzbasiert",
-    "Anwendungsbeobachtung zeigt",
-    "in der Praxis bewährt",
-    "fachlich fundiert",
-  ],
+  do_use_style: [],
   dont_use: [
     "revolutionär",
     "Wundermittel",
@@ -58,171 +45,32 @@ const TONALITY_KACTIVE = {
     "100%",
     "der einzige",
     "erstklassig",
-    "Premium-Erlebnis",
-    "Lifestyle",
     "Game-Changer",
-  ],
-  tonality_examples: {
-    good:
-      "Anwendungsbeobachtungen in Physiotherapiepraxen zeigen Unterstützung bei Bewegungseinschränkungen muskulärer Genese. Die Materialeigenschaften erlauben eine Applikation über mehrere Tage.",
-    bad:
-      "Unser revolutionäres Premium-Produkt garantiert sofortige Schmerzlinderung und ist das beste am Markt!",
-  },
-  forbidden_topics: [
-    "Heilversprechen",
-    "Vergleichswerbung mit konkurrierender Markennennung",
-    "Vorher/Nachher-Bilder",
+    "Premium-Erlebnis",
   ],
   audience_register: {
-    b2b_practice:
-      "Sie-Form, Fachterminologie (Faszien, Propriozeption, Myofasziale Triggerpunkte), Studien-Referenzen, sachlich-kollegial",
-    b2c_active:
-      "Du-Form, Alltagssprache, Bezug zu Sport/Bewegung, motivierend ohne Druck",
-    b2c_patient:
-      "Du-Form, beruhigend, einfache Sprache, immer mit Hinweis 'bei anhaltenden Beschwerden ärztlich abklären'",
+    b2b_practice: "Sie-Form, Fachterminologie zulässig, sachlich-kollegial",
+    b2c_active: "Du-Form, Alltagssprache, motivierend ohne Druck",
+    b2c_patient: "Du-Form, beruhigend, einfache Sprache",
   },
-  version: 2,
-};
-
-// Heritage-Daten NUR genutzt, wenn brand_name explizit K-Active ist UND page_type=brand.
-// In allen anderen Fällen kommen diese Infos NICHT in den Prompt.
-const KACTIVE_BRAND_HERITAGE = {
-  founded_year: 1996,
-  founder_partner: "Nitto Denko Corporation, Japan",
-  inventor_reference: "Dr. Kenzo Kase",
-  pioneer_claim: "Pionier des kinesiologischen Tapings in Europa",
-  location: "Hösbach bei Aschaffenburg",
-  leadership: "Geschäftsführer Meik Vogler, Physiotherapeut",
-  company_legal_name: "K-Active Europe GmbH",
+  version: 3,
 };
 
 // ════════════════════════════════════════════════════════════════════════
-// HARDCODED EVIDENCE LIBRARY (Auszug, EV-001 ausgearbeitet)
-// ════════════════════════════════════════════════════════════════════════
-const EVIDENCE_LIBRARY = [
-  {
-    code: "EV-001",
-    topic: "Kinesiologisches Taping bei Muskelverspannungen",
-    claim_template:
-      "Anwendungsbeobachtungen weisen auf eine Unterstützung bei muskulär bedingten Bewegungseinschränkungen hin",
-    evidence_strength: "moderate",
-    source_type: "Anwendungsbeobachtung",
-    hwg_compliant: true,
-    forbidden_phrasings: [
-      "heilt Muskelverspannungen",
-      "garantierte Schmerzlinderung",
-      "wirkt sofort",
-    ],
-    permitted_phrasings: [
-      "kann unterstützen",
-      "wird in der Physiotherapie eingesetzt zur",
-      "Anwendungsbeobachtung zeigt",
-    ],
-    applicable_products: ["k-active-tape-classic", "k-active-tape-gentle", "k-active-tape-elite"],
-    audience_notes: {
-      b2b_practice: "Studien-Hinweise OK, Fachterminologie",
-      b2c_patient: "immer mit Hinweis auf ärztliche Abklärung",
-    },
-  },
-  {
-    code: "EV-002",
-    topic: "Propriozeptive Stimulation durch Tape-Applikation",
-    claim_template:
-      "Die Tape-Applikation kann propriozeptive Reize an die Haut liefern",
-    evidence_strength: "moderate",
-    source_type: "Studie",
-    hwg_compliant: true,
-    forbidden_phrasings: ["aktiviert Nerven", "verbessert garantiert"],
-    permitted_phrasings: ["liefert Reize", "kann unterstützen"],
-    applicable_products: ["k-active-tape-classic", "k-active-tape-elite", "k-active-tape-sport"],
-  },
-  {
-    code: "EV-003",
-    topic: "Recovery durch Kompressionsmassage",
-    claim_template:
-      "Pneumatische Kompression wird in der Sportphysiotherapie zur Unterstützung der Regeneration eingesetzt",
-    evidence_strength: "strong",
-    source_type: "Klinische Studie",
-    hwg_compliant: true,
-    forbidden_phrasings: ["beschleunigt Regeneration garantiert"],
-    permitted_phrasings: ["unterstützt die Regeneration", "wird eingesetzt zur"],
-    applicable_products: ["recovery-boots-3-0", "normatec"],
-  },
-];
-
-// ════════════════════════════════════════════════════════════════════════
-// HWG / MDR DENYLIST (6 Kategorien)
-// ════════════════════════════════════════════════════════════════════════
-const HWG_DENYLIST = {
-  verbs_paragraph_3: [
-    "heilt", "heilen", "heilung", "heilend",
-    "beseitigt", "beseitigung",
-    "garantiert", "garantie",
-    "wundermittel", "wunder",
-    "100%ig", "100 prozent",
-    "sofortwirkung", "sofort wirksam",
-  ],
-  fear_paragraph_11_7: [
-    "ohne behandlung droht", "wenn sie nicht", "gefahr",
-    "katastrophale folgen", "sonst riskieren sie",
-  ],
-  testimonials_11_2: [
-    "empfohlen von prof.", "ärzte empfehlen", "alle ärzte",
-    "studien beweisen", "wissenschaftlich bewiesen",
-  ],
-  guarantees: [
-    "geld zurück garantie", "100% wirksam",
-    "nebenwirkungsfrei", "ohne risiken",
-  ],
-  before_after_11_5: [
-    "vorher/nachher", "vor und nach", "vergleichsbild",
-  ],
-  mdr_zweckbestimmung: [
-    "ersetzt arzt", "ersetzt operation", "ersetzt medikament",
-  ],
-};
-
-// ════════════════════════════════════════════════════════════════════════
-// COMPETITOR POSITIONING
-// ════════════════════════════════════════════════════════════════════════
-const COMPETITOR_POSITIONING = [
-  {
-    competitor: "Nasara",
-    avoid_phrasing: ["günstigste Lösung", "Discount-Tape"],
-    differentiator: "Originalqualität von Nitto Denko, nicht No-Name-Klebstoff",
-  },
-  {
-    competitor: "RockTape",
-    avoid_phrasing: ["Performance-Tape", "Sport-Lifestyle"],
-    differentiator: "Therapeuten-Perspektive vor Sport-Marketing",
-  },
-  {
-    competitor: "KT Tape",
-    avoid_phrasing: ["Marketing-Tape für Konsumenten"],
-    differentiator: "Medizinischer Anspruch, Praxis-erprobt",
-  },
-  {
-    competitor: "AcuTop",
-    avoid_phrasing: [],
-    differentiator: "Längere Marktpräsenz, exklusive Nitto-Denko-Partnerschaft",
-  },
-];
-
-// ════════════════════════════════════════════════════════════════════════
-// PAGE TYPE TEMPLATES (5 Seitentypen)
+// GENERIC PAGE TYPE TEMPLATES (branchen-agnostisch)
+// Können pro Org via DB (page_types Tabelle) überschrieben werden.
 // ════════════════════════════════════════════════════════════════════════
 const PAGE_TYPES: Record<string, any> = {
   product: {
     name: "Produktseite",
     default_structure: [
-      { h2: "Im Überblick", words: 80, voice_mode: "factual" },
-      { h2: "Anwendung & Eigenschaften", words: 200, voice_mode: "expert" },
-      { h2: "Material & Qualität", words: 150, voice_mode: "factual" },
+      { h2: "Im Überblick", words: 100, voice_mode: "factual" },
+      { h2: "Eigenschaften & Funktion", words: 200, voice_mode: "expert" },
+      { h2: "Anwendung & Einsatz", words: 180, voice_mode: "advisory" },
       { h2: "Für wen geeignet", words: 120, voice_mode: "advisory" },
-      { h2: "Anwendungshinweise", words: 150, voice_mode: "expert" },
       { h2: "Häufige Fragen", words: 200, voice_mode: "advisory" },
     ],
-    score_weights: { evidence: 0.25, voice: 0.2, structure: 0.15, seo: 0.15, compliance: 0.2, readability: 0.05 },
+    score_weights: { evidence: 0.15, voice: 0.2, structure: 0.15, seo: 0.25, compliance: 0.2, readability: 0.05 },
   },
   category: {
     name: "Kategorieseite",
@@ -232,29 +80,28 @@ const PAGE_TYPES: Record<string, any> = {
       { h2: "Auswahlkriterien", words: 200, voice_mode: "advisory" },
       { h2: "Häufige Fragen", words: 200, voice_mode: "advisory" },
     ],
-    score_weights: { evidence: 0.15, voice: 0.2, structure: 0.2, seo: 0.25, compliance: 0.15, readability: 0.05 },
-    constraints: ["KEINE marken-spezifischen Claims im Haupttext"],
+    score_weights: { evidence: 0.1, voice: 0.2, structure: 0.2, seo: 0.3, compliance: 0.15, readability: 0.05 },
+    constraints: ["KEINE einzelnen Produktnennungen im Haupttext"],
   },
   brand: {
     name: "Markenseite",
     default_structure: [
       { h2: "Über die Marke", words: 200, voice_mode: "factual" },
-      { h2: "Heritage & Hintergrund", words: 250, voice_mode: "narrative" },
-      { h2: "Produktphilosophie", words: 200, voice_mode: "expert" },
-      { h2: "Sortiment im Überblick", words: 150, voice_mode: "factual" },
+      { h2: "Hintergrund & Werte", words: 250, voice_mode: "narrative" },
+      { h2: "Sortiment im Überblick", words: 200, voice_mode: "factual" },
+      { h2: "Für wen", words: 150, voice_mode: "advisory" },
     ],
-    score_weights: { evidence: 0.15, voice: 0.3, structure: 0.15, seo: 0.15, compliance: 0.2, readability: 0.05 },
+    score_weights: { evidence: 0.1, voice: 0.3, structure: 0.15, seo: 0.2, compliance: 0.2, readability: 0.05 },
   },
   topic_world: {
     name: "Themenwelt",
     default_structure: [
       { h2: "Einleitung ins Thema", words: 200, voice_mode: "narrative" },
-      { h2: "Hintergrund & Theorie", words: 300, voice_mode: "expert" },
+      { h2: "Hintergrund", words: 300, voice_mode: "expert" },
       { h2: "Anwendung in der Praxis", words: 300, voice_mode: "expert" },
-      { h2: "Produkt-Empfehlungen", words: 200, voice_mode: "advisory" },
       { h2: "Weiterführende Themen", words: 100, voice_mode: "factual" },
     ],
-    score_weights: { evidence: 0.2, voice: 0.2, structure: 0.15, seo: 0.2, compliance: 0.15, readability: 0.1 },
+    score_weights: { evidence: 0.15, voice: 0.2, structure: 0.15, seo: 0.25, compliance: 0.15, readability: 0.1 },
   },
   guide: {
     name: "Ratgeber-Artikel",
@@ -263,12 +110,15 @@ const PAGE_TYPES: Record<string, any> = {
       { h2: "Hintergrundwissen", words: 300, voice_mode: "expert" },
       { h2: "Schritt für Schritt", words: 350, voice_mode: "advisory" },
       { h2: "Worauf achten", words: 200, voice_mode: "advisory" },
-      { h2: "Wann zum Arzt", words: 100, voice_mode: "advisory" },
     ],
-    score_weights: { evidence: 0.2, voice: 0.15, structure: 0.15, seo: 0.2, compliance: 0.2, readability: 0.1 },
-    constraints: ["Bei b2c_patient PFLICHT-Hinweis 'ärztlich abklären'"],
+    score_weights: { evidence: 0.15, voice: 0.15, structure: 0.15, seo: 0.25, compliance: 0.2, readability: 0.1 },
   },
 };
+
+// Healthcare-spezifische HWG/MDR-Denylist nur aktiv, wenn Org-Stammdaten
+// dies explizit erfordern (denylists Tabelle, category='hwg' oder 'mdr').
+// Default: leer.
+const HWG_DENYLIST: Record<string, string[]> = {};
 
 // ════════════════════════════════════════════════════════════════════════
 // ANTHROPIC CLAUDE CALL
