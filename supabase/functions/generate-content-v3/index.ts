@@ -864,7 +864,6 @@ Deno.serve(async (req) => {
       input_payload: { page_type, audience_channel, focus_keyword, brand_name },
       output_payload: {
         evidence_count: ctx.relevant_evidence.length,
-        heritage_allowed: ctx.heritage_allowed,
         has_db_brand_voice: ctx.has_db_brand_voice,
         is_own_brand: ctx.is_own_brand,
         page_type_source: ctx.page_type.name,
