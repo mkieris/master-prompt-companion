@@ -348,15 +348,49 @@ function extractJsonCandidate(text: string): string {
   return cleaned;
 }
 
+/**
+ * Best-effort lokale JSON-Reparatur für typische Claude-Fehler:
+ * - Smart-Quotes („" '') → Standard-Quotes
+ * - Trailing-Kommata vor } / ]
+ * - Unescaped Anführungszeichen IN HTML-String-Werten (heuristisch:
+ *   doppelte Quotes innerhalb von <...> Tags werden entschärft).
+ * - Fehlende Kommata zwischen "}\n  {" oder "]\n  ["
+ */
+function localJsonRepair(text: string): string {
+  let s = text;
+  // Smart quotes → "
+  s = s.replace(/[\u201C\u201D\u201E\u00AB\u00BB]/g, '"');
+  s = s.replace(/[\u2018\u2019\u201A]/g, "'");
+  // Trailing commas
+  s = s.replace(/,(\s*[}\]])/g, "$1");
+  // Missing commas between adjacent objects/arrays on new lines
+  s = s.replace(/}(\s*\n\s*){/g, "},$1{");
+  s = s.replace(/](\s*\n\s*)\[/g, "],$1[");
+  // Häufigster Writer-Fehler: HTML-Attribute mit "..." in JSON-Strings.
+  // Prompt erlaubt KEINE Attribute, aber wenn Claude trotzdem welche schreibt
+  // (z.B. <p class="x">), ersetzen wir die inneren Quotes durch &quot; bevor wir parsen.
+  // Wir matchen nur innerhalb von Tags (< ... >).
+  s = s.replace(/<([a-zA-Z][^<>]*?)>/g, (m) => m.replace(/"/g, "&quot;").replace(/^<|>$/g, (c) => c));
+  // Fix: vorheriger replace hat < und > auch erwischt – wieder herstellen
+  // (Der replace oben ersetzt nur " innerhalb des matches, < > bleiben.)
+  return s;
+}
+
 function safeJsonParse(text: string): any {
   const candidate = extractJsonCandidate(text);
-  return JSON.parse(candidate);
+  try {
+    return JSON.parse(candidate);
+  } catch {
+    // Lokaler Repair-Versuch
+    const repaired = localJsonRepair(candidate);
+    return JSON.parse(repaired);
+  }
 }
 
 async function repairJsonWithClaude(rawText: string, label: string) {
-  const repairSystem = `You repair malformed JSON. Return ONLY valid JSON. Preserve the original structure, keys, arrays, strings, and HTML string content as closely as possible. Do not add explanations.`;
-  const repairUser = `Repair this malformed JSON and return only valid JSON:\n\n${rawText.slice(0, 16000)}`;
-  const repaired = await callClaude(repairSystem, repairUser, 0, 4096);
+  const repairSystem = `You repair malformed JSON. Return ONLY valid JSON. Preserve the original structure, keys, arrays, strings, and HTML string content as closely as possible. Escape all double quotes inside string values as \\". Do not add explanations, no markdown fences.`;
+  const repairUser = `Repair this malformed JSON and return only valid JSON. Pay special attention to escaping quotes inside HTML string values:\n\n${rawText.slice(0, 16000)}`;
+  const repaired = await callClaude(repairSystem, repairUser, 0, 8192);
 
   if (repaired.stop_reason === "max_tokens") {
     throw new Error(`${label} JSON repair was truncated`);
@@ -377,8 +411,13 @@ async function parseClaudeJson(label: string, result: { text: string; stop_reaso
   try {
     return safeJsonParse(result.text);
   } catch (error) {
-    console.error(`${label} JSON parse failed`, error, result.text.slice(0, 2000));
-    return await repairJsonWithClaude(result.text, label);
+    console.warn(`${label} JSON parse failed, attempting Claude repair`, (error as Error).message);
+    try {
+      return await repairJsonWithClaude(result.text, label);
+    } catch (repairError) {
+      console.error(`${label} JSON repair also failed`, (repairError as Error).message, result.text.slice(0, 2000));
+      throw new Error(`${label} produced unparseable JSON after repair attempt: ${(repairError as Error).message}`);
+    }
   }
 }
 
