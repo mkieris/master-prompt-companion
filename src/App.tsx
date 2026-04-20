@@ -31,6 +31,7 @@ import CodeAnalysis from "./pages/CodeAnalysis";
 import TextCheck from "./pages/TextCheck";
 import ContentCreator from "./pages/ContentCreator";
 import ContentCreatorV2 from "./pages/ContentCreatorV2";
+import ContentCreatorV3 from "./pages/ContentCreatorV3";
 import FunctionTest from "./pages/FunctionTest";
 import GenerationAnalytics from "./pages/GenerationAnalytics";
 import PromptManager from "./pages/PromptManager";
@@ -71,6 +72,7 @@ const App = () => {
               <Route path="/" element={<Index session={session} />} />
               <Route path="/content" element={<ProtectedRoute session={session} isLoading={isAuthLoading}><ContentCreator session={session} /></ProtectedRoute>} />
               <Route path="/content-v2" element={<ProtectedRoute session={session} isLoading={isAuthLoading}><ContentCreatorV2 session={session} /></ProtectedRoute>} />
+              <Route path="/content-v3" element={<ProtectedRoute session={session} isLoading={isAuthLoading}><ContentCreatorV3 session={session} /></ProtectedRoute>} />
               <Route path="/compliance" element={<ProtectedRoute session={session} isLoading={isAuthLoading}><ComplianceChecker session={session} /></ProtectedRoute>} />
               {/* Legacy routes - redirect to new unified Content Creator */}
               <Route path="/basic" element={<ProtectedRoute session={session} isLoading={isAuthLoading}><ContentCreator session={session} /></ProtectedRoute>} />

@@ -22,7 +22,8 @@ import {
   Code,
   Zap,
   BarChart3,
-  Shield
+  Shield,
+  FlaskConical
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -51,6 +52,7 @@ const navigation = [
   { name: "Domain Learning", href: "/dashboard/domain", icon: Globe },
   { name: "SEO-Schulung", href: "/dashboard/seo-training", icon: GraduationCap },
   { name: "Compliance Check", href: "/compliance", icon: Shield },
+  { name: "Content V3 (Experiment)", href: "/content-v3", icon: FlaskConical, isNew: true },
 ];
 
 const adminNavigation = [
