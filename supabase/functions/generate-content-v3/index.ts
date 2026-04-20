@@ -659,7 +659,7 @@ async function stageCompliance(ctx: any, content: any) {
     report: {
       hwg_violations,
       dont_use_violations,
-      heritage_violations,
+      forbidden_brand_terms,
       evidence_matching,
       competitor_warnings,
       page_type_violations,
@@ -676,12 +676,17 @@ async function stageRewrite(ctx: any, content: any, report: any) {
   const subjectLine = ctx.brand_name
     ? `${ctx.object_name} (Marke: ${ctx.brand_name})`
     : ctx.object_name;
-  const system = `Du bist Compliance-Editor für Healthcare-Content. Schreibe den Text um, sodass ALLE Verstöße behoben sind. Kein Abmildern, sondern komplette Reformulierung der betroffenen Passagen.
+
+  const forbiddenBlock = (ctx.brand_voice?.forbidden_terms ?? []).length > 0
+    ? `Verbotene Begriffe (aus Brand-Voice): ${JSON.stringify(ctx.brand_voice.forbidden_terms)} — diese NIRGENDS verwenden.`
+    : "";
+
+  const system = `Du bist Compliance-Editor. Schreibe den Text um, sodass ALLE Verstöße behoben sind. Kein Abmildern, sondern komplette Reformulierung der betroffenen Passagen.
 
 Subjekt bleibt: "${subjectLine}" (Keyword: ${ctx.focus_keyword}). Schreibe NICHT über die schreibende Firma.
-${ctx.is_kactive_brand && (ctx.page_type_key === "brand" || ctx.product_type === "own_brand") ? "Heritage (K-Active, Nitto Denko, 1996, Kenzo Kase) ist auf dieser Seite ERLAUBT." : "Heritage VERBOTEN: Erwähne K-Active, Nitto Denko, Kenzo Kase, 1996, Hösbach NICHT."}
+${forbiddenBlock}
 
-Tonalität (K-Active-Voice, nur Stil): ${TONALITY_KACTIVE.description}
+Tonalität (nur Stil): ${ctx.tonality.description}
 Audience-Register beibehalten: ${ctx.audience_register}
 Gib AUSSCHLIESSLICH syntaktisch valides JSON zurück.
 In content_html sind NUR einfache Tags ohne Attribute erlaubt: <p>, <h3>, <ul>, <li>, <strong>, <em>.
@@ -693,7 +698,6 @@ ${JSON.stringify(content, null, 2)}
 Compliance-Verstöße zu beheben:
 ${JSON.stringify(report, null, 2)}
 
-Heritage-Claims erlaubt: ${ctx.heritage_allowed ? "JA" : "NEIN"}
 Audience: ${ctx.audience}
 Page Type: ${ctx.page_type_key}
 
