@@ -295,6 +295,19 @@ export const ContentEditor = ({
                 {renderableContent.split(/\s+/).filter(w => w.length > 0).length} Worter
               </Badge>
             )}
+            {promptInfo?.model && (
+              promptInfo.fallbackUsed ? (
+                <Badge variant="outline" className="text-[10px] gap-1 border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                  <Sparkles className="h-3 w-3" />
+                  Generiert mit {getModelLabel(promptInfo.model)} (Fallback)
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-[10px] gap-1">
+                  <Sparkles className="h-3 w-3" />
+                  Generiert mit {getModelLabel(promptInfo.model)}
+                </Badge>
+              )
+            )}
           </CardTitle>
           <div className="flex items-center gap-1.5">
             <Button
