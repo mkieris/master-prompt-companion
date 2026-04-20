@@ -41,10 +41,23 @@ export interface PromptInfo {
   systemPrompt: string;
   userPrompt: string;
   model: string;
+  requestedModel?: string;
+  fallbackUsed?: boolean;
   promptVersion: string;
   maxTokens: number;
   temperature: number;
 }
+
+const MODEL_LABELS: Record<string, string> = {
+  'google/gemini-2.5-flash': 'Gemini Flash',
+  'google/gemini-2.5-pro': 'Gemini Pro',
+  'anthropic/claude-sonnet-4-20250514': 'Claude Sonnet 4',
+};
+
+export const getModelLabel = (model?: string): string => {
+  if (!model) return 'Unbekannt';
+  return MODEL_LABELS[model] || model;
+};
 
 interface ContentEditorProps {
   content: string;
