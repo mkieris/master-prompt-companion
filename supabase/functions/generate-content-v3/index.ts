@@ -278,7 +278,7 @@ async function callClaude(
   userPrompt: string,
   temperature: number,
   maxTokens = 4096,
-): Promise<{ text: string; tokens_in: number; tokens_out: number }> {
+): Promise<{ text: string; tokens_in: number; tokens_out: number; stop_reason: string | null }> {
   if (!ANTHROPIC_API_KEY) {
     throw new Error("ANTHROPIC_API_KEY not configured");
   }
@@ -304,28 +304,81 @@ async function callClaude(
     throw new Error(`Anthropic ${resp.status}: ${errText}`);
   }
 
-  const data = await resp.json();
+  const raw = await resp.text();
+  let data: any;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    throw new Error(`Anthropic returned non-JSON response: ${raw.slice(0, 500)}`);
+  }
+
+  const text = Array.isArray(data.content)
+    ? data.content
+        .filter((part: any) => part?.type === "text")
+        .map((part: any) => part?.text ?? "")
+        .join("\n")
+        .trim()
+    : "";
+
   return {
-    text: data.content?.[0]?.text ?? "",
+    text,
     tokens_in: data.usage?.input_tokens ?? 0,
     tokens_out: data.usage?.output_tokens ?? 0,
+    stop_reason: data.stop_reason ?? null,
   };
 }
 
-function safeJsonParse(text: string): any {
-  // Strip ```json fences
+function extractJsonCandidate(text: string): string {
   const cleaned = text
     .replace(/^```json\s*/i, "")
     .replace(/^```\s*/i, "")
     .replace(/```\s*$/i, "")
     .trim();
+
+  const objectStart = cleaned.indexOf("{");
+  const arrayStart = cleaned.indexOf("[");
+  const isArray = arrayStart !== -1 && (objectStart === -1 || arrayStart < objectStart);
+  const start = isArray ? arrayStart : objectStart;
+  const end = isArray ? cleaned.lastIndexOf("]") : cleaned.lastIndexOf("}");
+
+  if (start !== -1 && end > start) {
+    return cleaned.slice(start, end + 1);
+  }
+
+  return cleaned;
+}
+
+function safeJsonParse(text: string): any {
+  const candidate = extractJsonCandidate(text);
+  return JSON.parse(candidate);
+}
+
+async function repairJsonWithClaude(rawText: string, label: string) {
+  const repairSystem = `You repair malformed JSON. Return ONLY valid JSON. Preserve the original structure, keys, arrays, strings, and HTML string content as closely as possible. Do not add explanations.`;
+  const repairUser = `Repair this malformed JSON and return only valid JSON:\n\n${rawText.slice(0, 16000)}`;
+  const repaired = await callClaude(repairSystem, repairUser, 0, 4096);
+
+  if (repaired.stop_reason === "max_tokens") {
+    throw new Error(`${label} JSON repair was truncated`);
+  }
+
+  return safeJsonParse(repaired.text);
+}
+
+async function parseClaudeJson(label: string, result: { text: string; stop_reason: string | null }) {
+  if (!result.text?.trim()) {
+    throw new Error(`${label} returned empty output`);
+  }
+
+  if (result.stop_reason === "max_tokens") {
+    throw new Error(`${label} response truncated at max_tokens`);
+  }
+
   try {
-    return JSON.parse(cleaned);
-  } catch {
-    // Try extract first {...} block
-    const m = cleaned.match(/\{[\s\S]*\}/);
-    if (m) return JSON.parse(m[0]);
-    throw new Error("Could not parse JSON from model output");
+    return safeJsonParse(result.text);
+  } catch (error) {
+    console.error(`${label} JSON parse failed`, error, result.text.slice(0, 2000));
+    return await repairJsonWithClaude(result.text, label);
   }
 }
 
@@ -410,6 +463,7 @@ Pflicht-Regeln:
 - Voice-Mode pro Sektion respektieren (factual/expert/advisory/narrative)
 - Audience: ${ctx.audience} — Register: ${ctx.audience_register}
 - Constraints: ${JSON.stringify(ctx.constraints)}
+- Gib syntaktisch valides JSON zurück
 
 Output: NUR JSON, keine Erklärung.`;
 
@@ -431,7 +485,7 @@ Output-Format:
 }`;
 
   const result = await callClaude(system, user, 0.4, 2048);
-  const outline = safeJsonParse(result.text);
+  const outline = await parseClaudeJson("outline", result);
   return { outline, tokens_in: result.tokens_in, tokens_out: result.tokens_out };
 }
 
@@ -475,6 +529,9 @@ PFLICHT-REGELN:
 5. dont_use Wörter aus Tonalität NIEMALS verwenden
 6. Constraints: ${JSON.stringify(ctx.constraints)}
 7. ${ctx.audience === "b2c_patient" && ctx.page_type_key === "guide" ? "PFLICHT-Hinweis 'bei anhaltenden Beschwerden ärztlich abklären' integrieren" : "—"}
+8. Gib AUSSCHLIESSLICH syntaktisch valides JSON zurück
+9. In content_html sind NUR einfache Tags ohne Attribute erlaubt: <p>, <h3>, <ul>, <li>, <strong>, <em>
+10. Keine Links, keine Klassen, keine style-Attribute, keine HTML-Attribute allgemein
 
 Output: NUR JSON.`;
 
@@ -497,7 +554,7 @@ Format:
 }`;
 
   const result = await callClaude(system, user, 0.7, 8192);
-  const content = safeJsonParse(result.text);
+  const content = await parseClaudeJson("writer", result);
   return { content, tokens_in: result.tokens_in, tokens_out: result.tokens_out };
 }
 
@@ -562,7 +619,6 @@ function checkCompetitorWarnings(text: string) {
 function checkPageTypeConstraints(text: string, ctx: any) {
   const violations: string[] = [];
   if (ctx.page_type_key === "category") {
-    // Auf Kategorieseiten: keine spezifische Produktnennung des Subjekts erlaubt
     if (ctx.object_name) {
       const lower = text.toLowerCase();
       if (lower.includes(ctx.object_name.toLowerCase())) {
@@ -629,6 +685,8 @@ ${ctx.is_kactive_brand && (ctx.page_type_key === "brand" || ctx.product_type ===
 
 Tonalität (K-Active-Voice, nur Stil): ${TONALITY_KACTIVE.description}
 Audience-Register beibehalten: ${ctx.audience_register}
+Gib AUSSCHLIESSLICH syntaktisch valides JSON zurück.
+In content_html sind NUR einfache Tags ohne Attribute erlaubt: <p>, <h3>, <ul>, <li>, <strong>, <em>.
 Output: NUR JSON gleicher Struktur.`;
 
   const user = `Original-Content:
@@ -644,7 +702,7 @@ Page Type: ${ctx.page_type_key}
 Gib den korrigierten Content im gleichen JSON-Format zurück.`;
 
   const result = await callClaude(system, user, 0.5, 8192);
-  const rewritten = safeJsonParse(result.text);
+  const rewritten = await parseClaudeJson("rewrite", result);
   return { content: rewritten, tokens_in: result.tokens_in, tokens_out: result.tokens_out };
 }
 
