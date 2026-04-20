@@ -1197,11 +1197,20 @@ Gib den VOLLSTÄNDIGEN überarbeiteten Text im gleichen JSON-Format zurück (seo
         warning_count: complianceData.warning_count,
       } : null,
       generation_id: generationId,
+      // Model usage info (for UI transparency)
+      _modelInfo: {
+        requestedModel: modelConfig.modelName,
+        requestedModelId: modelConfig.id,
+        usedModel: usedModel,
+        fallbackUsed: usedModel !== modelConfig.modelName,
+      },
       // Include prompts for debug/transparency
       _prompts: {
         systemPrompt: messages[0]?.content || '',
         userPrompt: messages[1]?.content || '',
-        model: modelConfig.modelName,
+        model: usedModel,
+        requestedModel: modelConfig.modelName,
+        fallbackUsed: usedModel !== modelConfig.modelName,
         promptVersion: promptVersion,
         maxTokens: calculatedMaxTokens,
         temperature: modelConfig.temperature,
