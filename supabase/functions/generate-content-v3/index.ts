@@ -383,9 +383,10 @@ async function parseClaudeJson(label: string, result: { text: string; stop_reaso
 }
 
 // ════════════════════════════════════════════════════════════════════════
-// STAGE 0 — CONTEXT BUILDER (TS only, no LLM)
+// STAGE 0 — CONTEXT BUILDER (DB-Lookups mit Fail-Soft Hardcode-Fallback)
 // ════════════════════════════════════════════════════════════════════════
 interface ContextInput {
+  organization_id: string;
   page_type: string;
   audience_channel: string;
   product_type?: string | null;
@@ -395,26 +396,107 @@ interface ContextInput {
   target_word_count: number;
 }
 
-function buildContext(input: ContextInput) {
-  const pageType = PAGE_TYPES[input.page_type];
+async function loadStammdaten(supabase: any, orgId: string, brandName: string | null | undefined) {
+  // Parallel-Loads, alle fail-soft
+  const [bv, ev, pt, br, dn, cp] = await Promise.all([
+    brandName
+      ? supabase.from("brand_voices").select("*").eq("organization_id", orgId).eq("brand_name", brandName).eq("is_active", true).maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase.from("evidence_library").select("*").eq("organization_id", orgId).eq("is_active", true),
+    supabase.from("page_types").select("*").or(`organization_id.eq.${orgId},organization_id.is.null`).eq("is_active", true),
+    supabase.from("brands_registry").select("*").eq("organization_id", orgId).eq("is_active", true),
+    supabase.from("denylists").select("*").eq("organization_id", orgId).eq("is_active", true),
+    supabase.from("competitor_positioning").select("*").eq("organization_id", orgId).eq("is_active", true),
+  ]);
+
+  return {
+    brand_voice: bv?.data ?? null,
+    evidence_library: ev?.data ?? [],
+    page_types: pt?.data ?? [],
+    brands_registry: br?.data ?? [],
+    denylists: dn?.data ?? [],
+    competitor_positioning: cp?.data ?? [],
+  };
+}
+
+async function buildContext(supabase: any, input: ContextInput) {
+  // 1) Stammdaten aus DB (Fail-Soft)
+  let stammdaten;
+  try {
+    stammdaten = await loadStammdaten(supabase, input.organization_id, input.brand_name);
+  } catch (e) {
+    console.warn("Stammdaten-Lookup fehlgeschlagen, nutze Hardcode-Fallback:", e);
+    stammdaten = { brand_voice: null, evidence_library: [], page_types: [], brands_registry: [], denylists: [], competitor_positioning: [] };
+  }
+
+  // 2) Page-Type aus DB oder Hardcode-Fallback
+  const dbPageType = stammdaten.page_types.find((p: any) => p.type_key === input.page_type);
+  const pageType = dbPageType ? {
+    name: dbPageType.display_name,
+    default_structure: dbPageType.default_structure ?? [],
+    constraints: dbPageType.forbidden_sections ?? [],
+    score_weights: PAGE_TYPES[input.page_type]?.score_weights ?? PAGE_TYPES.product.score_weights,
+  } : PAGE_TYPES[input.page_type];
+
   if (!pageType) throw new Error(`Unknown page_type: ${input.page_type}`);
 
-  // Filter Evidence by relevance — strict keyword/topic match, NO product-type bias
+  // 3) Evidence aus DB (mit kw-Filter), sonst Hardcode
+  const dbEvidence = stammdaten.evidence_library.length > 0
+    ? stammdaten.evidence_library.map((e: any) => ({
+        code: e.evidence_key,
+        topic: e.category ?? "",
+        claim_template: e.claim,
+        evidence_strength: e.strength,
+        source_type: e.evidence_type,
+        hwg_compliant: true,
+        forbidden_phrasings: [],
+        permitted_phrasings: e.hwg_compatible_phrasings ?? [],
+        applicable_brand: e.brand_name,
+      }))
+    : EVIDENCE_LIBRARY;
+
   const kw = input.focus_keyword.toLowerCase();
   const kwTokens = kw.split(/\s+/).filter((t) => t.length > 3);
-  const relevantEvidence = EVIDENCE_LIBRARY.filter((e) => {
+  const relevantEvidence = dbEvidence.filter((e: any) => {
     const haystack = `${e.topic} ${e.claim_template}`.toLowerCase();
     return kwTokens.some((t) => haystack.includes(t));
   });
 
-  // Heritage allowed ONLY if explicitly K-Active brand AND brand-page or own_brand product
+  // 4) Brand-Klassifizierung: own_brand vs competitor (DB-Registry > Hardcode K-Active-Heuristik)
+  const brandRegistryEntry = input.brand_name
+    ? stammdaten.brands_registry.find(
+        (b: any) =>
+          b.brand_name.toLowerCase() === input.brand_name!.toLowerCase() ||
+          (b.aliases ?? []).some((a: string) => a.toLowerCase() === input.brand_name!.toLowerCase()),
+      )
+    : null;
+
+  const isOwnBrand = brandRegistryEntry?.brand_type === "own_brand";
   const isKactiveBrand =
     !!input.brand_name &&
     (input.brand_name.toLowerCase().includes("k-active") ||
       input.brand_name.toLowerCase().includes("kactive"));
+
+  // Heritage NUR wenn explizit K-Active oder als own_brand klassifiziert
   const heritage_allowed =
-    (input.product_type === "own_brand" && isKactiveBrand) ||
-    (input.page_type === "brand" && isKactiveBrand);
+    (isKactiveBrand && (input.page_type === "brand" || input.product_type === "own_brand")) ||
+    (isOwnBrand && stammdaten.brand_voice && (input.page_type === "brand" || input.product_type === "own_brand"));
+
+  // 5) Competitor-Positioning (DB > Hardcode)
+  const competitorPositioning = stammdaten.competitor_positioning.length > 0
+    ? stammdaten.competitor_positioning.map((c: any) => ({
+        competitor: c.competitor_name,
+        avoid_phrasing: c.avoid_overlap_themes ?? [],
+        differentiator: c.differentiation_strategy ?? "",
+      }))
+    : COMPETITOR_POSITIONING;
+
+  // 6) Denylists (DB-Phrasen flach gemappt + Hardcode-HWG immer aktiv)
+  const dbDenylists: Record<string, string[]> = {};
+  for (const d of stammdaten.denylists) {
+    if (!dbDenylists[d.category]) dbDenylists[d.category] = [];
+    dbDenylists[d.category].push(d.phrase);
+  }
 
   return {
     tonality: TONALITY_KACTIVE,
@@ -427,13 +509,17 @@ function buildContext(input: ContextInput) {
       ],
     product_type: input.product_type,
     brand_name: input.brand_name,
+    brand_voice: stammdaten.brand_voice, // null wenn keine DB-Eintragung
     object_name: input.object_name,
     focus_keyword: input.focus_keyword,
     target_word_count: input.target_word_count,
     relevant_evidence: relevantEvidence,
-    competitor_positioning: COMPETITOR_POSITIONING,
+    competitor_positioning: competitorPositioning,
+    db_denylists: dbDenylists,
     heritage_allowed,
     is_kactive_brand: isKactiveBrand,
+    is_own_brand: isOwnBrand,
+    has_db_brand_voice: !!stammdaten.brand_voice,
     constraints: pageType.constraints ?? [],
   };
 }
