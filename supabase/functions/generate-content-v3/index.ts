@@ -329,20 +329,18 @@ async function buildContext(supabase: any, input: ContextInput) {
 
   if (!pageType) throw new Error(`Unknown page_type: ${input.page_type}`);
 
-  // 3) Evidence aus DB (mit kw-Filter), sonst Hardcode
-  const dbEvidence = stammdaten.evidence_library.length > 0
-    ? stammdaten.evidence_library.map((e: any) => ({
-        code: e.evidence_key,
-        topic: e.category ?? "",
-        claim_template: e.claim,
-        evidence_strength: e.strength,
-        source_type: e.evidence_type,
-        hwg_compliant: true,
-        forbidden_phrasings: [],
-        permitted_phrasings: e.hwg_compatible_phrasings ?? [],
-        applicable_brand: e.brand_name,
-      }))
-    : EVIDENCE_LIBRARY;
+  // 3) Evidence ausschließlich aus DB. Keine Hardcode-Fallbacks.
+  const dbEvidence = stammdaten.evidence_library.map((e: any) => ({
+    code: e.evidence_key,
+    topic: e.category ?? "",
+    claim_template: e.claim,
+    evidence_strength: e.strength,
+    source_type: e.evidence_type,
+    hwg_compliant: true,
+    forbidden_phrasings: [],
+    permitted_phrasings: e.hwg_compatible_phrasings ?? [],
+    applicable_brand: e.brand_name,
+  }));
 
   const kw = input.focus_keyword.toLowerCase();
   const kwTokens = kw.split(/\s+/).filter((t) => t.length > 3);
@@ -351,7 +349,7 @@ async function buildContext(supabase: any, input: ContextInput) {
     return kwTokens.some((t) => haystack.includes(t));
   });
 
-  // 4) Brand-Klassifizierung: own_brand vs competitor (DB-Registry > Hardcode K-Active-Heuristik)
+  // 4) Brand-Klassifizierung ausschließlich aus DB-Registry
   const brandRegistryEntry = input.brand_name
     ? stammdaten.brands_registry.find(
         (b: any) =>
@@ -361,41 +359,33 @@ async function buildContext(supabase: any, input: ContextInput) {
     : null;
 
   const isOwnBrand = brandRegistryEntry?.brand_type === "own_brand";
-  const isKactiveBrand =
-    !!input.brand_name &&
-    (input.brand_name.toLowerCase().includes("k-active") ||
-      input.brand_name.toLowerCase().includes("kactive"));
 
-  // Heritage NUR wenn explizit K-Active oder als own_brand klassifiziert
-  const heritage_allowed =
-    (isKactiveBrand && (input.page_type === "brand" || input.product_type === "own_brand")) ||
-    (isOwnBrand && stammdaten.brand_voice && (input.page_type === "brand" || input.product_type === "own_brand"));
+  // 5) Competitor-Positioning ausschließlich aus DB
+  const competitorPositioning = stammdaten.competitor_positioning.map((c: any) => ({
+    competitor: c.competitor_name,
+    avoid_phrasing: c.avoid_overlap_themes ?? [],
+    differentiator: c.differentiation_strategy ?? "",
+  }));
 
-  // 5) Competitor-Positioning (DB > Hardcode)
-  const competitorPositioning = stammdaten.competitor_positioning.length > 0
-    ? stammdaten.competitor_positioning.map((c: any) => ({
-        competitor: c.competitor_name,
-        avoid_phrasing: c.avoid_overlap_themes ?? [],
-        differentiator: c.differentiation_strategy ?? "",
-      }))
-    : COMPETITOR_POSITIONING;
-
-  // 6) Denylists (DB-Phrasen flach gemappt + Hardcode-HWG immer aktiv)
+  // 6) Denylists aus DB (HWG/MDR nur wenn Org sie pflegt)
   const dbDenylists: Record<string, string[]> = {};
   for (const d of stammdaten.denylists) {
     if (!dbDenylists[d.category]) dbDenylists[d.category] = [];
     dbDenylists[d.category].push(d.phrase);
   }
 
+  // Tonality: Brand-Voice aus DB hat Vorrang, sonst neutraler Default
+  const activeTonality = DEFAULT_TONALITY;
+
   return {
-    tonality: TONALITY_KACTIVE,
+    tonality: activeTonality,
     page_type: pageType,
     page_type_key: input.page_type,
     audience: input.audience_channel,
     audience_register:
-      TONALITY_KACTIVE.audience_register[
-        input.audience_channel as keyof typeof TONALITY_KACTIVE.audience_register
-      ],
+      activeTonality.audience_register[
+        input.audience_channel as keyof typeof activeTonality.audience_register
+      ] ?? "Sachlich, an Zielgruppe angepasst",
     product_type: input.product_type,
     brand_name: input.brand_name,
     brand_voice: stammdaten.brand_voice, // null wenn keine DB-Eintragung
@@ -405,8 +395,6 @@ async function buildContext(supabase: any, input: ContextInput) {
     relevant_evidence: relevantEvidence,
     competitor_positioning: competitorPositioning,
     db_denylists: dbDenylists,
-    heritage_allowed,
-    is_kactive_brand: isKactiveBrand,
     is_own_brand: isOwnBrand,
     has_db_brand_voice: !!stammdaten.brand_voice,
     constraints: pageType.constraints ?? [],
