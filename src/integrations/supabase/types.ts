@@ -14,6 +14,130 @@ export type Database = {
   }
   public: {
     Tables: {
+      brand_voices: {
+        Row: {
+          brand_name: string
+          brand_story: string | null
+          compliance_notes: string | null
+          core_values: Json | null
+          created_at: string
+          example_snippets: Json | null
+          forbidden_terms: Json | null
+          id: string
+          is_active: boolean | null
+          mandatory_terms: Json | null
+          mission: string | null
+          organization_id: string
+          preferred_phrases: Json | null
+          product_categories: Json | null
+          target_audiences: Json | null
+          tonality: string | null
+          unique_selling_points: Json | null
+          updated_at: string
+          vision: string | null
+          voice_attributes: Json | null
+        }
+        Insert: {
+          brand_name: string
+          brand_story?: string | null
+          compliance_notes?: string | null
+          core_values?: Json | null
+          created_at?: string
+          example_snippets?: Json | null
+          forbidden_terms?: Json | null
+          id?: string
+          is_active?: boolean | null
+          mandatory_terms?: Json | null
+          mission?: string | null
+          organization_id: string
+          preferred_phrases?: Json | null
+          product_categories?: Json | null
+          target_audiences?: Json | null
+          tonality?: string | null
+          unique_selling_points?: Json | null
+          updated_at?: string
+          vision?: string | null
+          voice_attributes?: Json | null
+        }
+        Update: {
+          brand_name?: string
+          brand_story?: string | null
+          compliance_notes?: string | null
+          core_values?: Json | null
+          created_at?: string
+          example_snippets?: Json | null
+          forbidden_terms?: Json | null
+          id?: string
+          is_active?: boolean | null
+          mandatory_terms?: Json | null
+          mission?: string | null
+          organization_id?: string
+          preferred_phrases?: Json | null
+          product_categories?: Json | null
+          target_audiences?: Json | null
+          tonality?: string | null
+          unique_selling_points?: Json | null
+          updated_at?: string
+          vision?: string | null
+          voice_attributes?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_voices_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brands_registry: {
+        Row: {
+          aliases: Json | null
+          brand_name: string
+          brand_type: string
+          created_at: string
+          domain: string | null
+          id: string
+          is_active: boolean | null
+          notes: string | null
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          aliases?: Json | null
+          brand_name: string
+          brand_type?: string
+          created_at?: string
+          domain?: string | null
+          id?: string
+          is_active?: boolean | null
+          notes?: string | null
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          aliases?: Json | null
+          brand_name?: string
+          brand_type?: string
+          created_at?: string
+          domain?: string | null
+          id?: string
+          is_active?: boolean | null
+          notes?: string | null
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brands_registry_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       competitor_analyses: {
         Row: {
           best_practices: Json | null
@@ -96,6 +220,56 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "competitor_analyses_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competitor_positioning: {
+        Row: {
+          avoid_overlap_themes: Json | null
+          competitor_name: string
+          created_at: string
+          differentiation_strategy: string | null
+          id: string
+          is_active: boolean | null
+          notes: string | null
+          organization_id: string
+          positioning_summary: string | null
+          unique_angles: Json | null
+          updated_at: string
+        }
+        Insert: {
+          avoid_overlap_themes?: Json | null
+          competitor_name: string
+          created_at?: string
+          differentiation_strategy?: string | null
+          id?: string
+          is_active?: boolean | null
+          notes?: string | null
+          organization_id: string
+          positioning_summary?: string | null
+          unique_angles?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          avoid_overlap_themes?: Json | null
+          competitor_name?: string
+          created_at?: string
+          differentiation_strategy?: string | null
+          id?: string
+          is_active?: boolean | null
+          notes?: string | null
+          organization_id?: string
+          positioning_summary?: string | null
+          unique_angles?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitor_positioning_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -520,6 +694,56 @@ export type Database = {
           },
         ]
       }
+      denylists: {
+        Row: {
+          applies_to_page_types: Json | null
+          category: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          organization_id: string
+          phrase: string
+          reason: string | null
+          replacement_suggestion: string | null
+          severity: string | null
+          updated_at: string
+        }
+        Insert: {
+          applies_to_page_types?: Json | null
+          category: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          organization_id: string
+          phrase: string
+          reason?: string | null
+          replacement_suggestion?: string | null
+          severity?: string | null
+          updated_at?: string
+        }
+        Update: {
+          applies_to_page_types?: Json | null
+          category?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          organization_id?: string
+          phrase?: string
+          reason?: string | null
+          replacement_suggestion?: string | null
+          severity?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "denylists_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       domain_knowledge: {
         Row: {
           ai_summary: string | null
@@ -590,6 +814,71 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "domain_knowledge_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      evidence_library: {
+        Row: {
+          brand_name: string | null
+          category: string | null
+          caveats: Json | null
+          claim: string
+          created_at: string
+          evidence_key: string
+          evidence_type: string | null
+          hwg_compatible_phrasings: Json | null
+          id: string
+          is_active: boolean | null
+          organization_id: string
+          sources: Json | null
+          strength: string | null
+          updated_at: string
+          valid_until: string | null
+          version: number | null
+        }
+        Insert: {
+          brand_name?: string | null
+          category?: string | null
+          caveats?: Json | null
+          claim: string
+          created_at?: string
+          evidence_key: string
+          evidence_type?: string | null
+          hwg_compatible_phrasings?: Json | null
+          id?: string
+          is_active?: boolean | null
+          organization_id: string
+          sources?: Json | null
+          strength?: string | null
+          updated_at?: string
+          valid_until?: string | null
+          version?: number | null
+        }
+        Update: {
+          brand_name?: string | null
+          category?: string | null
+          caveats?: Json | null
+          claim?: string
+          created_at?: string
+          evidence_key?: string
+          evidence_type?: string | null
+          hwg_compatible_phrasings?: Json | null
+          id?: string
+          is_active?: boolean | null
+          organization_id?: string
+          sources?: Json | null
+          strength?: string | null
+          updated_at?: string
+          valid_until?: string | null
+          version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evidence_library_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -705,6 +994,68 @@ export type Database = {
           website?: string | null
         }
         Relationships: []
+      }
+      page_types: {
+        Row: {
+          created_at: string
+          cta_strategy: string | null
+          default_structure: Json
+          default_word_count: number | null
+          description: string | null
+          display_name: string
+          forbidden_sections: Json | null
+          id: string
+          is_active: boolean | null
+          meta_template: Json | null
+          organization_id: string | null
+          required_sections: Json | null
+          type_key: string
+          updated_at: string
+          voice_mode_defaults: Json | null
+        }
+        Insert: {
+          created_at?: string
+          cta_strategy?: string | null
+          default_structure?: Json
+          default_word_count?: number | null
+          description?: string | null
+          display_name: string
+          forbidden_sections?: Json | null
+          id?: string
+          is_active?: boolean | null
+          meta_template?: Json | null
+          organization_id?: string | null
+          required_sections?: Json | null
+          type_key: string
+          updated_at?: string
+          voice_mode_defaults?: Json | null
+        }
+        Update: {
+          created_at?: string
+          cta_strategy?: string | null
+          default_structure?: Json
+          default_word_count?: number | null
+          description?: string | null
+          display_name?: string
+          forbidden_sections?: Json | null
+          id?: string
+          is_active?: boolean | null
+          meta_template?: Json | null
+          organization_id?: string | null
+          required_sections?: Json | null
+          type_key?: string
+          updated_at?: string
+          voice_mode_defaults?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "page_types_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
