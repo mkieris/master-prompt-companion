@@ -733,10 +733,10 @@ function checkEvidenceMatching(content: any, evidenceLib: any[]) {
   return { matched, invalid, total_refs: allRefs.length };
 }
 
-function checkCompetitorWarnings(text: string) {
+function checkCompetitorWarnings(text: string, competitorPositioning: any[]) {
   const lower = text.toLowerCase();
   const warnings: { competitor: string; phrase: string }[] = [];
-  for (const c of COMPETITOR_POSITIONING) {
+  for (const c of competitorPositioning) {
     for (const p of c.avoid_phrasing) {
       if (lower.includes(p.toLowerCase())) {
         warnings.push({ competitor: c.competitor, phrase: p });
