@@ -772,7 +772,7 @@ async function stageCompliance(ctx: any, content: any) {
   const dont_use_violations = checkBrandVoiceDontUse(fullText);
   const heritage_violations = checkHeritageViolation(fullText, ctx);
   const evidence_matching = checkEvidenceMatching(content, ctx.relevant_evidence);
-  const competitor_warnings = checkCompetitorWarnings(fullText);
+  const competitor_warnings = checkCompetitorWarnings(fullText, ctx.competitor_positioning);
   const page_type_violations = checkPageTypeConstraints(fullText, ctx);
 
   const hard_blocks =
