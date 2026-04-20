@@ -849,7 +849,7 @@ Deno.serve(async (req) => {
     // STAGE 2b — Optional Parallel Audience Writer
     let parallelContent: any = null;
     if (parallel_audience && parallel_audience !== audience_channel) {
-      const parallelCtx = { ...ctx, audience: parallel_audience, audience_register: BRAND_VOICE_KACTIVE.audience_register[parallel_audience as keyof typeof BRAND_VOICE_KACTIVE.audience_register] };
+      const parallelCtx = { ...ctx, audience: parallel_audience, audience_register: TONALITY_KACTIVE.audience_register[parallel_audience as keyof typeof TONALITY_KACTIVE.audience_register] };
       const tp = Date.now();
       const { content: pcontent, tokens_in: pti, tokens_out: pto } = await stageWriter(parallelCtx, outline);
       totalTokensIn += pti;
