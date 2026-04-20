@@ -562,11 +562,12 @@ function checkCompetitorWarnings(text: string) {
 function checkPageTypeConstraints(text: string, ctx: any) {
   const violations: string[] = [];
   if (ctx.page_type_key === "category") {
-    // No brand-specific claims in category main text
-    const brandMentions = ["k-active tape classic", "recovery boots 3.0", "hyperice normatec"];
-    const lower = text.toLowerCase();
-    if (brandMentions.some((b) => lower.includes(b))) {
-      violations.push("Marken-spezifischer Claim auf Kategorieseite gefunden");
+    // Auf Kategorieseiten: keine spezifische Produktnennung des Subjekts erlaubt
+    if (ctx.object_name) {
+      const lower = text.toLowerCase();
+      if (lower.includes(ctx.object_name.toLowerCase())) {
+        violations.push(`Konkrete Produktnennung '${ctx.object_name}' auf Kategorieseite gefunden`);
+      }
     }
   }
   if (ctx.page_type_key === "guide" && ctx.audience === "b2c_patient") {
