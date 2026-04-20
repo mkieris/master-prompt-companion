@@ -951,6 +951,21 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+    // organization_id vom Projekt laden (Pflicht für Stammdaten-Lookup)
+    const { data: projectRow } = await supabase
+      .from("content_v3_projects")
+      .select("organization_id")
+      .eq("id", project_id)
+      .maybeSingle();
+
+    const organization_id = projectRow?.organization_id;
+    if (!organization_id) {
+      return new Response(
+        JSON.stringify({ error: `Project ${project_id} not found or missing organization_id` }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     // Mark project running
     await supabase
       .from("content_v3_projects")
@@ -960,9 +975,10 @@ Deno.serve(async (req) => {
     let totalTokensIn = 0;
     let totalTokensOut = 0;
 
-    // STAGE 0 — Context
+    // STAGE 0 — Context (DB-Lookups mit Fail-Soft)
     const t0 = Date.now();
-    const ctx = buildContext({
+    const ctx = await buildContext(supabase, {
+      organization_id,
       page_type,
       audience_channel,
       product_type,
@@ -973,8 +989,14 @@ Deno.serve(async (req) => {
     });
     await recordStage(supabase, project_id, "context", 0, {
       model_used: "ts-builder",
-      input_payload: { page_type, audience_channel, focus_keyword },
-      output_payload: { evidence_count: ctx.relevant_evidence.length, heritage_allowed: ctx.heritage_allowed },
+      input_payload: { page_type, audience_channel, focus_keyword, brand_name },
+      output_payload: {
+        evidence_count: ctx.relevant_evidence.length,
+        heritage_allowed: ctx.heritage_allowed,
+        has_db_brand_voice: ctx.has_db_brand_voice,
+        is_own_brand: ctx.is_own_brand,
+        page_type_source: ctx.page_type.name,
+      },
       duration_ms: Date.now() - t0,
       status: "completed",
     });
