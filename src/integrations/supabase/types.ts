@@ -287,6 +287,195 @@ export type Database = {
           },
         ]
       }
+      content_v3_compliance_reports: {
+        Row: {
+          competitor_warnings: Json | null
+          created_at: string
+          evidence_matches: Json | null
+          hwg_violations: Json | null
+          id: string
+          missing_evidence: Json | null
+          overall_status: string
+          page_type_violations: Json | null
+          project_id: string
+          rewrite_count: number | null
+          variant: string
+        }
+        Insert: {
+          competitor_warnings?: Json | null
+          created_at?: string
+          evidence_matches?: Json | null
+          hwg_violations?: Json | null
+          id?: string
+          missing_evidence?: Json | null
+          overall_status: string
+          page_type_violations?: Json | null
+          project_id: string
+          rewrite_count?: number | null
+          variant?: string
+        }
+        Update: {
+          competitor_warnings?: Json | null
+          created_at?: string
+          evidence_matches?: Json | null
+          hwg_violations?: Json | null
+          id?: string
+          missing_evidence?: Json | null
+          overall_status?: string
+          page_type_violations?: Json | null
+          project_id?: string
+          rewrite_count?: number | null
+          variant?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_v3_compliance_reports_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "content_v3_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_v3_pipeline_runs: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          error_message: string | null
+          id: string
+          input_payload: Json | null
+          model_used: string | null
+          output_payload: Json | null
+          project_id: string
+          stage: string
+          stage_order: number
+          status: string
+          temperature: number | null
+          tokens_input: number | null
+          tokens_output: number | null
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          input_payload?: Json | null
+          model_used?: string | null
+          output_payload?: Json | null
+          project_id: string
+          stage: string
+          stage_order: number
+          status?: string
+          temperature?: number | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          input_payload?: Json | null
+          model_used?: string | null
+          output_payload?: Json | null
+          project_id?: string
+          stage?: string
+          stage_order?: number
+          status?: string
+          temperature?: number | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_v3_pipeline_runs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "content_v3_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_v3_projects: {
+        Row: {
+          audience_channel: string
+          brand_name: string | null
+          compliance_status: string | null
+          content_score: Json | null
+          created_at: string
+          created_by: string
+          error_message: string | null
+          final_content: Json | null
+          focus_keyword: string
+          id: string
+          object_name: string
+          organization_id: string
+          page_type: string
+          parallel_audience: string | null
+          parallel_content: Json | null
+          product_type: string | null
+          status: string
+          target_word_count: number
+          total_cost_cents: number | null
+          total_tokens_used: number | null
+          updated_at: string
+        }
+        Insert: {
+          audience_channel: string
+          brand_name?: string | null
+          compliance_status?: string | null
+          content_score?: Json | null
+          created_at?: string
+          created_by: string
+          error_message?: string | null
+          final_content?: Json | null
+          focus_keyword: string
+          id?: string
+          object_name: string
+          organization_id: string
+          page_type: string
+          parallel_audience?: string | null
+          parallel_content?: Json | null
+          product_type?: string | null
+          status?: string
+          target_word_count?: number
+          total_cost_cents?: number | null
+          total_tokens_used?: number | null
+          updated_at?: string
+        }
+        Update: {
+          audience_channel?: string
+          brand_name?: string | null
+          compliance_status?: string | null
+          content_score?: Json | null
+          created_at?: string
+          created_by?: string
+          error_message?: string | null
+          final_content?: Json | null
+          focus_keyword?: string
+          id?: string
+          object_name?: string
+          organization_id?: string
+          page_type?: string
+          parallel_audience?: string | null
+          parallel_content?: Json | null
+          product_type?: string | null
+          status?: string
+          target_word_count?: number
+          total_cost_cents?: number | null
+          total_tokens_used?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_v3_projects_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_versions: {
         Row: {
           change_notes: string | null
