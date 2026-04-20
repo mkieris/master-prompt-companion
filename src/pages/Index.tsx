@@ -130,6 +130,19 @@ const Index = ({ session }: IndexProps) => {
       route: '/content-v2',
       badge: 'V2',
     },
+    {
+      id: 'content-v3',
+      title: 'Content Studio V3',
+      subtitle: 'K-Active Pipeline (Experiment)',
+      description: '4-Stage-Pipeline (Context → Outline → Writer → Compliance) mit Brand-Voice, Evidence-Library und HWG-Checks. Strikt Claude Sonnet.',
+      icon: Sparkles,
+      color: 'from-amber-500 to-orange-500',
+      bgColor: 'bg-amber-500/10',
+      borderColor: 'border-amber-500/20 hover:border-amber-500/50',
+      features: ['4-Stage-Pipeline', '14-Slot Brand-Voice', 'Evidence-Matching', 'Auto-Rewrite'],
+      route: '/content-v3',
+      badge: 'V3 EXP',
+    },
   ];
 
   return (
