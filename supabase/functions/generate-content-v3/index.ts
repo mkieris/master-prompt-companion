@@ -346,25 +346,32 @@ function buildContext(input: ContextInput) {
   const pageType = PAGE_TYPES[input.page_type];
   if (!pageType) throw new Error(`Unknown page_type: ${input.page_type}`);
 
-  // Filter Evidence by relevance (simple keyword match)
+  // Filter Evidence by relevance — strict keyword/topic match, NO product-type bias
   const kw = input.focus_keyword.toLowerCase();
-  const relevantEvidence = EVIDENCE_LIBRARY.filter((e) =>
-    e.topic.toLowerCase().includes(kw) ||
-    e.claim_template.toLowerCase().includes(kw) ||
-    kw.includes("tape") && e.code.startsWith("EV-00"),
-  );
+  const kwTokens = kw.split(/\s+/).filter((t) => t.length > 3);
+  const relevantEvidence = EVIDENCE_LIBRARY.filter((e) => {
+    const haystack = `${e.topic} ${e.claim_template}`.toLowerCase();
+    return kwTokens.some((t) => haystack.includes(t));
+  });
 
-  // Heritage allowed?
+  // Heritage allowed ONLY if explicitly K-Active brand AND brand-page or own_brand product
+  const isKactiveBrand =
+    !!input.brand_name &&
+    (input.brand_name.toLowerCase().includes("k-active") ||
+      input.brand_name.toLowerCase().includes("kactive"));
   const heritage_allowed =
-    input.product_type === "own_brand" ||
-    (input.page_type === "brand" && (input.brand_name?.toLowerCase().includes("k-active") || input.brand_name?.toLowerCase().includes("kactive")));
+    (input.product_type === "own_brand" && isKactiveBrand) ||
+    (input.page_type === "brand" && isKactiveBrand);
 
   return {
-    brand_voice: BRAND_VOICE_KACTIVE,
+    tonality: TONALITY_KACTIVE,
     page_type: pageType,
     page_type_key: input.page_type,
     audience: input.audience_channel,
-    audience_register: BRAND_VOICE_KACTIVE.audience_register[input.audience_channel as keyof typeof BRAND_VOICE_KACTIVE.audience_register],
+    audience_register:
+      TONALITY_KACTIVE.audience_register[
+        input.audience_channel as keyof typeof TONALITY_KACTIVE.audience_register
+      ],
     product_type: input.product_type,
     brand_name: input.brand_name,
     object_name: input.object_name,
@@ -373,6 +380,7 @@ function buildContext(input: ContextInput) {
     relevant_evidence: relevantEvidence,
     competitor_positioning: COMPETITOR_POSITIONING,
     heritage_allowed,
+    is_kactive_brand: isKactiveBrand,
     constraints: pageType.constraints ?? [],
   };
 }
@@ -381,30 +389,43 @@ function buildContext(input: ContextInput) {
 // STAGE 1 — OUTLINE (Claude T=0.4)
 // ════════════════════════════════════════════════════════════════════════
 async function stageOutline(ctx: any) {
-  const system = `Du bist ein Content-Strategist für K-Active Europe GmbH. Du erstellst Outlines für ${ctx.page_type.name} im Healthcare/Physiotherapie-Bereich. HWG- und MDR-konform.
+  const subjectLine = ctx.brand_name
+    ? `${ctx.object_name} (Marke: ${ctx.brand_name})`
+    : ctx.object_name;
+
+  const system = `Du bist ein Content-Strategist für ${ctx.page_type.name} im Healthcare-/Physiotherapie-Umfeld. HWG- und MDR-konform.
+
+WICHTIG — SUBJEKT DES TEXTS:
+Der Text behandelt ausschließlich: "${subjectLine}" rund um das Keyword "${ctx.focus_keyword}".
+Schreibe NICHT über die schreibende Firma oder einen Distributor, sondern über das oben genannte Subjekt.
+${ctx.is_kactive_brand && ctx.page_type_key === "brand"
+  ? "Ausnahme: Auf dieser Markenseite IST die Marke K-Active selbst das Subjekt — Heritage darf einfließen."
+  : "Erwähne K-Active, Nitto Denko, Kenzo Kase oder das Gründungsjahr 1996 NICHT — auch nicht beiläufig."}
+
+Schreibstil-Vorgabe (Tonalität, NICHT Inhalt):
+${TONALITY_KACTIVE.description}
 
 Pflicht-Regeln:
 - Nutze die default_structure als Ausgangspunkt, optimiere für Keyword "${ctx.focus_keyword}"
 - Voice-Mode pro Sektion respektieren (factual/expert/advisory/narrative)
 - Audience: ${ctx.audience} — Register: ${ctx.audience_register}
-- Heritage-Claims (Nitto Denko, 1996, Kenzo Kase): ${ctx.heritage_allowed ? "ERLAUBT" : "VERBOTEN"}
 - Constraints: ${JSON.stringify(ctx.constraints)}
 
 Output: NUR JSON, keine Erklärung.`;
 
   const user = `Erstelle eine optimierte Outline für:
 - Seitentyp: ${ctx.page_type.name}
-- Objekt: ${ctx.object_name}
+- Subjekt des Texts: ${subjectLine}
 - Fokus-Keyword: ${ctx.focus_keyword}
 - Ziel-Wortzahl: ${ctx.target_word_count}
 - Ausgangs-Struktur: ${JSON.stringify(ctx.page_type.default_structure)}
 
 Output-Format:
 {
-  "title": "SEO-Titel max 60 Zeichen",
-  "meta_description": "max 160 Zeichen",
+  "title": "SEO-Titel max 60 Zeichen, enthält das Subjekt",
+  "meta_description": "max 160 Zeichen, beschreibt das Subjekt",
   "sections": [
-    { "h2": "string", "h3s": ["optional"], "target_words": number, "voice_mode": "factual|expert|advisory|narrative", "key_points": ["3-5 Stichpunkte"], "evidence_refs": ["EV-XXX", ...] }
+    { "h2": "string", "h3s": ["optional"], "target_words": number, "voice_mode": "factual|expert|advisory|narrative", "key_points": ["3-5 Stichpunkte zum Subjekt"], "evidence_refs": ["EV-XXX", ...] }
   ],
   "estimated_total_words": number
 }`;
@@ -418,29 +439,46 @@ Output-Format:
 // STAGE 2 — WRITER (Claude T=0.7)
 // ════════════════════════════════════════════════════════════════════════
 async function stageWriter(ctx: any, outline: any) {
-  const system = `Du bist Senior Medical Content Writer für K-Active Europe GmbH.
+  const subjectLine = ctx.brand_name
+    ? `${ctx.object_name} (Marke: ${ctx.brand_name})`
+    : ctx.object_name;
 
-BRAND VOICE (verbindlich):
-${JSON.stringify(BRAND_VOICE_KACTIVE, null, 2)}
+  const heritageBlock =
+    ctx.is_kactive_brand && (ctx.page_type_key === "brand" || ctx.product_type === "own_brand")
+      ? `HERITAGE-DATEN (nur weil Subjekt eine K-Active-Eigenmarke/Markenseite ist — sparsam einsetzen):\n${JSON.stringify(KACTIVE_BRAND_HERITAGE, null, 2)}`
+      : `HERITAGE: VERBOTEN. Erwähne NICHT: K-Active, K-Active Europe, Nitto Denko, Kenzo Kase, "seit 1996", "Pionier des kinesiologischen Tapings", Hösbach, Meik Vogler. Subjekt ist "${subjectLine}", nicht der Distributor.`;
 
-EVIDENCE LIBRARY (verbindlich, jede Wirkungsaussage MUSS evidence_ref enthalten):
+  const system = `Du bist Senior Medical Content Writer im Healthcare-/Physiotherapie-Umfeld.
+
+═══ SUBJEKT (oberste Priorität) ═══
+Der Text behandelt ausschließlich: "${subjectLine}" rund um das Keyword "${ctx.focus_keyword}".
+Schreibe ÜBER dieses Subjekt — nicht über die schreibende Firma, nicht über einen Distributor.
+${ctx.brand_name ? `Wenn die Marke "${ctx.brand_name}" eine Drittmarke ist, schreibe sachlich über die Marke und ihre Produkte, OHNE eigene Firma einzubringen.` : ""}
+
+═══ TONALITÄT (Stil-Layer K-Active-Voice — NICHT Subjekt!) ═══
+${JSON.stringify(TONALITY_KACTIVE, null, 2)}
+
+═══ HERITAGE-REGEL ═══
+${heritageBlock}
+
+═══ EVIDENCE LIBRARY (verbindlich, jede Wirkungsaussage MUSS evidence_ref enthalten) ═══
 ${JSON.stringify(ctx.relevant_evidence, null, 2)}
 
-COMPETITOR POSITIONING (Abgrenzung):
+═══ COMPETITOR POSITIONING (sprachliche Abgrenzung, KEINE Markennennung im Text) ═══
 ${JSON.stringify(COMPETITOR_POSITIONING, null, 2)}
 
 PFLICHT-REGELN:
-1. Audience-Register: ${ctx.audience} — ${ctx.audience_register}
-2. Heritage (Nitto Denko, 1996, Kenzo Kase): ${ctx.heritage_allowed ? "ERLAUBT, nutze heritage_slots wenn passend" : "STRIKT VERBOTEN"}
-3. Jede Wirkungsaussage in JSON-Output mit "evidence_ref": "EV-XXX" markieren
-4. Verwende permitted_phrasings, vermeide forbidden_phrasings
-5. dont_use Wörter aus Brand Voice NIEMALS verwenden
+1. Subjekt-Treue: Jede Sektion behandelt "${subjectLine}" / "${ctx.focus_keyword}" — keine Abschweifung auf andere Produkte oder die schreibende Firma.
+2. Audience-Register: ${ctx.audience} — ${ctx.audience_register}
+3. Jede Wirkungsaussage mit "evidence_ref": "EV-XXX" markieren (sofern Evidence vorhanden)
+4. Verwende permitted_phrasings der Evidence, vermeide forbidden_phrasings
+5. dont_use Wörter aus Tonalität NIEMALS verwenden
 6. Constraints: ${JSON.stringify(ctx.constraints)}
-7. ${ctx.audience_channel === "b2c_patient" && ctx.page_type_key === "guide" ? "PFLICHT-Hinweis 'bei anhaltenden Beschwerden ärztlich abklären' integrieren" : ""}
+7. ${ctx.audience === "b2c_patient" && ctx.page_type_key === "guide" ? "PFLICHT-Hinweis 'bei anhaltenden Beschwerden ärztlich abklären' integrieren" : "—"}
 
 Output: NUR JSON.`;
 
-  const user = `Schreibe den vollständigen Text gemäß Outline:
+  const user = `Schreibe den vollständigen Text gemäß Outline (Subjekt: ${subjectLine}, Keyword: ${ctx.focus_keyword}):
 ${JSON.stringify(outline, null, 2)}
 
 Format:
