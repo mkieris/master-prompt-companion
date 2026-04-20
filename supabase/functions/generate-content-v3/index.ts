@@ -583,16 +583,17 @@ function checkDenylist(text: string) {
   return violations;
 }
 
-function checkBrandVoiceDontUse(text: string) {
+function checkBrandVoiceDontUse(text: string, ctx: any) {
   const lower = text.toLowerCase();
-  return TONALITY_KACTIVE.dont_use.filter((w) => lower.includes(w.toLowerCase()));
+  return (ctx.tonality?.dont_use ?? []).filter((w: string) => lower.includes(w.toLowerCase()));
 }
 
-function checkHeritageViolation(text: string, ctx: any) {
-  if (ctx.heritage_allowed) return [];
-  const heritageMarkers = ["nitto denko", "kenzo kase", "seit 1996", "pionier des kinesiologischen"];
+function checkForbiddenBrandTerms(text: string, ctx: any) {
+  // Nutzt brand_voice.forbidden_terms aus DB (sofern vorhanden) statt Hardcode-Heritage.
+  const forbidden: string[] = ctx.brand_voice?.forbidden_terms ?? [];
+  if (forbidden.length === 0) return [];
   const lower = text.toLowerCase();
-  return heritageMarkers.filter((m) => lower.includes(m));
+  return forbidden.filter((t: string) => t && lower.includes(t.toLowerCase()));
 }
 
 function checkEvidenceMatching(content: any, evidenceLib: any[]) {
