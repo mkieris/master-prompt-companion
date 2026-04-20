@@ -525,7 +525,7 @@ function checkDenylist(text: string) {
 
 function checkBrandVoiceDontUse(text: string) {
   const lower = text.toLowerCase();
-  return BRAND_VOICE_KACTIVE.dont_use.filter((w) => lower.includes(w.toLowerCase()));
+  return TONALITY_KACTIVE.dont_use.filter((w) => lower.includes(w.toLowerCase()));
 }
 
 function checkHeritageViolation(text: string, ctx: any) {
