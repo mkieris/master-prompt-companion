@@ -16,14 +16,14 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const MODEL = "claude-sonnet-4-5-20250929";
 
 // ════════════════════════════════════════════════════════════════════════
-// HARDCODED BRAND VOICE — K-Active (14 Slots)
+// TONALITY & STYLE LAYER — K-Active Schreibstil (NICHT Firmen-Identität!)
+// Diese Sektion definiert NUR Ton, Sprache, Stil — NICHT Inhalt oder Subjekt.
+// Subjekt jedes Texts ist immer das vom User gewählte object_name/focus_keyword.
 // ════════════════════════════════════════════════════════════════════════
-const BRAND_VOICE_KACTIVE = {
-  brand_id: "kactive",
-  identity_core:
-    "K-Active Europe GmbH ist ein Multi-Brand-Distributor aus Hösbach für Physiotherapie-, Reha- und Recovery-Equipment. Geführt von Physiotherapeut Meik Vogler. Pionier des kinesiologischen Tapings in Europa seit 1996, exklusive Partnerschaft mit Nitto Denko (Erfinder Dr. Kenzo Kase, Japan).",
-  mission:
-    "Therapeuten und aktive Menschen mit fachlich fundierter, evidenzbasierter Ausrüstung versorgen.",
+const TONALITY_KACTIVE = {
+  style_id: "kactive-voice",
+  description:
+    "Fachlich-souveräner Schreibstil aus dem Healthcare-/Physiotherapie-Umfeld. Ruhig, evidenzbasiert, ohne Marketing-Hype. Therapeuten-Perspektive.",
   values: [
     "Fachliche Tiefe vor Marketing-Glanz",
     "Therapeuten-Perspektive vor Produkt-Hype",
@@ -43,14 +43,13 @@ const BRAND_VOICE_KACTIVE = {
     emotion: "kontrolliert, sachlich-warm, niemals reißerisch",
     pace: "ruhig, gegliedert, keine Stakkato-CTAs",
   },
-  do_use: [
-    "Originaltape aus Japan",
+  // Generische Stil-Phrasen (KEINE produkt- oder markenspezifischen!)
+  do_use_style: [
     "klinisch erprobt",
-    "von Therapeuten entwickelt",
     "evidenzbasiert",
     "Anwendungsbeobachtung zeigt",
     "in der Praxis bewährt",
-    "Materialqualität nach Nitto-Denko-Spezifikation",
+    "fachlich fundiert",
   ],
   dont_use: [
     "revolutionär",
@@ -65,18 +64,13 @@ const BRAND_VOICE_KACTIVE = {
   ],
   tonality_examples: {
     good:
-      "Das K-Active Tape Classic basiert auf der Originalformel, die Dr. Kenzo Kase 1979 in Japan entwickelt hat. Anwendungsbeobachtungen in Physiotherapiepraxen zeigen Unterstützung bei Bewegungseinschränkungen muskulärer Genese.",
+      "Anwendungsbeobachtungen in Physiotherapiepraxen zeigen Unterstützung bei Bewegungseinschränkungen muskulärer Genese. Die Materialeigenschaften erlauben eine Applikation über mehrere Tage.",
     bad:
-      "Unser revolutionäres Premium-Tape garantiert sofortige Schmerzlinderung und ist das beste Produkt am Markt!",
+      "Unser revolutionäres Premium-Produkt garantiert sofortige Schmerzlinderung und ist das beste am Markt!",
   },
-  signature_phrases: [
-    "Aus der Praxis für die Praxis",
-    "Nitto Denko Originalqualität",
-    "Pionier seit 1996",
-  ],
   forbidden_topics: [
     "Heilversprechen",
-    "Vergleichswerbung mit Markennennung",
+    "Vergleichswerbung mit konkurrierender Markennennung",
     "Vorher/Nachher-Bilder",
   ],
   audience_register: {
@@ -87,15 +81,19 @@ const BRAND_VOICE_KACTIVE = {
     b2c_patient:
       "Du-Form, beruhigend, einfache Sprache, immer mit Hinweis 'bei anhaltenden Beschwerden ärztlich abklären'",
   },
-  heritage_slots: {
-    founded_year: 1996,
-    founder_partner: "Nitto Denko Corporation, Japan",
-    inventor_reference: "Dr. Kenzo Kase",
-    pioneer_claim: "Pionier des kinesiologischen Tapings in Europa",
-    location: "Hösbach bei Aschaffenburg",
-    leadership: "Geschäftsführer Meik Vogler, Physiotherapeut",
-  },
-  version: 1,
+  version: 2,
+};
+
+// Heritage-Daten NUR genutzt, wenn brand_name explizit K-Active ist UND page_type=brand.
+// In allen anderen Fällen kommen diese Infos NICHT in den Prompt.
+const KACTIVE_BRAND_HERITAGE = {
+  founded_year: 1996,
+  founder_partner: "Nitto Denko Corporation, Japan",
+  inventor_reference: "Dr. Kenzo Kase",
+  pioneer_claim: "Pionier des kinesiologischen Tapings in Europa",
+  location: "Hösbach bei Aschaffenburg",
+  leadership: "Geschäftsführer Meik Vogler, Physiotherapeut",
+  company_legal_name: "K-Active Europe GmbH",
 };
 
 // ════════════════════════════════════════════════════════════════════════
