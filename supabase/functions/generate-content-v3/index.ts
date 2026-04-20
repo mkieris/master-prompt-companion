@@ -410,12 +410,12 @@ async function stageOutline(ctx: any) {
     : ctx.object_name;
 
   // ANTI-HALLUZINATION-Block bei fehlender Brand-Voice
-  const factualGuardrail = !ctx.has_db_brand_voice && ctx.brand_name && !ctx.is_kactive_brand
+  const factualGuardrail = !ctx.has_db_brand_voice && ctx.brand_name
     ? `\n\n⚠️ KEINE Brand-Daten verfügbar für "${ctx.brand_name}":
-- Erfinde KEINE konkreten Materialeigenschaften, Dehnwerte, Tragezeiten, Studien, Gründungsjahre, USPs
-- Erfinde KEINE Sortimentsdetails (Breiten, Farben, Mengen)
-- Schreibe allgemein über die Produktkategorie "${ctx.focus_keyword}" und ihre fachliche Anwendung
-- Behaupte nichts Spezifisches über die Marke "${ctx.brand_name}", was nicht aus dem Object/Keyword folgt
+- Erfinde KEINE konkreten Materialeigenschaften, Maße, Studien, Gründungsjahre, USPs
+- Erfinde KEINE Sortimentsdetails (Größen, Farben, Mengen, Preise)
+- Schreibe sachlich-allgemein über das Subjekt "${ctx.object_name}" und das Keyword "${ctx.focus_keyword}"
+- Behaupte nichts Spezifisches über die Marke "${ctx.brand_name}", was nicht aus dem Subjekt/Keyword folgt
 - Wenn der Seitentyp markenspezifische Sektionen vorsieht (Heritage, Sortiment), reduziere sie oder ersetze sie durch fachlich-allgemeine Inhalte`
     : "";
 
@@ -430,19 +430,17 @@ ${JSON.stringify({
 }, null, 2)}`
     : "";
 
-  const system = `Du bist ein Content-Strategist für ${ctx.page_type.name} im Healthcare-/Physiotherapie-Umfeld. HWG- und MDR-konform.
+  const system = `Du bist ein erfahrener Content-Strategist für ${ctx.page_type.name}.
 
 WICHTIG — SUBJEKT DES TEXTS:
 Der Text behandelt ausschließlich: "${subjectLine}" rund um das Keyword "${ctx.focus_keyword}".
 Schreibe NICHT über die schreibende Firma oder einen Distributor, sondern über das oben genannte Subjekt.
-${ctx.is_kactive_brand && ctx.page_type_key === "brand"
-  ? "Ausnahme: Auf dieser Markenseite IST die Marke K-Active selbst das Subjekt — Heritage darf einfließen."
-  : "Erwähne K-Active, Nitto Denko, Kenzo Kase oder das Gründungsjahr 1996 NICHT — auch nicht beiläufig."}
+Annahmen über Branche, Produktkategorie oder fachlichen Hintergrund leitest du NUR aus "${ctx.object_name}" und "${ctx.focus_keyword}" ab — niemals aus früheren Beispielen.
 ${factualGuardrail}
 ${brandVoiceBlock}
 
 Schreibstil-Vorgabe (Tonalität, NICHT Inhalt):
-${TONALITY_KACTIVE.description}
+${ctx.tonality.description}
 
 Pflicht-Regeln:
 - Nutze die default_structure als Ausgangspunkt, optimiere für Keyword "${ctx.focus_keyword}"
