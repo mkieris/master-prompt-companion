@@ -630,12 +630,6 @@ function checkPageTypeConstraints(text: string, ctx: any) {
       }
     }
   }
-  if (ctx.page_type_key === "guide" && ctx.audience === "b2c_patient") {
-    const lower = text.toLowerCase();
-    if (!lower.includes("ärztlich") && !lower.includes("arzt")) {
-      violations.push("Pflicht-Hinweis 'ärztlich abklären' fehlt bei guide+b2c_patient");
-    }
-  }
   return violations;
 }
 
@@ -643,14 +637,14 @@ async function stageCompliance(ctx: any, content: any) {
   const fullText = flattenContent(content);
 
   const hwg_violations = checkDenylist(fullText);
-  const dont_use_violations = checkBrandVoiceDontUse(fullText);
-  const heritage_violations = checkHeritageViolation(fullText, ctx);
+  const dont_use_violations = checkBrandVoiceDontUse(fullText, ctx);
+  const forbidden_brand_terms = checkForbiddenBrandTerms(fullText, ctx);
   const evidence_matching = checkEvidenceMatching(content, ctx.relevant_evidence);
   const competitor_warnings = checkCompetitorWarnings(fullText, ctx.competitor_positioning);
   const page_type_violations = checkPageTypeConstraints(fullText, ctx);
 
   const hard_blocks =
-    hwg_violations.length + heritage_violations.length + page_type_violations.length;
+    hwg_violations.length + forbidden_brand_terms.length + page_type_violations.length;
 
   let overall_status: "passed" | "warnings" | "rejected" = "passed";
   if (hard_blocks > 0) overall_status = "rejected";
