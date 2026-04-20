@@ -619,7 +619,17 @@ async function stageCompliance(ctx: any, content: any) {
 // STAGE 3b — REWRITE (if rejected, Claude T=0.5)
 // ════════════════════════════════════════════════════════════════════════
 async function stageRewrite(ctx: any, content: any, report: any) {
-  const system = `Du bist Compliance-Editor für K-Active. Schreibe den Text um, sodass ALLE Verstöße behoben sind. Kein Abmildern, sondern komplette Reformulierung der betroffenen Passagen. Brand Voice und Audience-Register beibehalten. Output: NUR JSON gleicher Struktur.`;
+  const subjectLine = ctx.brand_name
+    ? `${ctx.object_name} (Marke: ${ctx.brand_name})`
+    : ctx.object_name;
+  const system = `Du bist Compliance-Editor für Healthcare-Content. Schreibe den Text um, sodass ALLE Verstöße behoben sind. Kein Abmildern, sondern komplette Reformulierung der betroffenen Passagen.
+
+Subjekt bleibt: "${subjectLine}" (Keyword: ${ctx.focus_keyword}). Schreibe NICHT über die schreibende Firma.
+${ctx.is_kactive_brand && (ctx.page_type_key === "brand" || ctx.product_type === "own_brand") ? "Heritage (K-Active, Nitto Denko, 1996, Kenzo Kase) ist auf dieser Seite ERLAUBT." : "Heritage VERBOTEN: Erwähne K-Active, Nitto Denko, Kenzo Kase, 1996, Hösbach NICHT."}
+
+Tonalität (K-Active-Voice, nur Stil): ${TONALITY_KACTIVE.description}
+Audience-Register beibehalten: ${ctx.audience_register}
+Output: NUR JSON gleicher Struktur.`;
 
   const user = `Original-Content:
 ${JSON.stringify(content, null, 2)}
